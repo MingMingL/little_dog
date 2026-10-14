@@ -7,6 +7,7 @@
 #include "config.h"
 #include "led/led.h"
 #include "ai_dog_control.h"
+#include "ai_dog_mcp_tool.h"
 
 #include <esp_log.h>
 #include <driver/gpio.h>
@@ -32,6 +33,12 @@ class AiDogS3Board : public WifiBoard {
 private:
     Button boot_button_;
     NetworkEventCallback user_network_callback_;
+    AiDogMcpTool mcp_tool_;
+
+    /** 注册语音控制工具（MCP）：让用户能通过说话切换模式 */
+    void InitializeTools() {
+        mcp_tool_.Initialize();
+    }
 
     // SSD1306 OLED（SPI）：句柄与显示对象在 InitDisplay() 里创建
     esp_lcd_panel_io_handle_t panel_io_ = nullptr;
@@ -159,7 +166,8 @@ private:
 public:
     AiDogS3Board() : boot_button_(BOOT_BUTTON_GPIO) {
         InitializeButtons();
-        ESP_LOGI(TAG, "AI Dog S3 board ready (voice: xiaozhi-esp32, no display)");
+        InitializeTools();
+        ESP_LOGI(TAG, "AI Dog S3 board ready (voice: xiaozhi-esp32, OLED + LAN control + 语音模式切换)");
     }
 
     virtual Led* GetLed() override {
