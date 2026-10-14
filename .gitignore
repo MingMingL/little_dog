@@ -1,0 +1,25 @@
+# ===== 本地环境 / 工具缓存（不上传）=====
+.workbuddy-ai/
+.gradle-home/
+firmware/.idf-component-cache/
+firmware/.build-tmp/
+firmware/.ccache/
+android/.gradle/
+android/local.properties
+
+# ===== 构建产物 =====
+firmware/xiaozhi-esp32/build/
+firmware/xiaozhi-esp32/managed_components/
+firmware/xiaozhi-esp32/dependencies.lock
+android/build/
+android/app/build/
+output/0a5714d2-*/
+
+# ===== 上游只读参考（19MB，与原项目重复；上游版本记录在 README）=====
+vendor/
+
+# ===== 其它 =====
+*.log
+*.tmp
+.DS_Store
+__pycache__/

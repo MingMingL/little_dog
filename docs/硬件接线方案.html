@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>机器狗 V1 · 硬件接线方案与上电前检查</title>
+<style>
+:root{--primary:#3F51B5;--primary-light:#E8EAF6;--bg:#fff;--surface:#F7F8FA;--border:#E0E0E0;--text:#212121;--text2:#616161;--new:#2E7D32;--new-bg:#E8F5E9;--todo:#EF6C00;--todo-bg:#FFF3E0;--warn:#C62828}
+*{box-sizing:border-box}body{margin:0;padding:0 24px 70px;font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.wrap{max-width:1040px;margin:0 auto}
+h1{font-size:26px;margin:0 0 6px}h2{font-size:20px;margin:40px 0 14px;padding-left:12px;border-left:4px solid var(--primary)}
+h3{font-size:16px;margin:24px 0 10px;color:var(--primary)}p,li{font-size:14.5px}
+code{background:var(--surface);padding:1px 5px;border-radius:3px;font-size:13px;font-family:Consolas,Monaco,monospace}
+header{padding:34px 0 20px;border-bottom:2px solid var(--primary);margin-bottom:26px}
+.sub{color:var(--text2);font-size:13.5px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}
+th,td{border:1px solid var(--border);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--primary-light);font-weight:600}tr:nth-child(even) td{background:#FAFAFA}
+figure{margin:20px 0;text-align:center}figcaption{font-size:13px;color:var(--text2);margin-top:8px}
+svg{max-width:100%;height:auto}
+.note{background:var(--todo-bg);border-left:4px solid var(--todo);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.danger{background:#FFEBEE;border-left:4px solid var(--warn);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.ok{background:var(--new-bg);border-left:4px solid var(--new);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.chk{list-style:none;padding-left:0}
+.chk li{padding:7px 0 7px 34px;position:relative;border-bottom:1px dashed var(--border);font-size:14px}
+.chk li::before{content:"☐";position:absolute;left:6px;top:6px;font-size:17px;color:var(--primary)}
+.pin{font-family:Consolas,monospace;font-weight:700;color:#3F51B5}
+footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--border);color:var(--text2);font-size:13px}
+@media print{body{padding:0}.note,.danger,.ok{background:#fff;border:1px solid #999}}
+</style></head><body><div class="wrap">
+<header>
+<h1>机器狗 V1 · 硬件接线方案与上电前检查</h1>
+<div class="sub">2026-10-14 编制 · 依据 <code>boards/ai-dog-s3/config.h</code> 引脚定义与 ¥492 采购清单 · 硬件在途，本方案用于到货后一次性接对</div>
+</header>
+
+<h2>一、整机连接框图</h2>
+<figure>
+<svg viewBox="0 0 680 420" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="w1" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#616161"/></marker></defs>
+<rect width="680" height="420" fill="#FFFFFF"/>
+<!-- 电源 -->
+<rect x="20" y="20" width="150" height="46" rx="6" fill="#FFF3E0" stroke="#EF6C00" stroke-width="1.8"/>
+<text x="95" y="38" text-anchor="middle" font-size="11.5" font-weight="700" fill="#E65100">2S 锂电池 7.4V</text>
+<text x="95" y="52" text-anchor="middle" font-size="9.5" fill="#616161">2000mAh/40C + BMS</text>
+<line x1="95" y1="66" x2="95" y2="92" stroke="#EF6C00" marker-end="url(#w1)"/>
+<rect x="20" y="94" width="150" height="46" rx="6" fill="#FFF3E0" stroke="#EF6C00" stroke-width="1.8"/>
+<text x="95" y="112" text-anchor="middle" font-size="11.5" font-weight="700" fill="#E65100">MP1584 降压</text>
+<text x="95" y="126" text-anchor="middle" font-size="9.5" fill="#616161">7.4V → 5V / 3A</text>
+<line x1="170" y1="117" x2="196" y2="117" stroke="#EF6C00" marker-end="url(#w1)"/>
+<text x="183" y="110" text-anchor="middle" font-size="9" fill="#E65100">5V</text>
+<!-- 5V 分配节点 -->
+<circle cx="210" cy="117" r="9" fill="#EF6C00"/>
+<text x="210" y="140" text-anchor="middle" font-size="9.5" font-weight="700" fill="#E65100">5V 轨</text>
+<line x1="219" y1="110" x2="250" y2="80" stroke="#EF6C00"/>
+<line x1="219" y1="117" x2="250" y2="117" stroke="#EF6C00"/>
+<line x1="219" y1="124" x2="250" y2="154" stroke="#EF6C00"/>
+<text x="245" y="70" font-size="9" fill="#E65100">电机 VM</text>
+<text x="245" y="110" font-size="9" fill="#E65100">主控 5V 脚</text>
+<text x="238" y="166" font-size="9" fill="#E65100">音频/传感器</text>
+<!-- 主控 -->
+<rect x="250" y="86" width="180" height="62" rx="6" fill="#E8EAF6" stroke="#3F51B5" stroke-width="2"/>
+<text x="340" y="106" text-anchor="middle" font-size="12" font-weight="700" fill="#3F51B5">ESP32-S3-N16R8</text>
+<text x="340" y="122" text-anchor="middle" font-size="10" fill="#616161">USB 烧录 + GPIO 18 路</text>
+<text x="340" y="136" text-anchor="middle" font-size="9.5" fill="#616161">3.3V 逻辑输出</text>
+<!-- 电机驱动 -->
+<rect x="480" y="52" width="180" height="56" rx="6" fill="#fff" stroke="#3F51B5" stroke-width="1.8"/>
+<text x="570" y="70" text-anchor="middle" font-size="11.5" font-weight="700">TB6612FNG ×2</text>
+<text x="570" y="85" text-anchor="middle" font-size="9.5" fill="#616161">VM=5V / VCC=5V / GND 共地</text>
+<text x="570" y="98" text-anchor="middle" font-size="9.5" fill="#616161">STBY=GPIO10</text>
+<line x1="430" y1="117" x2="480" y2="100" stroke="#3F51B5" marker-end="url(#w1)"/>
+<text x="452" y="98" font-size="9" fill="#3F51B5">PWM×2</text>
+<text x="452" y="110" font-size="9" fill="#3F51B5">AIN/BIN×4</text>
+<!-- 电机 -->
+<rect x="480" y="180" width="80" height="40" rx="5" fill="#E8F5E9" stroke="#2E7D32"/>
+<text x="520" y="198" text-anchor="middle" font-size="10.5" font-weight="700">左电机</text>
+<text x="520" y="212" text-anchor="middle" font-size="9" fill="#616161">AO1/AO2</text>
+<rect x="580" y="180" width="80" height="40" rx="5" fill="#E8F5E9" stroke="#2E7D32"/>
+<text x="620" y="198" text-anchor="middle" font-size="10.5" font-weight="700">右电机</text>
+<text x="620" y="212" text-anchor="middle" font-size="9" fill="#616161">BO1/BO2</text>
+<line x1="540" y1="108" x2="520" y2="180" stroke="#2E7D32" stroke-dasharray="4 3"/>
+<line x1="600" y1="108" x2="620" y2="180" stroke="#2E7D32" stroke-dasharray="4 3"/>
+<!-- 音频 -->
+<rect x="250" y="180" width="180" height="86" rx="6" fill="#fff" stroke="#3F51B5" stroke-width="1.8"/>
+<text x="340" y="200" text-anchor="middle" font-size="11.5" font-weight="700">音频链（I²S）</text>
+<text x="340" y="218" text-anchor="middle" font-size="10" fill="#616161">INMP441 麦克风 4/5/6</text>
+<text x="340" y="232" text-anchor="middle" font-size="10" fill="#616161">MAX98357A 功放 7/15/16</text>
+<text x="340" y="250" text-anchor="middle" font-size="9.5" fill="#E65100">功放接 5V + 喇叭 4Ω/3W</text>
+<line x1="340" y1="148" x2="340" y2="180" stroke="#3F51B5" marker-end="url(#w1)"/>
+<!-- 传感器 -->
+<rect x="20" y="196" width="200" height="110" rx="6" fill="#fff" stroke="#EF6C00" stroke-dasharray="5 3"/>
+<text x="120" y="216" text-anchor="middle" font-size="11.5" font-weight="700" fill="#E65100">传感器（预留接线）</text>
+<text x="120" y="234" text-anchor="middle" font-size="10" fill="#616161">巡线 TCRT5000 ×5（数字）</text>
+<text x="120" y="248" text-anchor="middle" font-size="10" fill="#616161">GPIO 17/18/38/39/40</text>
+<text x="120" y="262" text-anchor="middle" font-size="10" fill="#616161">VL53L0X（I²C）41/42</text>
+<text x="120" y="276" text-anchor="middle" font-size="10" fill="#616161">电池分压 ADC GPIO8</text>
+<text x="120" y="294" text-anchor="middle" font-size="9.5" fill="#616161">模式按键 GPIO9</text>
+<line x1="220" y1="251" x2="250" y2="200" stroke="#EF6C00" stroke-dasharray="4 3" marker-end="url(#w1)"/>
+<!-- 共地总线 -->
+<line x1="95" y1="140" x2="95" y2="370" stroke="#C62828" stroke-width="3"/>
+<line x1="95" y1="370" x2="620" y2="370" stroke="#C62828" stroke-width="3"/>
+<line x1="340" y1="370" x2="340" y2="300" stroke="#C62828"/>
+<line x1="520" y1="370" x2="520" y2="220" stroke="#C62828"/>
+<line x1="620" y1="370" x2="620" y2="220" stroke="#C62828"/>
+<text x="360" y="366" font-size="11" font-weight="700" fill="#C62828">GND 共地母线（所有模块必须单点汇接）</text>
+<text x="620" y="400" text-anchor="middle" font-size="10" fill="#C62828">USB 未接时主控由 5V 轨供电</text>
+</svg>
+<figcaption>图 1 · 整机连接框图：电源树（左上）→ 5V 轨分配；红色粗线为共地母线</figcaption>
+</figure>
+<h2>二、电源设计</h2>
+<h3>2.1 电源树</h3>
+<table>
+<tr><th style="width:22%">电压轨</th><th style="width:26%">来源</th><th>去向与限额</th></tr>
+<tr><td><b>7.4V（VBAT）</b></td><td>2S 电池（直接）</td><td>只进 MP1584 输入端。<b>不进任何逻辑/信号</b></td></tr>
+<tr><td><b>5V 轨</b></td><td>MP1584 输出（调压到 5.0V，务必先调后接负载）</td><td>TB6612 的 VM 和 VCC、主控 5V 脚、MAX98357A VDD、TCRT5000、VL53L0X（需其板上 LDO 或确认输入范围）</td></tr>
+<tr><td><b>3.3V</b></td><td>ESP32-S3 板载 LDO（USB 或 5V 脚供电时产生）</td><td>仅给 ADC 分压参考、I²C 上拉。整机 3.3V 负载很小</td></tr>
+</table>
+<div class="note"><b>关键决定：电机 VM 用 5V 而不是 7.4V。</b>底盘 TT 电机通常是 3–6V，直接喂 7.4V 会过热、抖动并可能烧电机。所以电机也从 5V 轨取电；MP1584 标称 3A，足够两台电机轻载 + 音频。</div>
+
+<h3>2.2 电流预算（估算，实测为准）</h3>
+<table>
+<tr><th>负载</th><th style="width:18%">典型电流</th><th>备注</th></tr>
+<tr><td>ESP32-S3（Wi-Fi 发射峰值）</td><td>~350 mA</td><td>峰值出现在 Wi-Fi 激活与上传音频</td></tr>
+<tr><td>MAX98357A + 喇叭（中等音量）</td><td>~200 mA</td><td>音量越大越接近上限；狗叫短时不超</td></tr>
+<tr><td>2×TT 电机（平地稳定行驶）</td><td>各 ~150–250 mA</td><td>堵转时可到 1A+，靠 TB6612 限流与固件限速兜底</td></tr>
+<tr><td>巡线传感器 ×5</td><td>各 ~10 mA</td><td>红外管常亮</td></tr>
+<tr><td>VL53L0X</td><td>~20–40 mA</td><td>测距发射时偏高</td></tr>
+<tr><td><b>合计（典型）</b></td><td><b>≈1.0–1.5 A</b></td><td>MP1584 3A 留有余量；电池 2Ah 理论续航约 1.3h，实际以整机实测为准</td></tr>
+</table>
+<div class="danger"><b>不要用面包板走电机电流。</b>电机 VM/AO1/AO2/BO1/BO2 必须焊接或用杜邦线压接+热缩管固定，面包板触点会发热甚至熔化。电池主线也用足够的线径（≥20AWG）。</div>
+<h2>三、分模块接线表</h2>
+<h3>3.1 音频（INMP441 + MAX98357A）</h3>
+<table>
+<tr><th>模块脚位</th><th>接到</th><th>说明</th></tr>
+<tr><td>INMP441 VCC / GND</td><td>3.3V / GND</td><td><b>注意：INMP441 是 3.3V 器件，接 5V 会烧</b>（有 5V 兼容版本请核对板载 LDO）</td></tr>
+<tr><td>INMP441 SCK / WS / SD</td><td><span class="pin">GPIO5 / 4 / 6</span></td><td>I²S 输入：SCK=位时钟，WS=左右声道选择，SD=数据</td></tr>
+<tr><td>MAX98357A VDD / GND</td><td>5V / GND</td><td>其逻辑兼容 3.3V 输入，无需电平转换</td></tr>
+<tr><td>MAX98357A BCLK / LRC / DIN</td><td><span class="pin">GPIO15 / 16 / 7</span></td><td>I²S 输出到主控；GAIN 脚默认内部增益即可</td></tr>
+<tr><td>MAX98357A 输出 ±</td><td>4Ω 3W 喇叭</td><td>线尽量短，远离电机线</td></tr>
+</table>
+<h3>3.2 电机（TB6612FNG ×2 + TT 电机 ×2）</h3>
+<table>
+<tr><th>TB6612 脚位</th><th>接到</th><th>说明</th></tr>
+<tr><td>VM（功率）</td><td>5V 轨</td><td>电机电源；并 100nF + 100µF 退耦电容就近放置</td></tr>
+<tr><td>VCC（逻辑）</td><td>5V 轨</td><td>与 VM 同压；VIH≈2.3V，3.3V GPIO 可直接驱动</td></tr>
+<tr><td>PWMA / AIN1 / AIN2</td><td><span class="pin">GPIO11 / 12 / 13</span></td><td>左电机（配置 <code>config.h</code>）</td></tr>
+<tr><td>BIN1 / BIN2 / PWMB</td><td><span class="pin">GPIO14 / 21 / 47</span></td><td>右电机</td></tr>
+<tr><td>STBY</td><td><span class="pin">GPIO10</span></td><td>高电平使能；固件闲置/急停应拉低（待机省电）</td></tr>
+<tr><td>AO1/AO2、BO1/BO2</td><td>电机两端</td><td>电机线双绞、就近 100nF 陶瓷电容；反转=对调两根</td></tr>
+</table>
+<div class="note">左右电机方向相反属正常，靠固件反向系数处理，<b>不要靠硬件接反而埋雷</b>。第一版若分不清左右，先用"逐台单测"确认转向再定固件符号。</div>
+<h3>3.3 传感器与按键</h3>
+<table>
+<tr><th>器件</th><th>接到</th><th>说明</th></tr>
+<tr><td>TCRT5000 巡线 ×5</td><td>信号 <span class="pin">GPIO17/18/38/39/40</span>；电源 5V/GND</td><td>取数字输出（AO 悬空不接）；每模块电位器调灵敏度；先做黑白标定</td></tr>
+<tr><td>VL53L0X（测距）</td><td>SDA <span class="pin">GPIO41</span>、SCL <span class="pin">GPIO42</span>；VCC 5V/GND</td><td><b>大部分模块已带 LDO，可直接 5V</b>；I²C 上拉 4.7k（模块通常自带）；地址 0x29，多颗需 XSHUT 分地址</td></tr>
+<tr><td>模式按键</td><td><span class="pin">GPIO9</span> + GND（按住触发）</td><td>固件 button 组件内部处理消抖</td></tr>
+<tr><td>电池分压采样</td><td>VBAT → 100kΩ → <span class="pin">GPIO8</span> → 47kΩ → GND</td><td>7.4V×47/147≈2.37V、8.4V→2.69V，均在 ESP32 ADC 安全范围；<b>上电前必须核对分压后再接 GPIO</b></td></tr>
+<tr><td>BOOT 键</td><td>板载 GPIO0</td><td>已有，不接外部线；配网/切换对话</td></tr>
+</table>
+<h2>四、上电前检查清单（逐项打勾，不打勾不通电）</h2>
+
+<h3>4.1 断电状态下的检查（电池不接、USB 不接）</h3>
+<ul class="chk">
+<li><b>共地检查</b>：万用表通断档，确认所有模块 GND 与电池负极/主控 GND 导通（同一等电位点）。</li>
+<li><b>目视复查</b>：对照第三节点表，一根一根核对，重点确认没有把 5V 接到 INMP441 VCC（3.3V 器件）。</li>
+<li><b>VBAT 悬空确认</b>：GPIO8 分压电阻下端接 GND、上端接电池正极，中间抽头进 GPIO8；<b>分压电阻先焊好再测电压，后接 GPIO</b>。</li>
+<li><b>短路检测</b>：万用表二极管档测 5V 轨对 GND、VBAT 对 GND，<b>不得出现 0Ω 导通</b>（蜂鸣即为短路，未排除不得上电）。</li>
+<li><b>MP1584 调压</b>：先只给 MP1584 上电（电池正负极），调到 <b>5.00V</b> 再接负载；可调款别留在 7V 以上。</li>
+<li><b>极性/防呆</b>：XT60 或插头核定电源极性标志；母线加开关（不用时物理断开）。</li>
+<li><b>机械防护</b>：电机线、喇叭线打结固定留余量，避免转动卷线；金属狗壳与地之间留间距。</li>
+</ul>
+
+<h3>4.2 分步上电顺序（先空载，后带载）</h3>
+<ol style="line-height:2">
+<li><b>第一步：</b>断开电机线（TB6612 的 AO1/AO2、BO1/BO2），USB 不接主控。给电池上电，测 5V 轨是否为 5.0V、VBAT 是否为 7.4V 左右。</li>
+<li><b>第二步：</b>接主控（USB 或 5V 脚），串口监视器看启动日志，确认：<code>Connected to WiFi</code> → <code>AiDogControl: 局域网控制服务已启动</code>。</li>
+<li><b>第三步：</b>接音频（麦克风、功放、喇叭），用 App 看电量/状态页面，说话看唤醒与 TTS 播放。</li>
+<li><b>第四步：</b>最后接电机线。上盖前先让轮子悬空，运行模式和急停测试，看日志中的模式切换与停止。</li>
+<li><b>第五步：</b>整机装回，跑一遍"巡逻→急停→断线恢复"，确认无意外停机。</li>
+</ol>
+
+<div class="danger"><b>上电前最危险的 4 个点：</b>
+① 5V 进 3.3V 器件（INMP441）会直接烧毁；
+② 电机电流走面包板会过热起火；
+③ VBAT 不衰减直连 GPIO8 会击穿 ADC；
+④ 电机与音频共地回流不良会烧坏 I²S/ADC（本方案已要求单点共地，务必焊接）。</div>
+<h2>五、接线后常见故障速查</h2>
+<table>
+<tr><th style="width:26%">现象</th><th style="width:37%">最可能原因</th><th>处理</th></tr>
+<tr><td>整机无反应，无日志</td><td>GND 未共地 / 5V 轨没输出 / USB 线是电源线非数据线</td><td>先量 5V 轨；换数据线；查共地</td></tr>
+<tr><td>Wi-Fi 连不上</td><td>2.4GHz 未启用 / 5G-only 路由器 / 密码错</td><td>确认路由 2.4G；重配网；看串口日志</td></tr>
+<tr><td>能连网但控制服务没起</td><td>固件未更新到含控制服务的版本（提交 <code>deab432</code>）</td><td>重新烧录当前 <code>xiaozhi.bin</code></td></tr>
+<tr><td>麦克风无声</td><td>INMP441 接了 5V（可能已损）/ SCK 与 WS 接反 / I²S 端口选错</td><td>核对 5/4/6 三脚；换模块再试</td></tr>
+<tr><td>有声音但电流声大</td><td>喇叭线贴着电机线 / 共地回流走面包板</td><td>音频线与电机线分开走；确认单点共地</td></tr>
+<tr><td>App 显示离线</td><td>IP 填错 / 手机与设备不在同一网段 / 设备 DHCP 换了 IP</td><td>串口打印或路由器客户端列表查新 IP；后续可加 mDNS</td></tr>
+<tr><td>电机只转不控或抖动</td><td>PWM 与 INx 交叉接错 / STBY 未拉高 / VM 与 VCC 未都接</td><td>按 3.2 表核对；先单台电机测试</td></tr>
+<tr><td>巡线传感器不灵</td><td>取的是 AO（模拟）脚 / 电位器未调 / 高度不合适</td><td>用数字 DO 脚；黑白标定；高度 2–8mm</td></tr>
+<tr><td>电量读数离谱</td><td>分压比例错 / ADC 衰减未配 / 未考虑分压负载</td><td>按 3.3 核对 100k/47k；实测标定系数</td></tr>
+</table>
+
+<h2>六、到货后待固件跟进的项</h2>
+<table>
+<tr><th style="width:34%">事项</th><th>说明</th></tr>
+<tr><td>电机正负向标定</td><td>左右电机方向写入固件常量，不是反复对调接线</td></tr>
+<tr><td>电量标定</td><td>实测 3 个电压点（满电 8.4V / 标称 7.4V / 截止 6.4V）拟合 ADC 系数；低电阈值设 6.4V</td></tr>
+<tr><td>巡线阈值</td><td>黑白地面采样后定数字阈值，配置入 NVS 便于现场调</td></tr>
+<tr><td>VL53L0X 地址</td><td>若只用一颗，保持默认 0x29；后续避障再加颗并配 XSHUT 分地址</td></tr>
+<tr><td>狗叫音量</td><td>本地播放音量统一控制，避免惊吓级别；看门模式设静音时段</td></tr>
+</table>
+
+<footer>与 <code>docs/固件开发环境.md</code>（引脚表）、<code>docs/Android控制端设计.md</code>（联调）配套使用；接线完成后按第七节清单逐项打勾再上电。</footer>
+</div></body></html>

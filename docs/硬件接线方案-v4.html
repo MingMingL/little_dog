@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>机器狗 V1 · 硬件接线方案 v4（v3 + SPI OLED 屏幕）</title>
+<style>
+:root{--primary:#3F51B5;--primary-light:#E8EAF6;--surface:#F7F8FA;--border:#E0E0E0;--text:#212121;--text2:#616161;--new:#2E7D32;--new-bg:#E8F5E9;--todo:#EF6C00;--todo-bg:#FFF3E0;--warn:#C62828}
+*{box-sizing:border-box}body{margin:0;padding:0 24px 70px;font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;background:#fff;color:var(--text);line-height:1.7}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:26px;margin:0 0 6px}h2{font-size:20px;margin:40px 0 14px;padding-left:12px;border-left:4px solid var(--primary)}
+h3{font-size:16px;margin:24px 0 10px;color:var(--primary)}p,li{font-size:14.5px}
+code{background:var(--surface);padding:1px 5px;border-radius:3px;font-size:13px;font-family:Consolas,Monaco,monospace}
+header{padding:34px 0 20px;border-bottom:2px solid var(--primary);margin-bottom:26px}
+.sub{color:var(--text2);font-size:13.5px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12.5px}
+th,td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--primary-light);font-weight:600}tr:nth-child(even) td{background:#FAFAFA}
+figure{margin:20px 0;text-align:center}figcaption{font-size:13px;color:var(--text2);margin-top:8px}
+svg{max-width:100%;height:auto}
+.note{background:var(--todo-bg);border-left:4px solid var(--todo);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.danger{background:#FFEBEE;border-left:4px solid var(--warn);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.ok{background:var(--new-bg);border-left:4px solid var(--new);padding:10px 14px;margin:14px 0;font-size:13.5px}
+footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--border);color:var(--text2);font-size:13px}
+</style></head><body><div class="wrap">
+<header>
+<h1>机器狗 V1 · 硬件接线方案 v3</h1>
+<div class="sub">v4 = v3 全部内容 + 新增 7 针 SPI SSD1306 OLED 屏幕接线 · 400 点面包板 · 四足仿生 · 引脚级</div>
+</header>
+
+<h2>零、小白导读（先看这里）</h2>
+<p><b>这份文档怎么用：</b>你不需要一次读完。接线当天按这个顺序看就行——<br>
+① 第二节看电机怎么摆（机械）→ ② 第三节看 ESP32 插哪、哪些针不能碰 → ③ <b>第四节照着表一根一根接</b>（每根线都写了"接哪个针"）→ ④ 第五节按顺序上电。</p>
+
+<h3>开始前必须记住的 3 条红线（违反会烧器件）</h3>
+<div class="danger" style="font-size:15px">
+<b>红线 1：INMP441 麦克风只能吃 3.3V。</b>它板子上没有稳压电路，接 5V 立刻烧坏。<br>
+<b>红线 2：电池（7.4V）绝不能直接碰 ESP32 的任何针脚。</b>ESP32 只认 3.3V 和 5V（且只能接到专门的 5V 针）。<br>
+<b>红线 3：面包板上只插"小电流"的线。</b>电机、电池这种大电流的线全部在面包板外面直接连（第四节每张表都已注明）。
+</div>
+
+<h3>接线时最常用的 3 个操作</h3>
+<table>
+<tr><th style="width:26%">操作</th><th>怎么做</th></tr>
+<tr><td><b>夹顶</b></td><td>母对母杜邦线的一端，夹在 ESP32 插进面包板后<b>顶端还露在外面那一截针</b>上。文档里写"J1-15 夹顶"，就是指"夹在 ESP32 左边那排针、从上往下数第 15 根针的顶头"。</td></tr>
+<tr><td><b>电源轨</b></td><td>面包板上下两条长排孔，旁边标了 + 和 −。+ 接 5V 正极，− 接公共地。<b>左右两段是断开的</b>，要用跳线把它们连起来（第五节第 2 步）。</td></tr>
+<tr><td><b>跳线</b></td><td>公对公的短导线，用来把两个孔连起来。文档里写"就近插孔"就是指用跳线接到最近的同一排孔里。</td></tr>
+</table>
+
+<h3>名词速查表（遇到不懂的词先查这里）</h3>
+<table>
+<tr><th style="width:20%">名词</th><th>大白话解释</th></tr>
+<tr><td><b>GPIO</b></td><td>ESP32 身上可以编程控制的"针脚"，每个有编号（GPIO4、GPIO12…）。让它输出高/低电平，或者读电压。</td></tr>
+<tr><td><b>J1 / J3</b></td><td>ESP32-S3-DevKitC-1 左右两排针的名字（左边那排叫 J1，右边叫 J3）。本文档所有"J1-15"都是指左边那排从上往下数第 15 根针。</td></tr>
+<tr><td><b>VCC</b></td><td>"芯片/模块的电源正极"的通用叫法。接 5V 还是 3.3V 要看具体器件，接错就烧。</td></tr>
+<tr><td><b>GND / 共地 / 接地</b></td><td>公共负极，所有模块的负极都要最终连到一起，电流才能形成回路。好比水管的回水管。</td></tr>
+<tr><td><b>5V 轨 / GND 轨</b></td><td>面包板上专门走电源的两条长排孔。轨 = 一条"电线"。</td></tr>
+<tr><td><b>5 列一组</b></td><td>面包板的规矩：横着每 5 个孔内部是连通的，第 6 个孔起就是另一段。所以同一个信号要插得靠近，远了要用跳线。</td></tr>
+<tr><td><b>母对母 / 公对公</b></td><td>杜邦线两头的性别。母头是"带夹子的孔"，用来夹 ESP32 的针；公头是"针"，用来插面包板。</td></tr>
+<tr><td><b>PWM</b></td><td>用"快速开关"假装出不同电压的方法，用来控制电机转速。占空比越高=转速越快。</td></tr>
+<tr><td><b>TB6612FNG</b></td><td>电机驱动器。ESP32 的针脚力气小，带不动电机；由它来放大电流驱动电机，并接收 ESP32 的方向/转速指令。</td></tr>
+<tr><td><b>INMP441</b></td><td>本项目的麦克风（I²S 数字输出）。</td></tr>
+<tr><td><b>MAX98357A</b></td><td>本项目的小功放，把数字音频放大到能推动喇叭。</td></tr>
+<tr><td><b>I²S</b></td><td>专用于传音频的数字接口，本文用 3 根线（时钟×2+数据）。麦克风、功放都用它。</td></tr>
+<tr><td><b>I²C</b></td><td>两种设备间"一问一答"的数据总线，只用 2 根线（SDA 数据、SCL 时钟）。测距模块 VL53L0X 用它。</td></tr>
+<tr><td><b>TCRT5000</b></td><td>巡线传感器：发红外光看反射，黑色吸光/白色反光，输出"黑/白"电平，用来让机器狗沿线走。</td></tr>
+<tr><td><b>VL53L0X</b></td><td>激光测距模块，量前方障碍物有多远（几毫米到 2 米）。</td></tr>
+<tr><td><b>ADC</b></td><td>把电压读数变成数字的部件。ESP32 用它读电池电压。</td></tr>
+<tr><td><b>分压（电阻分压）</b></td><td>用两个电阻把高电压按比例降低。7.4V 电池信号必须先降到 3V 以下才能进 ESP32。</td></tr>
+<tr><td><b>MP1584</b></td><td>降压模块，把电池 7.4V 降到 5V 给全机用。<b>买回来先调到 5.0V 再接负载</b>。</td></tr>
+<tr><td><b>LDO</b></td><td>低压差稳压器。ESP32 板子上就有一个，把 5V 降到 3.3V 给自己和麦克风用。</td></tr>
+<tr><td><b>2S 电池</b></td><td>两块锂电池串联：满电 8.4V、标称 7.4V、放到 6.4V 就该充电。2S 是航模圈的说法（S=series 串联）。</td></tr>
+<tr><td><b>BMS</b></td><td>电池保护板，防过充、过放、短路。买电池时选带 BMS 的。</td></tr>
+<tr><td><b>strapping 脚</b></td><td>启动时有特殊含义的针脚（本板上是 GPIO0/3/45/46），乱接会导致开不了机。文档已帮你避开。</td></tr>
+<tr><td><b>SPI flash / PSRAM</b></td><td>ESP32 模组内部的存储芯片，占用了 GPIO 26–37 这些针，<b>不能再用作普通针脚</b>。</td></tr>
+<tr><td><b>N16R8 / WROOM-1</b></td><td>你买的模组型号：16MB flash + 8MB PSRAM。买错成 N8R2 跑不了语音固件。</td></tr>
+<tr><td><b>USB D+/D−（GPIO19/20）</b></td><td>ESP32 自己那路 USB 的数据线，被芯片内部占用，不能接外设。</td></tr>
+<tr><td><b>上拉</b></td><td>把一个信号默认"托"在高电平的电阻。按键模块多数自带或由固件启用。</td></tr>
+<tr><td><b>双绞</b></td><td>把电机的两根线绞在一起，减少对旁边信号线的干扰。</td></tr>
+<tr><td><b>肖特基二极管</b></td><td>低压降、只允许单向导电的二极管。此处用途：防止 USB 5V 和电池 5V 互相倒灌。</td></tr>
+<tr><td><b>万向轮 / 滑脚</b></td><td>四足仿生前部的两个"前腿"支撑件，可选方案之一。</td></tr>
+<tr><td><b>夹顶针位</b></td><td>本文档特有的说法：母对母杜邦线该夹的 ESP32 针脚位置（含排针号与 GPIO 号）。</td></tr><tr><td><b>SSD1306</b></td><td>0.96 寸小 OLED 屏的驱动芯片，128×64 个白点，自发光、不用背光。我们买的是 7 针 SPI 版（官方教程多用 4 针 I²C 版）。</td></tr><tr><td><b>SPI</b></td><td>一种"高速串行收发"总线：一根时钟 + 一根数据。比 I²C 快，适合刷屏。我们用它驱屏幕。</td></tr><tr><td><b>MOSI / SCLK</b></td><td>SPI 的两个方向：SCLK=时钟（谁在驱动节奏），MOSI=主发从收的数据线。</td></tr><tr><td><b>DC</b></td><td>屏幕的"数据/命令"开关脚：高电平=传画面数据，低电平=传控制命令。</td></tr><tr><td><b>RES / RST</b></td><td>屏幕的复位脚，上电时被拉低一下就重启屏幕。</td></tr><tr><td><b>CS（片选）</b></td><td>SPI 上"点名"用的脚。只有一个设备时把它一直接地，等于永久选中。</td></tr>
+</table>
+<div class="note"><b>如果还有不懂的：</b>把词记下来问我，我会补进这张表。遇到任何"看起来对但接上去不工作"的情况，<b>80% 是 GND 没共地或接错针</b>——优先查这两项。</div>
+
+<h2>一、修改历史</h2>
+<table>
+<tr><th style="width:8%">版本</th><th style="width:12%">日期</th><th>变更</th></tr>
+<tr><td>v1</td><td>2026-10-14</td><td>直连端子版初版</td></tr>
+<tr><td>v2</td><td>2026-10-14</td><td>830 点面包板版：功率域/逻辑域分离 + 星形接地</td></tr>
+<tr><td>v3</td><td>2026-10-14</td><td>400 点 + 四足仿生 + 引脚级 + 新手友好化（小白导读、27 条名词）</td></tr>
+<tr><td><b>v4</b></td><td>2026-10-14</td><td><b>本版</b>：加配 <b>7 针 SPI 接口 SSD1306 OLED（0.96" 128x64）</b>。新增 4.5 节"OLED 屏幕接线表"、更新 J3 排针备注、名词表补 SSD1306/SPI/DC/RES/CS、上电顺序新增"屏幕先单独验证"一步</td></tr>
+</table>
+
+<h2>二、两个 2WD 电机的布置：仿四足</h2>
+<h3>2.1 姿态方案</h3>
+<p>2WD 要做"机器狗"观感，关键是<b>把两个驱动轮当成狗的后腿</b>，前部用两个被动支撑点当"前腿"：</p>
+<figure>
+<svg viewBox="0 0 680 250" xmlns="http://www.w3.org/2000/svg">
+<rect width="680" height="250" fill="#FFFFFF"/>
+<!-- 俯视 -->
+<text x="170" y="24" text-anchor="middle" font-size="12" font-weight="700">俯视图（轮距与前后支撑）</text>
+<rect x="60" y="40" width="220" height="150" rx="10" fill="#F7F8FA" stroke="#9E9E9E"/>
+<circle cx="290" cy="165" r="26" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2.5"/>
+<circle cx="290" cy="65" r="26" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2.5"/>
+<text x="290" y="168" text-anchor="middle" font-size="10" font-weight="700" fill="#2E7D32">驱动轮</text>
+<text x="290" y="180" text-anchor="middle" font-size="9" fill="#616161">（后腿）</text>
+<text x="290" y="68" text-anchor="middle" font-size="10" font-weight="700" fill="#2E7D32">驱动轮</text>
+<text x="290" y="80" text-anchor="middle" font-size="9" fill="#616161">（后腿）</text>
+<rect x="60" y="30" width="40" height="40" rx="6" fill="#FFF3E0" stroke="#EF6C00" stroke-dasharray="4 3"/>
+<rect x="60" y="160" width="40" height="40" rx="6" fill="#FFF3E0" stroke="#EF6C00" stroke-dasharray="4 3"/>
+<text x="80" y="54" text-anchor="middle" font-size="9" fill="#E65100">前脚</text>
+<text x="80" y="184" text-anchor="middle" font-size="9" fill="#E65100">前脚</text>
+<text x="150" y="115" text-anchor="middle" font-size="10.5" fill="#616161">重心尽量落在两驱动轮轴连线</text>
+<text x="150" y="130" text-anchor="middle" font-size="10.5" fill="#616161">前方 10~15 mm 处</text>
+<line x1="290" y1="200" x2="330" y2="200" stroke="#3F51B5" stroke-dasharray="4 3"/>
+<text x="336" y="203" font-size="10" fill="#3F51B5">轴距</text>
+<line x1="290" y1="39" x2="290" y2="191" stroke="#C62828" stroke-dasharray="4 3"/>
+<text x="296" y="118" font-size="10" fill="#C62828">轮距</text>
+<!-- 侧视 -->
+<text x="540" y="24" text-anchor="middle" font-size="12" font-weight="700">侧视图（前脚高度）</text>
+<rect x="430" y="120" width="200" height="16" rx="3" fill="#F7F8FA" stroke="#9E9E9E"/>
+<circle cx="580" cy="150" r="22" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2.5"/>
+<rect x="440" y="110" width="22" height="30" rx="4" fill="#FFF3E0" stroke="#EF6C00" stroke-dasharray="4 3"/>
+<line x1="451" y1="140" x2="451" y2="172" stroke="#EF6C00" stroke-dasharray="3 3"/>
+<text x="451" y="112" text-anchor="middle" font-size="9" fill="#E65100">前脚</text>
+<text x="580" y="188" text-anchor="middle" font-size="9" fill="#616161">驱动轮</text>
+<text x="520" y="220" text-anchor="middle" font-size="10" fill="#616161">前脚比轮子低 3~5 mm，</text>
+<text x="520" y="234" text-anchor="middle" font-size="10" fill="#616161">遇障时前脚先被抬起/滑让</text>
+</svg>
+<figcaption>图 1 · 四足仿生布局：后轮驱动 + 前部两点支撑（俯视/侧视）</figcaption>
+</figure>
+
+<h3>2.2 机械参数（底盘选型/改装时照此核对）</h3>
+<table>
+<tr><th style="width:22%">参数</th><th style="width:26%">建议值</th><th>说明</th></tr>
+<tr><td>驱动方式</td><td>后轮差速驱动（2WD）</td><td>左右轮独立 PWM，差速转向；前脚随动</td></tr>
+<tr><td>轮距（左右轮中线）</td><td>≥ 100 mm</td><td>2WD 底盘常见 100 mm 左右；太窄易打晃</td></tr>
+<tr><td>轴距（前脚连线到后轮轴）</td><td>≥ 120 mm</td><td>太短重心靠后易后仰；前脚到轴距离 = 力臂</td></tr>
+<tr><td>重心位置</td><td>落在驱动轮轴前方 10~15 mm</td><td>保证上坡不后翻；面包板+电池偏重，注意配重</td></tr>
+<tr><td>前脚支撑</td><td>三选一：① 万向轮（最稳）② 塑料滑脚（最简）③ 圆弧脚垫（静音）</td><td>木头/毛毯地面用滑脚即可；原地打转多建议万向轮</td></tr>
+<tr><td>电机安装</td><td>两电机轴相对（一正一反），线束朝车体中心</td><td>左右方向相反属正常，靠固件反向系数补偿</td></tr>
+<tr><td>前脚高度</td><td>比轮子低 3~5 mm</td><td>保证前脚贴地又不与地面摩擦过紧</td></tr>
+</table>
+<h2>三、400 点面包板：空间预算与 ESP32 定位</h2>
+<h3>3.1 板上资源账</h3>
+<table>
+<tr><th style="width:26%">资源</th><th style="width:24%">占用</th><th>剩余</th></tr>
+<tr><td>主区列数</td><td>ESP32 排针占 <b>22 列</b>（J1 上排 + J3 下排）</td><td><b>8 列</b>（上下排各 8 列可用）</td></tr>
+<tr><td>主区行数</td><td>上排用 a 行、下排用 j 行（其余行空）</td><td>b~e / f~i 共 8 行 × 30 列全空</td></tr>
+<tr><td>电源轨</td><td>上下各 2 条</td><td>够用</td></tr>
+</table>
+<p><b>布局决定：ESP32 靠左插到底，USB 口朝右侧探出板外</b>（便于烧录时插线）。J1 的 22 针插在<b>上排 a 行 1–22 列</b>，J3 的 22 针插在<b>下排 j 行 1–22 列</b>。23–30 列留给模块插线。</p>
+<div class="note"><b>面包板连通规则（接线前必读）：</b>主区是"5 列一组"——每行每 5 个孔相通（如 a1–a5 相通，a6–a10 相通，互不相通）。所以元件脚要接到某个 GPIO：<b>插在该 GPIO 同一 5 列组内即自动连通；跨组就用一根跳线</b>。下表每个连接都已算好属于哪种。</div>
+
+<h3>3.2 J1 / J3 完整排针表（官方 v1.1 手册口径）</h3>
+<table>
+<tr><th>J1 序号</th><th>信号</th><th>J1 序号</th><th>信号</th><th>J1 序号</th><th>信号</th></tr>
+<tr><td>1</td><td>3V3</td><td>9</td><td>GPIO16</td><td>17</td><td>GPIO11</td></tr>
+<tr><td>2</td><td>3V3</td><td>10</td><td>GPIO17</td><td>18</td><td>GPIO12</td></tr>
+<tr><td>3</td><td>RST(EN)</td><td>11</td><td>GPIO18</td><td>19</td><td>GPIO13</td></tr>
+<tr><td>4</td><td>GPIO4</td><td>12</td><td>GPIO8</td><td>20</td><td>GPIO14</td></tr>
+<tr><td>5</td><td>GPIO5</td><td>13</td><td>GPIO3(strap)</td><td>21</td><td>5V</td></tr>
+<tr><td>6</td><td>GPIO6</td><td>14</td><td>GPIO46(strap)→OLED DC</td><td>22</td><td>G</td></tr>
+<tr><td>7</td><td>GPIO7</td><td>15</td><td>GPIO9</td><td colspan="2" rowspan="2">J3 序号 1–22：见右表</td></tr>
+<tr><td>8</td><td>GPIO15</td><td>16</td><td>GPIO10</td></tr>
+</table>
+<table>
+<tr><th>J3 序号</th><th>信号</th><th>备注</th><th>J3 序号</th><th>信号</th><th>备注</th></tr>
+<tr><td>1</td><td>G</td><td></td><td>12</td><td>GPIO36</td><td><b>内部 SPI，禁用</b></td></tr>
+<tr><td>2</td><td>TX(GPIO43)</td><td>调试串口</td><td>13</td><td>GPIO35</td><td><b>内部 SPI，禁用</b></td></tr>
+<tr><td>3</td><td>RX(GPIO44)</td><td>调试串口</td><td>14</td><td>GPIO0</td><td>strap / BOOT 键</td></tr>
+<tr><td>4</td><td>GPIO1</td><td>本方案：OLED SPI 时钟 SCLK</td><td>15</td><td>GPIO45</td><td>strap，本方案不用</td></tr>
+<tr><td>5</td><td>GPIO2</td><td>本方案：OLED SPI 数据 MOSI</td><td>16</td><td>GPIO48</td><td>WS2812（未用）</td></tr>
+<tr><td>6</td><td>GPIO42</td><td>本方案：I²C SCL</td><td>17</td><td>GPIO47</td><td>本方案：右电机 PWM</td></tr>
+<tr><td>7</td><td>GPIO41</td><td>本方案：I²C SDA</td><td>18</td><td>GPIO21</td><td>本方案：右电机 IN1</td></tr>
+<tr><td>8</td><td>GPIO40</td><td>本方案：巡线#5</td><td>19</td><td>GPIO20</td><td><b>USB D+，禁用</b></td></tr>
+<tr><td>9</td><td>GPIO39</td><td>本方案：巡线#4</td><td>20</td><td>GPIO19</td><td><b>USB D−，禁用</b></td></tr>
+<tr><td>10</td><td>GPIO38</td><td>巡线#3；v1.1 板载 RGB</td><td>21</td><td>G</td><td></td></tr>
+<tr><td>11</td><td>GPIO37</td><td><b>内部 SPI，禁用</b></td><td>22</td><td>G</td><td></td></tr>
+</table>
+<h2>四、引脚级接线总表</h2>
+<div class="note"><b>新手怎么看第四节的表：</b>每张表三列意思都一样——<b>第一列</b>= 器件上的这个脚（照器件丝印找）；<b>第二列</b>= 要接到哪里（GPIO 或电源轨）；<b>第三列</b>= 具体怎么接（夹 ESP32 哪个针的顶，或插面包板哪一带）。接一根线就在纸上打个勾，全部打完勾再上电（第五节）。</div>
+<div class="note"><b>接线方法（400 点板的关键技巧）：</b>ESP32 直插面包板取电与固定；模块信号用<b>母对母杜邦线夹在 ESP32 引脚顶部</b>（引脚是长针，插入后顶端仍外露），另一端插模块引脚孔。这样避免"一个孔插两根线"，也避免反复插拔 ESP32。表中"夹顶针位"即杜邦线该夹的 ESP32 针。</div>
+
+<h3>4.1 音频区（插上区 d/e 行，列 1–12）</h3>
+<table>
+<tr><th>INMP441 引脚</th><th>接到</th><th>夹顶针位 / 位置</th><th>线型</th></tr>
+<tr><td>VCC</td><td>3.3V</td><td>J1-1（3V3）夹顶</td><td>母对母</td></tr>
+<tr><td>GND</td><td>GND 轨</td><td>上轨 −，附近孔</td><td>母对公/跳线</td></tr>
+<tr><td>SCK（位时钟）</td><td>GPIO5</td><td>J1-5 夹顶</td><td>母对母</td></tr>
+<tr><td>WS（声道选择）</td><td>GPIO4</td><td>J1-4 夹顶</td><td>母对母</td></tr>
+<tr><td>SD（数据）</td><td>GPIO6</td><td>J1-6 夹顶</td><td>母对母</td></tr>
+<tr><td>L/R</td><td>GND 轨</td><td>上轨 −</td><td>跳线</td></tr>
+</table>
+<table>
+<tr><th>MAX98357A 引脚</th><th>接到</th><th>夹顶针位 / 位置</th><th>线型</th></tr>
+<tr><td>VDD</td><td>5V（板上下轨 +）</td><td>下轨 +，附近孔</td><td>跳线</td></tr>
+<tr><td>GND</td><td>GND 轨</td><td>上轨 −</td><td>跳线</td></tr>
+<tr><td>BCLK</td><td>GPIO15</td><td>J1-8 夹顶</td><td>母对母</td></tr>
+<tr><td>LRC / WS</td><td>GPIO16</td><td>J1-9 夹顶</td><td>母对母</td></tr>
+<tr><td>DIN</td><td>GPIO7</td><td>J1-7 夹顶</td><td>母对母</td></tr>
+<tr><td>输出 +/−</td><td>4Ω 3W 喇叭</td><td>直焊或端子</td><td>音箱线</td></tr>
+<tr><td>GAIN</td><td>悬空（默认增益）</td><td>—</td><td>—</td></tr>
+</table>
+
+<h3>4.2 电机区（TB6612FNG 放面包板外，只夹 6 根信号）</h3>
+<table>
+<tr><th>TB6612 引脚</th><th>接到</th><th>夹顶针位 / 走法</th><th>线型</th></tr>
+<tr><td>STBY</td><td>GPIO10</td><td>J1-16 夹顶</td><td>母对母</td></tr>
+<tr><td>PWMA（左 PWM）</td><td>GPIO11</td><td>J1-17 夹顶</td><td>母对母</td></tr>
+<tr><td>AIN1（左）</td><td>GPIO12</td><td>J1-18 夹顶</td><td>母对母</td></tr>
+<tr><td>AIN2（左）</td><td>GPIO13</td><td>J1-19 夹顶</td><td>母对母</td></tr>
+<tr><td>BIN1（右）</td><td>GPIO14</td><td>J1-20 夹顶</td><td>母对母</td></tr>
+<tr><td>BIN2（右）</td><td>GPIO21</td><td>J3-18 夹顶</td><td>母对母</td></tr>
+<tr><td>PWMB（右 PWM）</td><td>GPIO47</td><td>J3-17 夹顶</td><td>母对母</td></tr>
+<tr><td>VM（电机电源）</td><td><b>MP1584 5V 直连</b></td><td>端子压接，不过面板</td><td>≥20AWG 硬连线</td></tr>
+<tr><td>VCC（逻辑电源）</td><td><b>MP1584 5V 直连</b></td><td>同上</td><td>同上</td></tr>
+<tr><td>GND</td><td><b>MP1584 负极直连</b></td><td>汇流点</td><td>同上</td></tr>
+<tr><td>AO1 / AO2</td><td>左电机两端</td><td>板外直焊，各並 100nF</td><td>电机线双绞</td></tr>
+<tr><td>BO1 / BO2</td><td>右电机两端</td><td>同上</td><td>同上</td></tr>
+</table>
+<h3>4.3 传感器与按键区（插下区 f/g 行）</h3>
+<table>
+<tr><th>巡线 TCRT5000 ×5（只用数字 DO）</th><th>接到</th><th>夹顶针位 / 位置</th></tr>
+<tr><td>#1 传感器 DO</td><td>GPIO17</td><td>J1-10 夹顶</td></tr>
+<tr><td>#2 传感器 DO</td><td>GPIO18</td><td>J1-11 夹顶</td></tr>
+<tr><td>#3 传感器 DO</td><td>GPIO38</td><td>J3-10 夹顶（此脚在 v1.1 板载 RGB，NoLed 不影响）</td></tr>
+<tr><td>#4 传感器 DO</td><td>GPIO39</td><td>J3-9 夹顶</td></tr>
+<tr><td>#5 传感器 DO</td><td>GPIO40</td><td>J3-8 夹顶</td></tr>
+<tr><td>每颗 VCC</td><td>5V 轨（下轨 +）</td><td>就近插孔</td></tr>
+<tr><td>每颗 GND</td><td>GND 轨（上轨 −）</td><td>就近插孔</td></tr>
+<tr><td>每颗 AO</td><td>悬空不接</td><td>只保留电位器调灵敏度</td></tr>
+</table>
+<table>
+<tr><th>VL53L0X（测距）</th><th>接到</th><th>夹顶针位 / 说明</th></tr>
+<tr><td>VCC</td><td>5V 轨</td><td>模块自带 LDO 可吃 5V</td></tr>
+<tr><td>GND</td><td>GND 轨</td><td></td></tr>
+<tr><td>SDA</td><td>GPIO41</td><td>J3-7 夹顶</td></tr>
+<tr><td>SCL</td><td>GPIO42</td><td>J3-6 夹顶</td></tr>
+<tr><td>XSHUT / GPIO1</td><td>悬空（单颗默认地址 0x29）</td><td>加第二颗再分地址</td></tr>
+</table>
+<table>
+<tr><th>模式按键</th><th>接到</th><th>位置</th></tr>
+<tr><td>一端</td><td>GPIO9</td><td>J1-15 夹顶</td></tr>
+<tr><td>另一端</td><td>GND 轨</td><td>按下接地触发（固件内含消抖）</td></tr>
+</table>
+<table>
+<tr><th>电池分压采样</th><th>接到</th><th>位置</th></tr>
+<tr><td>VBAT（电池正）</td><td>100kΩ → 中间抽头 → GPIO8（J1-12 夹顶）</td><td>两电阻插下区 f 行，100k 上端接 VBAT 直连线</td></tr>
+<tr><td>47kΩ 下端</td><td>GND 轨</td><td>7.4V→2.37V，8.4V→2.69V</td></tr>
+</table>
+
+<h3>4.4 电源区（唯一允许上面板的"功率"）</h3>
+<table>
+<tr><th>连接</th><th>走法</th></tr>
+<tr><td>电池 ↔ MP1584 输入（7.4V）</td><td>板外直连 + 开关，禁止上面板</td></tr>
+<tr><td>MP1584 输出 → 面包板下轨 + / 上轨 −</td><td>各一根直连线接到轨端孔（给逻辑域模块供电）</td></tr>
+<tr><td>MP1584 输出 → ESP32 5V 脚（J1-21）</td><td>直连线夹顶/焊接，<b>不占面包板预算</b></td></tr>
+<tr><td>MP1584 输出 → TB6612 VM/VCC</td><td>直连线</td></tr>
+<tr><td>MP1584 负极 → 面包板上轨 −</td><td>一根汇流线（星形接地）</td></tr>
+</table>
+
+<h2>四之二、OLED 屏幕接线（v4 新增）</h2>
+<h3>4.5.1 为什么 CS 脚可以直接接 GND</h3>
+<p>本项目可用 GPIO 只剩 4 个（GPIO1/GPIO2/GPIO46/GPIO48），而 7 针 SPI 屏按老规矩要占 5 个信号脚（SCLK/MOSI/DC/RES/CS）。SPI 总线上<b>只有一个从设备时，片选 CS 可以一直接地</b>——反正只跟它说话，不需要"点名"。这样就省出一个针脚，4 个 GPIO 刚好够用。</p>
+<div class="note"><b>顺带的好处：</b>省下的引脚以后还能给第二个 SPI 设备用；且 CS 固定接地，避免了"某个 GPIO 没初始化导致总线被误片选"的经典坑。</div>
+
+<h3>4.5.2 OLED 接线表（0.96" SSD1306 128x64，7 针 SPI）</h3>
+<table>
+<tr><th style="width:20%">屏幕引脚（照模块丝印）</th><th style="width:22%">接到</th><th>夹顶针位 / 位置</th><th>新手提示</th></tr>
+<tr><td><b>GND</b></td><td>GND 轨</td><td>上轨 −，就近插孔</td><td>负极，必须接</td></tr>
+<tr><td><b>VCC</b></td><td>3.3V</td><td>J1-1 或 J1-2（3V3）夹顶</td><td><b>接 3.3V，不是 5V</b>——多数 SSD1306 模块无稳压，5V 会烧</td></tr>
+<tr><td><b>CLK / SCL / D0</b></td><td>GPIO1</td><td>J3-4 夹顶</td><td>时钟线，ESP32 发、屏幕收</td></tr>
+<tr><td><b>DIN / MOSI / D1</b></td><td>GPIO2</td><td>J3-5 夹顶</td><td>数据线，别和 CLK 接反</td></tr>
+<tr><td><b>DC</b></td><td>GPIO46</td><td>J1-14 夹顶</td><td>告诉屏幕"这字节是命令还是画面数据"</td></tr>
+<tr><td><b>RES / RST</b></td><td>GPIO48</td><td>J3-16 夹顶</td><td>复位线，上电瞬间被拉低一次再拉高</td></tr>
+<tr><td><b>CS</b></td><td><b>直接接 GND 轨</b></td><td>上轨 −，就近插孔</td><td>不占 GPIO；千万别接 VCC</td></tr>
+</table>
+<div class="danger"><b>OLED 三条注意：</b>① VCC 只能 3.3V；② CS 必须接 GND（错接成 VCC 会让屏幕一直"没被选中"，表现为全黑无显示）；③ 屏幕装在机器狗"脸"的位置，排线留余量，别让外壳压住排针。</div>
+
+<h3>4.5.3 屏幕能显示什么（固件已支持）</h3>
+<ul>
+<li>开机：Wi-Fi 连接状态 / 配网提示</li>
+<li>对话：识别中、思考中、回答内容与表情</li>
+<li>设置页里的提示与通知（配网、音量等）</li>
+</ul>
+<div class="note"><b>固件依据：</b>屏幕驱动用 ESP-IDF 的 <code>esp_lcd_new_panel_ssd1306</code> + xiaozhi 的 <code>OledDisplay</code>（和官方面包板同一套代码，只把接口从 I²C 换成 SPI）。若屏幕初始化失败，固件自动退回"无屏模式"继续跑语音，不会变砖。</div>
+
+<h2>五、400 点板施工顺序与上电前检查</h2>
+<ol style="line-height:2">
+<li><b>先规划分区再插线</b>：ESP32 靠左插（rows a/j，列 1–22，USB 朝右）→ 音频区（d/e 行，列 1–12）→ 传感器区（f/g 行）→ 电源轨。</li>
+<li><b>轨先桥接</b>：上下 4 条轨左右两段用跳线连通，不通电量通断。</li>
+<li><b>只接 MP1584 与电源轨</b>，输出调到 5.00V；摸 MP1584 不烫。</li>
+<li><b>插音频区</b>，用母对母线从 ESP32 夹顶；核对 4/5/6/7/15/16 六根 GPIO。</li>
+<li><b>插传感器区</b>（巡线/测距/按键/分压），注意 AO 悬空。</li>
+<li><b>TB6612 装在板外</b>，6 根信号母对母线夹顶；VM/VCC/GND/AO/BO 全部直连。</li>
+<li><b>上电前断电检查</b>：短路测量、共地、分压电压、域分离（功率线未插孔）。</li>
+<li><b>分步上电</b>：轨 → 主控（USB，看日志与"控制服务已启动"）→ 音频 → 电机（轮悬空）。</li>
+</ol>
+<div class="danger"><b>400 点板特有的三个新风险：</b>① ESP32 板身会遮住它上面/下面 1–2 行孔，模块务必留出 d/e、f/g 行再插，别硬挤；② 400 点板薄、触点弹力弱，<b>大电流过一次就可能永久松动</b>，功率线坚决外接；③ 母对母线夹顶时别夹到相邻针，插错一根程序看似能跑、行为全乱。</div>
+
+<h2>六、v2 → v3 差异对照</h2>
+<table>
+<tr><th style="width:24%">项</th><th style="width:34%">v2（830 点）</th><th>v3（400 点 + 四足）</th></tr>
+<tr><td>面包板规格</td><td>按 830 点规划（63 列）</td><td><b>400 点（30 列）</b>，ESP32 占 22 列，模块改插 d/e/f/g 行</td></tr>
+<tr><td>连线方式</td><td>同组直插 + 跳线</td><td><b>ESP32 夹顶 + 母对母线</b>为主（400 点无空组可借力）</td></tr>
+<tr><td>ESP32 排针口径</td><td>未给完整表</td><td>补 J1/J3 完整 22+22 针表，标注禁用针（35/36/37 内部 SPI，19/20 USB）</td></tr>
+<tr><td>电机布置</td><td>未涉及机械</td><td><b>四足仿生</b>：后轮驱动 + 前支撑脚；轴距/轮距/重心/前脚高度量化要求</td></tr>
+<tr><td>TB6612</td><td>板外，6 信号</td><td>维持板外；明确 6 根信号各自夹顶针位</td></tr>
+<tr><td>检查清单</td><td>通用</td><td>新增 ESP32 遮挡行、母对母线夹针、分步上电顺序</td></tr>
+</table>
+<div class="ok">后续若换 830 点或上结构件，仍可回到 v2/v1 的域分离原则；本文第四节的<b>引脚对应关系不变</b>，只是插孔位置不同。</div>
+
+<h2>七、待硬件到货后核对</h2>
+<table>
+<tr><th style="width:34%">核对项</th><th>说明</th></tr>
+<tr><td>面包板实际列数</td><td>400 点常见为 30 列；若到货是 24 列小号板，ESP32 需改用"坐在板边 + 母对母线"方式，分区表随之重排</td></tr>
+<tr><td>WROOM 版本</td><td>N16R8 内部 SPI 占用 33–37；若到手是 N8R8 也一样，禁用针一致</td></tr>
+<tr><td>GPIO38 与 RGB</td><td>v1.1 板 RGB 接 GPIO38，巡线#3 复用它；RGB 失效可接受</td></tr>
+<tr><td>电机转向</td><td>左右电机一正一反属正常，方向写入固件常量补偿</td></tr>
+<tr><td>电池分压实测</td><td>满电 8.4V / 标称 7.4V / 截止 6.4V 三点拟合 ADC 系数</td></tr>
+
+</table>
+<footer>v4 = v3 + SPI OLED；v3（无屏版）、v2（830 点）、v1（直连）保留作对照。</footer>
+</div></body></html>

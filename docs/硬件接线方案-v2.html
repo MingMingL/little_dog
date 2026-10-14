@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>机器狗 V1 · 硬件接线方案 v2（面包板实施版）</title>
+<style>
+:root{--primary:#3F51B5;--primary-light:#E8EAF6;--bg:#fff;--surface:#F7F8FA;--border:#E0E0E0;--text:#212121;--text2:#616161;--new:#2E7D32;--new-bg:#E8F5E9;--todo:#EF6C00;--todo-bg:#FFF3E0;--warn:#C62828}
+*{box-sizing:border-box}body{margin:0;padding:0 24px 70px;font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.wrap{max-width:1060px;margin:0 auto}
+h1{font-size:26px;margin:0 0 6px}h2{font-size:20px;margin:40px 0 14px;padding-left:12px;border-left:4px solid var(--primary)}
+h3{font-size:16px;margin:24px 0 10px;color:var(--primary)}p,li{font-size:14.5px}
+code{background:var(--surface);padding:1px 5px;border-radius:3px;font-size:13px;font-family:Consolas,Monaco,monospace}
+header{padding:34px 0 20px;border-bottom:2px solid var(--primary);margin-bottom:26px}
+.sub{color:var(--text2);font-size:13.5px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}
+th,td{border:1px solid var(--border);padding:8px 10px;text-align:left;vertical-align:top}
+th{background:var(--primary-light);font-weight:600}tr:nth-child(even) td{background:#FAFAFA}
+figure{margin:20px 0;text-align:center}figcaption{font-size:13px;color:var(--text2);margin-top:8px}
+svg{max-width:100%;height:auto}
+.note{background:var(--todo-bg);border-left:4px solid var(--todo);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.danger{background:#FFEBEE;border-left:4px solid var(--warn);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.ok{background:var(--new-bg);border-left:4px solid var(--new);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.chk{list-style:none;padding-left:0}
+.chk li{padding:7px 0 7px 34px;position:relative;border-bottom:1px dashed var(--border);font-size:14px}
+.chk li::before{content:"☐";position:absolute;left:6px;top:6px;font-size:17px;color:var(--primary)}
+.pin{font-family:Consolas,monospace;font-weight:700;color:#3F51B5}
+footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--border);color:var(--text2);font-size:13px}
+@media print{body{padding:0}.note,.danger,.ok{background:#fff;border:1px solid #999}}
+</style></head><body><div class="wrap">
+<header>
+<h1>机器狗 V1 · 硬件接线方案（v2 面包板实施版）</h1>
+<div class="sub">2026-10-14 · 相对 v1 的调整：<b>按面包板实施重新划分"功率域 / 逻辑域"</b>，改动处已在图中用绿框标出 · 硬件在途，到货后照本文件施工</div>
+</header>
+
+<h2>一、修改历史</h2>
+<table>
+<tr><th style="width:9%">版本</th><th style="width:13%">日期</th><th>变更</th></tr>
+<tr><td>v1</td><td>2026-10-14</td><td>初版直连版：整机框图 + 电源树 + 分模块接线表 + 上电前检查（<code>硬件接线方案.html</code>）</td></tr>
+<tr><td><b>v2</b></td><td>2026-10-14</td><td><b>面包板实施版（本版）</b>：① 功率域/逻辑域分离，大电流全部绕开面包板；② 星形共地汇流点；③ 面包板俯视图布局与走线规则；④ 按面包板特性更新的上电前检查清单与故障速查</td></tr>
+</table>
+
+<h2>二、核心设计：功率域 / 逻辑域两域分离</h2>
+<p>面包板的电源轨每段实测只能稳定承担 <b>500mA 上下</b>，且触点压降随电流快速上升。因此本方案把电流按大小分成两个域：</p>
+<table>
+<tr><th style="width:20%">域</th><th style="width:28%">包含的连接</th><th>实施方式</th></tr>
+<tr><td><b style="color:#C62828">功率域</b><br>（大电流）</td><td>电池 ↔ MP1584 输入；MP1584 输出 ↔ ESP32 的 5V 脚；MP1584 输出 ↔ TB6612 的 VM 与 VCC；TB6612 AO1/AO2/BO1/BO2 ↔ 电机</td><td><b>全部点对点直连，一根都不进面包板孔。</b>线径 ≥20AWG，端子焊接或压接后热缩管固定</td></tr>
+<tr><td><b style="color:#2E7D32">逻辑域</b><br>（小电流）</td><td>麦克风、功放、巡线×5、测距、按键、分压采样等 &lt;350mA 的供电与全部信号线</td><td>走面包板，插 22–26AWG <b>单芯线</b>（多股线上锡后再插）</td></tr>
+</table>
+<div class="danger"><b>面包板的三条红线：</b>① 电机 VM/AO/BO 与电池主线绝不上面包板——触点会发烫、熔化、失效；② ESP32 的 5V 脚也直连 MP1584 输出（Wi-Fi 峰值 350mA 不占面包板预算）；③ 面包板 GND 轨与功率域只用<b>一根汇流线</b>接到 MP1584 负极端子（星形接地）。</div>
+<h2>三、面包板俯视图（830 点布局）</h2>
+<p>布局原则：<b>ESP32 居中，音频靠左，传感器靠右，TB6612 放面包板外右侧</b>（它的功率脚不上面板，只插 6 根信号脚）。上下电源轨桥接左右两段。</p>
+<figure>
+<svg viewBox="0 0 680 470" xmlns="http://www.w3.org/2000/svg">
+<rect width="680" height="470" fill="#FFFFFF"/>
+<!-- 面包板本体 -->
+<rect x="60" y="30" width="560" height="410" rx="6" fill="#FDFDFD" stroke="#9E9E9E" stroke-width="2"/>
+<!-- 电源轨 -->
+<rect x="70" y="40" width="540" height="16" fill="#FFEBEE" stroke="#C62828"/>
+<text x="340" y="52" text-anchor="middle" font-size="10" font-weight="700" fill="#C62828">上轨 −（GND）左段 ┊ 右段，中间桥接跳线</text>
+<rect x="70" y="414" width="540" height="16" fill="#E8F5E9" stroke="#2E7D32"/>
+<text x="340" y="426" text-anchor="middle" font-size="10" font-weight="700" fill="#2E7D32">下轨 +5V 左段 ┊ 右段，中间桥接跳线</text>
+<!-- 轨桥接 -->
+<line x1="330" y1="48" x2="350" y2="48" stroke="#C62828" stroke-width="3"/>
+<line x1="330" y1="422" x2="350" y2="422" stroke="#2E7D32" stroke-width="3"/>
+<text x="332" y="72" font-size="9" fill="#616161">轨分段示意（红线）</text>
+<!-- 中央槽 -->
+<line x1="60" y1="215" x2="620" y2="215" stroke="#E0E0E0" stroke-width="8"/>
+<text x="596" y="212" font-size="9" fill="#9E9E9E">中央槽</text>
+<!-- ESP32 占位 -->
+<rect x="235" y="90" width="150" height="250" rx="4" fill="#E8EAF6" stroke="#3F51B5" stroke-width="2.5"/>
+<text x="310" y="106" text-anchor="middle" font-size="11.5" font-weight="700" fill="#3F51B5">ESP32-S3</text>
+<text x="310" y="120" text-anchor="middle" font-size="11.5" font-weight="700" fill="#3F51B5">DevKitC-1</text>
+<text x="310" y="136" text-anchor="middle" font-size="9" fill="#616161">官方说明可插面包板</text>
+<text x="310" y="150" text-anchor="middle" font-size="9" fill="#616161">两排针跨中央槽</text>
+<text x="310" y="166" text-anchor="middle" font-size="9" fill="#616161">每脚独立占一列</text>
+<text x="310" y="190" text-anchor="middle" font-size="9" fill="#616161">USB 口朝外（便于烧录）</text>
+<text x="310" y="330" text-anchor="middle" font-size="9" fill="#C62828">5V 脚与 GND 脚</text>
+<text x="310" y="344" text-anchor="middle" font-size="9" fill="#C62828">不插轨，直连（见虚线）</text>
+<!-- 左上：音频 -->
+<rect x="75" y="90" width="145" height="120" rx="5" fill="#FFFFFF" stroke="#3F51B5" stroke-width="1.8"/>
+<text x="147" y="108" text-anchor="middle" font-size="10.5" font-weight="700">音频区（逻辑域）</text>
+<text x="147" y="126" text-anchor="middle" font-size="9.5" fill="#616161">INMP441（3.3V!）</text>
+<text x="147" y="140" text-anchor="middle" font-size="9.5" fill="#616161">SCK/WS/SD=5/4/6</text>
+<text x="147" y="154" text-anchor="middle" font-size="9.5" fill="#616161">MAX98357A（5V）</text>
+<text x="147" y="168" text-anchor="middle" font-size="9.5" fill="#616161">BCLK/LRC/DIN=15/16/7</text>
+<text x="147" y="190" text-anchor="middle" font-size="9" fill="#E65100">VDD 走上轨/下轨</text>
+<line x1="220" y1="150" x2="235" y2="150" stroke="#3F51B5" stroke-width="1.6"/>
+<!-- 右上：TB6612（板外） -->
+<rect x="400" y="90" width="215" height="80" rx="5" fill="#FFF3E0" stroke="#EF6C00" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="507" y="110" text-anchor="middle" font-size="10.5" font-weight="700" fill="#E65100">TB6612FNG（放面包板外！）</text>
+<text x="507" y="126" text-anchor="middle" font-size="9.5" fill="#616161">只有 VM/VCC/AO/BO 走外面</text>
+<text x="507" y="140" text-anchor="middle" font-size="9.5" fill="#616161">6 根信号脚插面板：PWMA/IN1..4/STBY</text>
+<line x1="385" y1="140" x2="400" y2="130" stroke="#3F51B5" stroke-width="1.6"/>
+<text x="378" y="132" font-size="9" fill="#3F51B5">信号</text>
+<!-- 右侧：电机 -->
+<rect x="470" y="180" width="90" height="44" rx="5" fill="#E8F5E9" stroke="#2E7D32"/>
+<text x="515" y="198" text-anchor="middle" font-size="10" font-weight="700">左电机</text>
+<text x="515" y="212" text-anchor="middle" font-size="9" fill="#616161">AO1/AO2 直连</text>
+<rect x="575" y="180" width="90" height="44" rx="5" fill="#E8F5E9" stroke="#2E7D32"/>
+<text x="620" y="198" text-anchor="middle" font-size="10" font-weight="700">右电机</text>
+<text x="620" y="212" text-anchor="middle" font-size="9" fill="#616161">BO1/BO2 直连</text>
+<line x1="490" y1="170" x2="515" y2="180" stroke="#2E7D32" stroke-width="2"/>
+<line x1="530" y1="170" x2="620" y2="180" stroke="#2E7D32" stroke-width="2"/>
+<!-- 右下：传感器区 -->
+<rect x="75" y="232" width="145" height="176" rx="5" fill="#FFFFFF" stroke="#EF6C00" stroke-width="1.6"/>
+<text x="147" y="250" text-anchor="middle" font-size="10.5" font-weight="700" fill="#E65100">传感器区（逻辑域）</text>
+<text x="147" y="268" text-anchor="middle" font-size="9.5" fill="#616161">巡线×5 → 17/18/38/39/40</text>
+<text x="147" y="282" text-anchor="middle" font-size="9.5" fill="#616161">VL53L0X → 41/42（上拉自带）</text>
+<text x="147" y="296" text-anchor="middle" font-size="9.5" fill="#616161">模式按键 → 9</text>
+<text x="147" y="312" font-size="9.5" fill="#616161">电池分压：</text>
+<text x="147" y="326" font-size="9.5" fill="#616161">100k → GPIO8 → 47k → GND</text>
+<text x="147" y="342" font-size="9.5" fill="#E65100">两根电阻插在面板上</text>
+<text x="147" y="358" font-size="9.5" fill="#616161">各模块 VCC/GND 就近</text>
+<text x="147" y="372" font-size="9.5" fill="#616161">插电源轨</text>
+<line x1="220" y1="300" x2="235" y2="300" stroke="#EF6C00" stroke-width="1.6"/>
+<!-- 直连线（功率域） -->
+<path d="M 310 344 L 310 460 L 660 460 L 660 300" stroke="#C62828" stroke-width="2.4" fill="none" stroke-dasharray="8 4"/>
+<path d="M 385 320 L 660 320" stroke="#C62828" stroke-width="2.4" fill="none" stroke-dasharray="8 4"/>
+<text x="430" y="452" font-size="9.5" fill="#C62828">功率域直连（红虚线）：ESP32 5V/GND → MP1584；TB6612 VM/VCC → MP1584；电池 → MP1584（图中未画）</text>
+<text x="430" y="312" font-size="9.5" fill="#C62828">汇流地线：面板 GND 轨 → MP1584 负极（一根）</text>
+<!-- 汇流点 -->
+<circle cx="640" cy="380" r="7" fill="#C62828"/>
+<text x="640" y="400" text-anchor="middle" font-size="9.5" font-weight="700" fill="#C62828">GND 汇流点</text>
+</svg>
+<figcaption>图 1 · 面包板俯视图：蓝色=逻辑域信号线，红虚线=功率域直连线（不经过面板），绿=电机直连线</figcaption>
+</figure>
+<h2>四、面包板施工规则</h2>
+<h3>4.1 电源轨分配（解决"轨只能扛 500mA"）</h3>
+<table>
+<tr><th style="width:22%">轨 / 连接</th><th style="width:24%">供电对象</th><th>预估电流</th></tr>
+<tr><td>下轨 +5V（左段）</td><td>MAX98357A VDD、VL53L0X、TCRT5000×5（INMP441 用 3V3 脚单独供电，不占此轨）</td><td>≈ 250–290 mA</td></tr>
+<tr><td>上轨 GND（左段）</td><td>上述全部模块 GND + 面包板上拉/分压下端</td><td>回路，同电流量</td></tr>
+<tr><td>轨右段（桥接）</td><td>仅传感器区延伸 + 空闲冗余，不放大电流负载</td><td>≈ 60 mA</td></tr>
+<tr><td><b>ESP32 5V 脚</b></td><td>直连 MP1584 输出（不算面包板预算）</td><td>峰值 ~350 mA</td></tr>
+<tr><td><b>TB6612 VM/VCC</b></td><td>直连 MP1584 输出（不算面包板预算）</td><td>电机峰值 1–2 A</td></tr>
+</table>
+<div class="note"><b>3.3V 提示：</b>INMP441 的 VCC 已在 v1 中标注为 3.3V 器件。面包板上 3.3V 从 ESP32 的 3V3 脚单独跳线到麦克风区，<b>不要从 5V 轨取</b>；3V3 脚只给麦克风（&lt;20mA），安全。</div>
+
+<h3>4.2 插线规则（面包板特有）</h3>
+<ul>
+<li><b>单芯线优先</b>；多股线必须预先上锡成一股再插，否则氧化后接触不良，故障极难查。</li>
+<li><b>一个孔只插一根线</b>。需要并线时用"相邻两孔 + 一根跳线桥接"，不要硬塞两根。</li>
+<li>电源轨左右两段<b>必须用跳线桥接</b>（出厂是断开的），否则远离电源那侧模块没电。</li>
+<li>插线前先核对<b>同一列导通、相邻列不导通</b>（可用万用表通断档在空板上验证一次，建立信心）。</li>
+<li>信号线走<b>面板内侧区域</b>，电机/电池线走<b>面板外空间并绑扎</b>，两者分层不交叉。</li>
+<li>音频线（麦克风/功放）与 TB6612 过来的 6 根信号线<b>分区布置</b>，中间用 ESP32 占位自然隔开。</li>
+</ul>
+
+<h3>4.3 焊接/压接要求（功率域）</h3>
+<ul>
+<li>MP1584 输入/输出端子：线头塘锡或压接端子，M3 螺丝紧固，套热缩管。</li>
+<li>TB6612 的 VM/VCC/GND/AO/BO：尽量焊在端子或直接焊到电机线，<b>不允许插面包板孔</b>。</li>
+<li>电机两端各並联 100nF 陶瓷电容；电机线双绞。</li>
+<li>电池负极与 MP1584 负极就是本机的<b>唯一汇流点</b>；面包板 GND 轨用一根 20AWG 线接到这里。</li>
+</ul>
+<h2>五、上电前检查清单（面包板版）</h2>
+<h3>5.1 断电检查</h3>
+<ul class="chk">
+<li><b>轨桥接</b>：上下电源轨的左右两段都已用跳线连通（不通电，用通断档量）。</li>
+<li><b>域分离复查</b>：确认 VM、电机四线、电池主线、ESP32 5V 脚——没有一根插在面包板孔上。</li>
+<li><b>共地</b>：面板 GND 轨 ↔ MP1584 负极只有一根汇流线；GND 轨上各模块地都导通。</li>
+<li><b>3.3V/5V 分区</b>：INMP441 VCC 接的是 ESP32 3V3 脚，不是 5V 轨。</li>
+<li><b>短路检测</b>：电池不接、USB 不接，量 5V 轨对 GND、VBAT 对 GND，不得 0Ω 导通。</li>
+<li><b>MP1584 调压</b>：只给 MP1584 上电，输出调 5.00V 再接任何负载。</li>
+<li><b>分压电阻</b>：100k/47k 已插牢，中间抽头即将进 GPIO8；先量抽头电压（应 &lt;3V）。</li>
+<li><b>ESP32 插入确认</b>：两排针都插到底，每脚与相邻列不短路（抽查若干脚通断）。</li>
+<li><b>插线质量</b>：无单孔双线、无多股线散丝、无线皮被夹破。</li>
+</ul>
+<h3>5.2 分步上电</h3>
+<ol style="line-height:2">
+<li><b>第一步：</b>电机线保持断开。电池上电 → 量 5V 轨 = 5.0V、VBAT ≈ 7.4V；用手摸 MP1584/TB6612 不发热。</li>
+<li><b>第二步：</b>USB 插主控看日志：应出现 Wi-Fi 连接 → <code>AiDogControl: 局域网控制服务已启动</code>。</li>
+<li><b>第三步：</b>App 配 IP，看状态页电量/故障；说话测试麦克风与 TTS。</li>
+<li><b>第四步：</b>接上电机线（轮子悬空），点巡逻/急停，观察模式切换与停止。</li>
+<li><b>第五步：</b>整机固定后复查一次所有功率域端子温度（空转 2 分钟）。</li>
+</ol>
+<div class="danger"><b>面包板场景下新增的三个高危点：</b>① 有人图省事把 VM 插上 5V 轨——一次重载就可能让轨熔化，本方案已用域分离杜绝；② 轨左右段忘桥接——"半边有电半边没有"的灵异故障；③ 多股线散丝搭到相邻列——随机短路，查半天。</div>
+<h2>六、面包板场景故障速查</h2>
+<table>
+<tr><th style="width:26%">现象</th><th style="width:40%">面包板高发原因</th><th>处理</th></tr>
+<tr><td>某模块完全没反应</td><td>轨左右段未桥接 / 线插在轨分段外侧</td><td>量该模块 VCC 与 GND 间电压；补桥接跳线</td></tr>
+<tr><td>时好时坏、一碰就变</td><td>多股线散丝 / 单孔双线 / 线径过细接触不良</td><td>换单芯线，一孔一线，重新插拔</td></tr>
+<tr><td>传感器读数跳变</td><td>信号线贴着电机线受干扰 / 缺共地</td><td>分区走线；确认汇流地线接好</td></tr>
+<tr><td>USB 不识别、串口无输出</td><td>ESP32 5V 脚与轨 5V 同时上电冲突 / USB 线为电源线</td><td>验证时只用一种供电；换数据线</td></tr>
+<tr><td>功放有底噪并发热</td><td>面包板轨压降导致 VDD 偏低 / 地回流不良</td><td>缩短功放跳线；检查汇流点</td></tr>
+<tr><td>重启/黑屏随电机启停</td><td>电机大电流在地线上产生压降、共地点选错</td><td>严格单点汇流；电机线远离信号线</td></tr>
+<tr><td>电量读数漂移</td><td>分压电阻虚插 / ADC 脚附近长线拾噪</td><td>插牢电阻，ADC 线缩短</td></tr>
+</table>
+
+<h2>七、v1 → v2 改动对照</h2>
+<table>
+<tr><th style="width:26%">项</th><th style="width:35%">v1（直连版）</th><th>v2（面包板版）</th></tr>
+<tr><td>ESP32 供电</td><td>5V 轨统一分配</td><td><b>MP1584 直连 5V 脚</b>，不占面包板预算</td></tr>
+<tr><td>电机 VM/VCC</td><td>同一 5V 轨</td><td><b>MP1584 直连</b>，功率域完全出面板</td></tr>
+<tr><td>共地</td><td>共地母线</td><td><b>星形汇流</b>：面板轨一根线到 MP1584 负极</td></tr>
+<tr><td>传感器/音频供电</td><td>未区分</td><td>明确归逻辑域，走上/下轨，≤300mA</td></tr>
+<tr><td>TB6612 位置</td><td>未限定</td><td><b>明确放面包板外</b>，仅 6 根信号脚进面板</td></tr>
+<tr><td>检查清单</td><td>通用版</td><td>增加轨桥接、域分离、单芯线、孔位抽查等 6 项面包板专项</td></tr>
+</table>
+<div class="ok">两个版本配套使用：<b>v2 负责面包板阶段的全部接线；</b>等结构件（3D 外壳）到位后迁机时，再回到 v1 的直连端子方案做最终固化。v1 文件保持不变以便对照。</div>
+
+<footer>v2 = 面包板实施版；v1（直连端子版）见 <code>硬件接线方案.html</code>，保留作对照。</footer>
+</div></body></html>

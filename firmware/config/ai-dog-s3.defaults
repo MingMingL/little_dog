@@ -1,0 +1,2 @@
+# AI Dog V1 板级选择（乐鑫原装 ESP32-S3-DevKitC-1 N16R8）
+CONFIG_BOARD_TYPE_AI_DOG_S3=y

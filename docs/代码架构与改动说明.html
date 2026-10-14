@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>机器狗 V1 · 项目代码架构与改动说明</title>
+<style>
+    :root {
+        --primary: #3F51B5;
+        --primary-light: #E8EAF6;
+        --accent: #FF4081;
+        --bg: #FFFFFF;
+        --surface: #F7F8FA;
+        --border: #E0E0E0;
+        --text: #212121;
+        --text-2: #616161;
+        --before: #9E9E9E;
+        --before-bg: #F0F0F0;
+        --after: #2E7D32;
+        --after-bg: #E8F5E9;
+        --warn: #E65100;
+        --warn-bg: #FFF3E0;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0; padding: 0 24px 80px;
+        font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+        background: var(--bg); color: var(--text); line-height: 1.7;
+    }
+    .wrap { max-width: 1080px; margin: 0 auto; }
+    header { padding: 40px 0 24px; border-bottom: 2px solid var(--primary); margin-bottom: 32px; }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    .sub { color: var(--text-2); font-size: 14px; }
+    h2 { font-size: 21px; margin: 44px 0 16px; padding-left: 12px; border-left: 4px solid var(--primary); }
+    h3 { font-size: 16px; margin: 26px 0 10px; color: var(--primary); }
+    p, li { font-size: 14.5px; }
+    code { background: var(--surface); padding: 1px 5px; border-radius: 3px; font-size: 13px; font-family: Consolas, Monaco, monospace; }
+    pre {
+        background: #263238; color: #ECEFF1; padding: 14px 16px; border-radius: 6px;
+        overflow-x: auto; font-size: 12.5px; line-height: 1.6; font-family: Consolas, Monaco, monospace;
+    }
+    pre .cmd { color: #80CBC4; }
+    pre .cmt { color: #78909C; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13.5px; }
+    th, td { border: 1px solid var(--border); padding: 9px 11px; text-align: left; vertical-align: top; }
+    th { background: var(--primary-light); font-weight: 600; }
+    tr:nth-child(even) td { background: #FAFAFA; }
+    .tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+    .tag-new { background: var(--after-bg); color: var(--after); }
+    .tag-chg { background: var(--warn-bg); color: var(--warn); }
+    .tag-del { background: #FFEBEE; color: #C62828; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 16px 0; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; }
+    .card h4 { margin: 0 0 6px; font-size: 14.5px; }
+    .card p { margin: 0; font-size: 13px; color: var(--text-2); }
+    .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 18px 0; }
+    .ba > div { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .ba .head { padding: 8px 14px; font-weight: 600; font-size: 14px; }
+    .ba .before .head { background: var(--before-bg); color: var(--before); }
+    .ba .after .head { background: var(--after-bg); color: var(--after); }
+    .ba .body { padding: 12px 14px; font-size: 13.5px; }
+    .ba ul { margin: 0; padding-left: 18px; }
+    figure { margin: 20px 0; text-align: center; }
+    figcaption { font-size: 13px; color: var(--text-2); margin-top: 8px; }
+    svg { max-width: 100%; height: auto; }
+    .note { background: var(--warn-bg); border-left: 4px solid var(--warn); padding: 10px 14px; margin: 14px 0; font-size: 13.5px; }
+    .ok { background: var(--after-bg); border-left: 4px solid var(--after); padding: 10px 14px; margin: 14px 0; font-size: 13.5px; }
+    .tree { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; font-family: Consolas, Monaco, monospace; font-size: 12.5px; line-height: 1.75; }
+    .tree .new { color: var(--after); font-weight: 600; }
+    .tree .dim { color: var(--text-2); }
+    .sop { counter-reset: step; }
+    .sop li { margin-bottom: 14px; list-style: none; position: relative; padding-left: 42px; }
+    .sop li::before {
+        counter-increment: step; content: counter(step);
+        position: absolute; left: 0; top: 2px; width: 26px; height: 26px;
+        background: var(--primary); color: #fff; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;
+    }
+    footer { margin-top: 60px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-2); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+    <h1>机器狗 V1 · 项目代码架构与改动说明</h1>
+    <div class="sub">截至 2026-10-14 · 固件提交 <code>deab432</code>（基线 <code>5ccd7f1</code>）· 状态：软件侧已完成，等待硬件到货联调</div>
+</header>
+
+<h2>一、项目总览</h2>
+<p>整个项目分三条线： <b>固件（ESP32-S3）</b>、<b>Android 控制端</b>、<b>文档</b>。固件基于开源项目 xiaozhi-esp32 改造，Android 端为自建最小控制 App。</p>
+
+<div class="tree">
+AI-Dog/
+├── <span class="dim">docs/</span> 文档
+│   ├── 机器狗V1产品需求文档.md —— 未放此处，见 output/
+│   ├── 固件开发环境.md —— 环境、引脚、构建命令、5 个坑
+│   ├── Android控制端设计.md —— 通信协议 + 双端设计
+│   └── <span class="new">代码架构与改动说明.html —— 本文件</span>
+├── <span class="dim">output/</span>
+│   └── 机器狗V1产品需求文档.md —— PRD（15 章）
+├── <span class="dim">vendor/xiaozhi-esp32/</span> 上游只读参考（不改）
+├── <span class="new">android/</span> Android 控制端工程（新增）
+│   ├── app/src/main/java/com/aidog/control/
+│   │   ├── MainActivity.java 状态面板+模式切换+急停
+│   │   ├── SetupActivity.java 设备 IP + 配网
+│   │   ├── api/DeviceApi.java OkHttp（HTTP + WS + 降级轮询）
+│   │   └── model/DeviceStatus.java 状态模型
+│   └── gradle wrapper / README.md
+├── <span class="dim">firmware/</span>
+│   ├── xiaozhi-esp32/ 工作副本（git 管理）
+│   │   └── main/boards/ai-dog-s3/ <span class="new">我们的板级代码</span>
+│   ├── config/ai-dog-s3.defaults 板级 Kconfig
+│   └── build-ai-dog.ps1 构建脚本（含 5 项环境修正）
+└── <span class="dim">.workbuddy-ai/memory/</span> 项目记忆
+</div>
+
+<h2>二、固件代码架构</h2>
+<p>xiaozhi-esp32 的分层很清晰，我们的代码<b>只加在板级这一层</b>，没有侵入上游逻辑——这是刻意的选择，方便以后跟进上游升级。</p>
+
+<figure>
+<svg viewBox="0 0 680 330" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#616161"/>
+        </marker>
+    </defs>
+    <rect x="0" y="0" width="680" height="330" fill="#FFFFFF"/>
+
+    <!-- 上游层 -->
+    <rect x="30" y="14" width="620" height="30" rx="4" fill="#E8EAF6" stroke="#3F51B5"/>
+    <text x="340" y="34" text-anchor="middle" font-size="13" font-weight="700" fill="#3F51B5">上游 xiaozhi-esp32（不改动）</text>
+
+    <rect x="30" y="56" width="300" height="56" rx="5" fill="#FAFAFA" stroke="#BDBDBD"/>
+    <text x="180" y="76" text-anchor="middle" font-size="12.5" font-weight="600">Application / Protocol</text>
+    <text x="180" y="94" text-anchor="middle" font-size="11" fill="#616161">语音会话状态机、WebSocket/MQTT</text>
+    <text x="180" y="106" text-anchor="middle" font-size="11" fill="#616161">ASR→LLM→TTS 编排</text>
+
+    <rect x="350" y="56" width="300" height="56" rx="5" fill="#FAFAFA" stroke="#BDBDBD"/>
+    <text x="500" y="76" text-anchor="middle" font-size="12.5" font-weight="600">Audio / Display / LED</text>
+    <text x="500" y="94" text-anchor="middle" font-size="11" fill="#616161">I²S 编解码（Opus）</text>
+    <text x="500" y="106" text-anchor="middle" font-size="11" fill="#616161">屏幕/指示灯抽象</text>
+
+    <line x1="180" y1="112" x2="180" y2="140" stroke="#616161" marker-end="url(#ar)"/>
+    <line x1="500" y1="112" x2="500" y2="140" stroke="#616161" marker-end="url(#ar)"/>
+
+    <!-- Board 抽象层 -->
+    <rect x="30" y="142" width="620" height="34" rx="4" fill="#FFF3E0" stroke="#EF6C00"/>
+    <text x="340" y="164" text-anchor="middle" font-size="12.5" font-weight="700" fill="#E65100">Board 抽象层（GetAudioCodec / GetDisplay / GetLed / StartNetwork）</text>
+
+    <line x1="340" y1="176" x2="340" y2="204" stroke="#616161" marker-end="url(#ar)"/>
+
+    <!-- 我们的层 -->
+    <rect x="30" y="206" width="620" height="30" rx="4" fill="#E8F5E9" stroke="#2E7D32"/>
+    <text x="340" y="226" text-anchor="middle" font-size="13" font-weight="700" fill="#2E7D32">ai-dog-s3 板级实现（新增 / 唯一改动区）</text>
+
+    <rect x="30" y="244" width="300" height="66" rx="5" fill="#FFFFFF" stroke="#2E7D32" stroke-width="1.5"/>
+    <text x="180" y="264" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2E7D32">ai_dog_s3_board.cc</text>
+    <text x="180" y="282" text-anchor="middle" font-size="11" fill="#616161">WifiBoard 子类：无屏/无 LED</text>
+    <text x="180" y="296" text-anchor="middle" font-size="11" fill="#616161">BOOT 键 → 配网 / 切换对话</text>
+    <text x="180" y="306" text-anchor="middle" font-size="11" fill="#616161">包装网络事件 → 控制服务启停</text>
+
+    <rect x="350" y="244" width="300" height="66" rx="5" fill="#FFFFFF" stroke="#2E7D32" stroke-width="1.5"/>
+    <text x="500" y="264" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2E7D32">ai_dog_control.{h,cc}</text>
+    <text x="500" y="282" text-anchor="middle" font-size="11" fill="#616161">局域网 HTTP 控制服务（80 端口）</text>
+    <text x="500" y="296" text-anchor="middle" font-size="11" fill="#616161">status / mode / stop / wifi</text>
+    <text x="500" y="306" text-anchor="middle" font-size="11" fill="#616161">回调留给运动模块（未接线）</text>
+</svg>
+<figcaption>图 1 · 固件分层：我们的代码只落在最底层的板级目录</figcaption>
+</figure>
+
+<h3>关键机制：板级目录如何被编译</h3>
+<p><code>main/CMakeLists.txt</code> 用 glob 收录板级目录所有 <code>*.cc</code>/<code>*.c</code>，所以<b>新增模块放进 <code>boards/ai-dog-s3/</code> 就会自动参与编译</b>，不需要改 SOURCES 列表：</p>
+<pre><span class="cmt"># main/CMakeLists.txt:936</span>
+file(GLOB BOARD_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_DIR}/*.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_DIR}/*.c
+)</pre>
+<p>板级选择则由 Kconfig 驱动：<code>firmware/config/ai-dog-s3.defaults</code> 里的一行 <code>CONFIG_BOARD_TYPE_AI_DOG_S3=y</code>，通过 <code>SDKCONFIG_DEFAULTS</code> 注入构建。</p>
+
+<h2>三、Android 端架构</h2>
+<div class="cards">
+    <div class="card"><h4>MainActivity</h4><p>状态面板（在线/模式/电量/Wi-Fi/故障）、四模式切换、红色急停按钮</p></div>
+    <div class="card"><h4>SetupActivity</h4><p>设备 IP 设置（SharedPreferences）、Wi-Fi 凭据下发</p></div>
+    <div class="card"><h4>DeviceApi</h4><p>OkHttp 封装：4 个 HTTP 接口 + WebSocket 推送，<b>WS 失败自动降级 2 秒轮询</b></p></div>
+    <div class="card"><h4>DeviceStatus</h4><p>Gson 模型，字段与设备端 JSON 一一对应</p></div>
+</div>
+<p>技术栈为 <b>Java + XML/ViewBinding</b>（不用 Kotlin/Compose），AGP 8.7.3 + Gradle 8.13 + JDK 21，compileSdk 36 / minSdk 26。</p>
+
+<h2>四、改动清单（全部）</h2>
+
+<h3>A. 固件：新增板级支持 <span class="tag tag-new">新增</span> <span class="tag tag-chg">改造</span></h3>
+<table>
+<tr><th style="width:26%">文件</th><th style="width:12%">类型</th><th>说明</th><th style="width:22%">为什么需要</th></tr>
+<tr><td><code>main/boards/ai-dog-s3/config.h</code></td><td>新增</td><td>引脚分配：INMP441(4/5/6)、MAX98357A(7/15/16)、BOOT(0)、I²C(41/42)、电池 ADC(8)、电机(11-14,21,47,10)、巡线(17/18/38/39/40)、模式键(9)</td><td>避开 PSRAM(33-37)/Flash(26-32)/USB(19/20)/strapping 脚</td></tr>
+<tr><td><code>main/boards/ai-dog-s3/config.json</code></td><td>新增</td><td><code>{"type":"ai-dog-s3","target":"esp32s3"}</code></td><td>板级元信息，构建系统读取</td></tr>
+<tr><td><code>main/boards/ai-dog-s3/ai_dog_s3_board.cc</code></td><td>新增</td><td><code>WifiBoard</code> 子类：<code>GetDisplay()</code> 返回 <code>NoDisplay</code>、<code>GetLed()</code> 返回 <code>NoLed</code>、BOOT 键逻辑</td><td><b>默认板级 bread-compact-wifi 假设接了 SSD1306 OLED</b>，我们没买屏，直接用会初始化报错</td></tr>
+<tr><td><code>main/CMakeLists.txt</code></td><td>改造</td><td>加 <code>BOARD_TYPE_AI_DOG_S3</code> 分支；加依赖 <code>esp_http_server</code>/<code>esp_wifi</code>/<code>espressif__cjson</code></td><td>让 Kconfig 能选中我们的板；控制服务需要这些组件</td></tr>
+<tr><td><code>main/Kconfig.projbuild</code></td><td>改造</td><td>新增 <code>config BOARD_TYPE_AI_DOG_S3</code>，depends on <code>IDF_TARGET_ESP32S3</code></td><td>让板级出现在 menuconfig 选项里</td></tr>
+<tr><td><code>main/boards/ai-dog-s3/ai_dog_control.{h,cc}</code></td><td>新增</td><td>局域网控制服务：4 个 HTTP 接口 + 模式状态 + 回调机制</td><td>Android App 需要设备端控制通道（原先只有语音上云链路）</td></tr>
+</table>
+
+<h3>B. 构建系统 <span class="tag tag-new">新增</span></h3>
+<table>
+<tr><th style="width:26%">文件</th><th>说明</th></tr>
+<tr><td><code>firmware/config/ai-dog-s3.defaults</code></td><td>一行 <code>CONFIG_BOARD_TYPE_AI_DOG_S3=y</code></td></tr>
+<tr><td><code>firmware/build-ai-dog.ps1</code></td><td>构建/烧录/监视脚本，内含 5 项环境修正（见第六节）</td></tr>
+</table>
+
+<h3>C. Android 控制端 <span class="tag tag-new">新增</span></h3>
+<p>共 16 个文件（2 个 Activity + API + Model + 布局/资源/Gradle），已编译产出 <code>app-debug.apk</code> 6.5 MB。</p>
+
+<h3>D. 文档 <span class="tag tag-chg">修改</span></h3>
+<table>
+<tr><th style="width:26%">文件</th><th>改动</th></tr>
+<tr><td><code>output/机器狗V1产品需求文档.md</code></td><td>§8「软件架构建议」→「软件架构（已确定）」：改为 xiaozhi-esp32 + ESP-IDF v6.1 + xiaozhi.me，注明看门狗叫为纯本地逻辑、断网可用</td></tr>
+<tr><td><code>docs/固件开发环境.md</code></td><td>状态更新为"首次编译已通过"；新增第 5 节环境修正清单与产物表</td></tr>
+<tr><td><code>docs/Android控制端设计.md</code></td><td>新增：协议定稿（4 接口 + WS）、App 结构、设备端实现说明</td></tr>
+</table>
+
+<h3>E. 环境清理 <span class="tag tag-del">删除</span></h3>
+<p>释放约 952 MB：损坏组件缓存 550 MB、不完整工具链 334 MB、<code>.ccache</code> 68 MB。保留 <code>.idf-component-cache</code>（760 MB，74 个组件，删了要重下）。</p>
+
+<h2>五、前后对比（图文）</h2>
+
+<h3>对比 1 · 系统整体：从"只有语音上云"到"本地可控"</h3>
+<figure>
+<svg viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <marker id="ar2" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#616161"/>
+        </marker>
+    </defs>
+    <rect width="680" height="260" fill="#FFFFFF"/>
+    <!-- BEFORE -->
+    <rect x="8" y="8" width="324" height="244" rx="6" fill="#FAFAFA" stroke="#BDBDBD"/>
+    <text x="170" y="30" text-anchor="middle" font-size="13" font-weight="700" fill="#9E9E9E">改动前</text>
+    <rect x="30" y="48" width="110" height="50" rx="5" fill="#FFFFFF" stroke="#BDBDBD"/>
+    <text x="85" y="70" text-anchor="middle" font-size="12" font-weight="600">ESP32-S3</text>
+    <text x="85" y="86" text-anchor="middle" font-size="10.5" fill="#616161">默认板级</text>
+    <text x="85" y="96" text-anchor="middle" font-size="10.5" fill="#616161">（假设有 OLED）</text>
+    <rect x="215" y="48" width="100" height="50" rx="5" fill="#FFFFFF" stroke="#BDBDBD"/>
+    <text x="265" y="70" text-anchor="middle" font-size="12" font-weight="600">xiaozhi.me</text>
+    <text x="265" y="86" text-anchor="middle" font-size="10.5" fill="#616161">ASR/LLM/TTS</text>
+    <line x1="140" y1="73" x2="215" y2="73" stroke="#616161" marker-end="url(#ar2)"/>
+    <text x="177" y="66" text-anchor="middle" font-size="10" fill="#616161">语音</text>
+    <text x="30" y="128" font-size="11" fill="#616161">• 只能用按键说话，无外部控制入口</text>
+    <text x="30" y="146" font-size="11" fill="#616161">• 状态不可见（无屏、无 App）</text>
+    <text x="30" y="164" font-size="11" fill="#616161">• 无急停通道，安全只能靠断电</text>
+    <text x="30" y="182" font-size="11" fill="#616161">• 配网只能靠热点/网页</text>
+    <text x="30" y="208" font-size="11" fill="#C62828">✗ 默认板级未接线即初始化报错</text>
+
+    <!-- AFTER -->
+    <rect x="348" y="8" width="324" height="244" rx="6" fill="#F1F8E9" stroke="#2E7D32"/>
+    <text x="510" y="30" text-anchor="middle" font-size="13" font-weight="700" fill="#2E7D32">改动后</text>
+    <rect x="370" y="48" width="105" height="50" rx="5" fill="#FFFFFF" stroke="#2E7D32" stroke-width="1.5"/>
+    <text x="422" y="68" text-anchor="middle" font-size="12" font-weight="700" fill="#2E7D32">ESP32-S3</text>
+    <text x="422" y="84" text-anchor="middle" font-size="10.5" fill="#616161">ai-dog-s3 板级</text>
+    <text x="422" y="96" text-anchor="middle" font-size="10.5" fill="#616161">+ 控制服务:80</text>
+    <rect x="500" y="48" width="80" height="50" rx="5" fill="#FFFFFF" stroke="#BDBDBD"/>
+    <text x="540" y="70" text-anchor="middle" font-size="11.5" font-weight="600">云端</text>
+    <text x="540" y="86" text-anchor="middle" font-size="10" fill="#616161">xiaozhi.me</text>
+    <rect x="500" y="112" width="80" height="42" rx="5" fill="#E8EAF6" stroke="#3F51B5" stroke-width="1.5"/>
+    <text x="540" y="132" text-anchor="middle" font-size="11.5" font-weight="700" fill="#3F51B5">Android</text>
+    <text x="540" y="146" text-anchor="middle" font-size="10" fill="#616161">控制 App</text>
+    <line x1="475" y1="66" x2="500" y2="66" stroke="#616161" marker-end="url(#ar2)"/>
+    <text x="487" y="60" text-anchor="middle" font-size="9.5" fill="#616161">语音</text>
+    <line x1="500" y1="133" x2="477" y2="106" stroke="#3F51B5" marker-end="url(#ar2)"/>
+    <text x="452" y="122" text-anchor="middle" font-size="9.5" fill="#3F51B5">局域网 HTTP</text>
+    <text x="370" y="176" font-size="11" fill="#2E7D32">✓ 状态面板可见（模式/电量/故障）</text>
+    <text x="370" y="194" font-size="11" fill="#2E7D32">✓ 四模式一键切换 + 独立急停</text>
+    <text x="370" y="212" font-size="11" fill="#2E7D32">✓ App 下发 Wi-Fi，失败自动回退配网</text>
+    <text x="370" y="230" font-size="11" fill="#2E7D32">✓ 指令经状态机，不绕过安全逻辑</text>
+</svg>
+<figcaption>图 2 · 整体能力对比</figcaption>
+</figure>
+
+<h3>对比 2 · 控制指令的数据流（新增链路）</h3>
+<figure>
+<svg viewBox="0 0 680 190" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <marker id="ar3" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#3F51B5"/>
+        </marker>
+    </defs>
+    <rect width="680" height="190" fill="#FFFFFF"/>
+    <rect x="16" y="60" width="92" height="54" rx="5" fill="#E8EAF6" stroke="#3F51B5"/>
+    <text x="62" y="82" text-anchor="middle" font-size="11.5" font-weight="700" fill="#3F51B5">Android</text>
+    <text x="62" y="98" text-anchor="middle" font-size="10" fill="#616161">点按钮</text>
+    <line x1="108" y1="87" x2="146" y2="87" stroke="#3F51B5" marker-end="url(#ar3)"/>
+    <text x="127" y="79" text-anchor="middle" font-size="9.5" fill="#3F51B5">HTTP</text>
+
+    <rect x="150" y="60" width="112" height="54" rx="5" fill="#FFFFFF" stroke="#3F51B5"/>
+    <text x="206" y="82" text-anchor="middle" font-size="11.5" font-weight="700">esp_http_server</text>
+    <text x="206" y="98" text-anchor="middle" font-size="10" fill="#616161">POST /api/mode</text>
+    <line x1="262" y1="87" x2="300" y2="87" stroke="#3F51B5" marker-end="url(#ar3)"/>
+
+    <rect x="304" y="52" width="128" height="70" rx="5" fill="#E8F5E9" stroke="#2E7D32" stroke-width="1.5"/>
+    <text x="368" y="72" text-anchor="middle" font-size="11.5" font-weight="700" fill="#2E7D32">ControlServer</text>
+    <text x="368" y="88" text-anchor="middle" font-size="10" fill="#616161">校验 → 更新模式</text>
+    <text x="368" y="102" text-anchor="middle" font-size="10" fill="#616161">（不直接碰电机）</text>
+    <text x="368" y="114" text-anchor="middle" font-size="10" fill="#616161">加锁、线程安全</text>
+    <line x1="432" y1="87" x2="470" y2="87" stroke="#2E7D32" marker-end="url(#ar3)"/>
+    <text x="451" y="79" text-anchor="middle" font-size="9.5" fill="#2E7D32">回调</text>
+
+    <rect x="474" y="60" width="112" height="54" rx="5" fill="#FFF3E0" stroke="#EF6C00" stroke-dasharray="4 3"/>
+    <text x="530" y="82" text-anchor="middle" font-size="11.5" font-weight="700" fill="#E65100">运动模块</text>
+    <text x="530" y="98" text-anchor="middle" font-size="10" fill="#616161">待硬件实现</text>
+    <line x1="586" y1="87" x2="624" y2="87" stroke="#EF6C00" marker-end="url(#ar3)"/>
+    <rect x="628" y="60" width="38" height="54" rx="5" fill="#FFF3E0" stroke="#EF6C00" stroke-dasharray="4 3"/>
+    <text x="647" y="92" text-anchor="middle" font-size="11" font-weight="700" fill="#E65100">电机</text>
+
+    <text x="340" y="158" text-anchor="middle" font-size="11" fill="#616161">反向：GET /api/status 由 ControlServer 直接拼 JSON 返回（虚线部分=后续接入）</text>
+    <text x="340" y="176" text-anchor="middle" font-size="11" fill="#616161">关键点：指令必须过状态机，HTTP 层永远不直接驱动 GPIO</text>
+</svg>
+<figcaption>图 3 · 新增的控制链路（虚线为待实现）</figcaption>
+</figure>
+
+<h3>对比 3 · 启动流程：控制服务何时启停</h3>
+<div class="ba">
+    <div class="before">
+        <div class="head">改动前（若直接常开服务）</div>
+        <div class="body">
+            <ul>
+                <li>开机即启动 HTTP 服务</li>
+                <li>未配网时进入配网热点</li>
+                <li>热点 captive portal <b>也占 80 端口</b></li>
+                <li>→ 配网页打不开 / 服务启动失败</li>
+            </ul>
+        </div>
+    </div>
+    <div class="after">
+        <div class="head">改动后（绑网络事件）</div>
+        <div class="body">
+            <ul>
+                <li>STA 连上路由器 → <code>Start()</code></li>
+                <li>进入配网热点 → <code>Stop()</code> 让出端口</li>
+                <li>Wi-Fi 断开 → 上报故障给 App</li>
+                <li>→ 两条路径互不冲突</li>
+            </ul>
+        </div>
+    </div>
+</div>
+<p>实现方式是<b>包装而非覆盖</b> <code>SetNetworkEventCallback</code>：先处理控制服务启停，再把事件原样转发给上层 <code>Application</code>，不破坏上游行为。</p>
+
+<h3>对比 4 · 构建环境：5 个必踩的坑</h3>
+<table>
+<tr><th style="width:20%">问题</th><th style="width:34%">报错特征</th><th>修法（已固化进脚本）</th></tr>
+<tr><td>组件缓存被拒</td><td><code>PermissionError: ...\ComponentManager\Cache\...</code></td><td><code>IDF_COMPONENT_CACHE_PATH</code> 指向工作区（注意变量名，写成 <code>IDF_COMPONENT_CACHE</code> 会静默失效）</td></tr>
+<tr><td>批量删除保护</td><td><code>[safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED]</code></td><td><code>CODEBUDDY_SAFE_DELETE_ENABLED=0</code></td></tr>
+<tr><td>编译器临时目录</td><td>中途突然 <code>can't create xxx.obj: Permission denied</code>（前 1000 个目标正常，极具迷惑性）</td><td><code>TMP/TEMP</code> → <code>firmware/.build-tmp</code></td></tr>
+<tr><td>ccache 临时文件</td><td><code>ccache: failed to create temporary file</code></td><td>首次构建 <code>CCACHE_DISABLE=1</code></td></tr>
+<tr><td>命令行超长</td><td><code>CreateProcess: The parameter is incorrect</code>（链接 elf 前）</td><td><code>-DCMAKE_NINJA_FORCE_RESPONSE_FILE=1</code>，用响应文件传递上百个 <code>-I</code></td></tr>
+</table>
+<div class="note"><b>同理的坑也在 Android 侧出现：</b>AGP 不支持 JDK 24（需 JDK 21，已装到 <code>F:\software\jdk21</code>）；Gradle 缓存 <code>~/.gradle</code> 被拦（需 <code>GRADLE_USER_HOME</code> 指向工作区）。</div>
+
+<h2>六、后续改动必须遵守的流程</h2>
+<ol class="sop">
+    <li><b>先澄清再动手。</b>需求不清、有多个合理方案时，先问清关键决策项（通信方式、技术栈、范围），再写代码。</li>
+    <li><b>确认改动落点。</b>优先只动"我们自己的目录"（<code>boards/ai-dog-s3/</code>、<code>android/</code>），不侵入上游 xiaozhi-esp32 逻辑，便于跟进升级。</li>
+    <li><b>写代码。</b>注释用中文说明"为什么这么做"，尤其是绕过坑的地方；安全相关逻辑（急停、互斥）必须显式写清。</li>
+    <li><b>编译验证，不靠推测。</b>固件跑 <code>.\build-ai-dog.ps1</code>（非沙箱模式）；Android 用 JDK 21 跑 <code>gradlew assembleDebug</code>。<b>必须看到真实产物</b>（<code>xiaozhi.bin</code> / <code>app-debug.apk</code>）才算通过，不得以"应该能编过"结案。</li>
+    <li><b>提交 git。</b>固件仓库 <code>firmware/xiaozhi-esp32</code>，一条改动一次提交，信息写清做了什么。</li>
+    <li><b>更新文档与记忆。</b>同步 <code>docs/</code> 下对应文档；把本次决策、坑、结论追加到 <code>.workbuddy-ai/memory/YYYY-MM-DD.md</code>。</li>
+    <li><b>更新本文件的图文对比。</b>新增/修改代码后，在"改动清单"补行、在"前后对比"补图，让这份文档始终反映当前真实状态。</li>
+</ol>
+<div class="ok">这条流程已写入项目长期记忆（<code>.workbuddy-ai/memory/MEMORY.md</code>），后续会话会自动遵守。</div>
+
+<h2>七、当前未完成项</h2>
+<table>
+<tr><th style="width:30%">项目</th><th style="width:14%">状态</th><th>说明</th></tr>
+<tr><td>电池采样（GPIO8 ADC）</td><td>未接</td><td><code>battery</code> 返回 -1，App 显示"无采样"；需真机标定分压比</td></tr>
+<tr><td>WebSocket 状态推送</td><td>未实现</td><td>App 自动降级 2 秒轮询，当前可用</td></tr>
+<tr><td>模式状态机真实动作</td><td>占位</td><td>回调已留好，等电机/传感器到位后接入</td></tr>
+<tr><td>巡线 / 避障 / 看门声检测</td><td>未开始</td><td>引脚已在 config.h 占位</td></tr>
+<tr><td>3D 外壳</td><td>未开始</td><td>需真实器件尺寸，安排在 M5</td></tr>
+<tr><td>真机联调</td><td>阻塞中</td><td>硬件在途</td></tr>
+</table>
+
+<footer>
+    固件产物：<code>firmware/xiaozhi-esp32/build/xiaozhi.bin</code> = 2,136,080 B ｜ Android 产物：<code>android/app/build/outputs/apk/debug/app-debug.apk</code> = 6.5 MB<br>
+    提交：<code>5ccd7f1</code>（板级）<code>deab432</code>（控制服务）
+</footer>
+
+</div>
+</body>
+</html>

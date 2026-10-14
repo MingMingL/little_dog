@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">机器狗控制</string>
+    <string name="title_setup">设备设置</string>
+
+    <!-- 状态面板 -->
+    <string name="label_connection">连接状态</string>
+    <string name="label_mode">当前模式</string>
+    <string name="label_battery">电量</string>
+    <string name="label_wifi">Wi-Fi</string>
+    <string name="label_fault">故障</string>
+    <string name="value_unknown">未知</string>
+    <string name="status_online">在线</string>
+    <string name="status_offline">离线</string>
+
+    <!-- 模式 -->
+    <string name="mode_idle">待机</string>
+    <string name="mode_chat">聊天</string>
+    <string name="mode_patrol">巡逻</string>
+    <string name="mode_guard">看门</string>
+
+    <!-- 操作 -->
+    <string name="action_emergency_stop">急停</string>
+    <string name="action_refresh">刷新</string>
+    <string name="action_setup">设置</string>
+    <string name="hint_mode_switch">切换模式</string>
+
+    <!-- 设置页 -->
+    <string name="hint_device_ip">设备 IP（如 192.168.1.50）</string>
+    <string name="hint_ssid">Wi-Fi 名称</string>
+    <string name="hint_password">Wi-Fi 密码</string>
+    <string name="action_save">保存</string>
+    <string name="action_provision">下发给设备</string>
+    <string name="msg_saved">已保存</string>
+    <string name="msg_ip_required">请先填写设备 IP</string>
+    <string name="msg_provision_ok">配网指令已下发，设备将尝试连接</string>
+</resources>
