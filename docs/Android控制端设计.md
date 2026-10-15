@@ -29,7 +29,7 @@ GET /api/status
 
 ```json
 {
-  "mode": "idle",          // idle | chat | patrol | guard
+  "mode": "idle",          // idle | chat | patrol | guard | remote
   "moving": false,
   "battery": 85,           // 百分比；-1 表示无电池采样
   "charging": false,
@@ -47,14 +47,42 @@ POST /api/mode
 ```
 响应：`{"ok": true, "mode": "patrol"}`；失败：`{"ok": false, "error": "..."}`。
 
-### 2.3 急停
+### 2.4 遥控运动（2026-10-15 新增）
+
+```
+POST /api/move
+{"dir": "forward", "speed": 60}
+```
+
+| 字段 | 取值 |
+|------|------|
+| `dir` | `stop` / `forward` / `backward` / `left` / `right` / `rotate_left` / `rotate_right` |
+| `speed` | 0..100 百分比，选填，缺省 60（缺省故意给保守值，误触时不会冲太快） |
+
+成功：`{"ok": true}`。
+
+**只在 `remote` 模式下被接受**，其他模式返回 `{"ok": false, "error": "not in remote mode"}`
+（App 收到会提示"请先切到遥控模式"），巡逻/看门自己有运动逻辑，不能被 App 抢电机。
+
+**三层停车保护，缺一不可：**
+
+1. App 松手 / 锁屏 / 退后台 → 立刻发 `{"dir":"stop"}`（第一道，最及时）；
+2. App 只在同一时刻没有在途请求时才发新指令（**允许丢包、不允许堆积**）——
+   否则网络一慢，请求会在客户端排队，恢复瞬间狗连着执行一批旧指令自己乱跑；
+3. 设备端看门狗：`remote` 模式下 1.5s 没收到"让狗动"的指令就自动停车
+   （防 App 被杀 / Wi-Fi 断了 / 手机锁屏），另在 Wi-Fi 断开和进配网模式时也立即停车。
+
+speed→轮速的差速映射在设备端 `ai_dog_s3_board.cc`：`forward/backward` 双侧等速；
+`left/right` 内侧轮降到 35%；`rotate_*` 两轮反向（原地转）。
+
+### 2.5 急停
 
 ```
 POST /api/stop
 ```
 响应：`{"ok": true}`。设备收到后**立即停电机并退出当前模式进入 idle**，该指令优先级高于一切。
 
-### 2.4 配网
+### 2.6 配网
 
 ```
 POST /api/wifi
@@ -62,7 +90,7 @@ POST /api/wifi
 ```
 响应：`{"ok": true, "ip": "192.168.1.50"}`。设备保存凭据并尝试连接，成功后回传新 IP。
 
-### 2.5 语音控制模式切换（设备端 MCP 工具，2026-10-14 新增）
+### 2.7 语音控制模式切换（设备端 MCP 工具，2026-10-14 新增）
 
 设备端注册了一个 MCP 工具，**语音指令复用 xiaozhi 既有的 ASR→LLM→TTS 通道**，不需要新增链路：
 
@@ -80,7 +108,7 @@ POST /api/wifi
 
 **口令示例：**"开始巡逻" → 设备反问"要开始巡逻吗？" → "确认" → 开始巡逻。
 
-### 2.6 状态推送（可选，App 已实现自动降级）
+### 2.8 状态推送（可选，App 已实现自动降级）
 
 ```
 WS ws://<ip>/ws
@@ -93,9 +121,9 @@ WS ws://<ip>/ws
 ```
 android/
 └── app/src/main/java/com/aidog/control/
-    ├── MainActivity.java       # 状态面板 + 模式切换 + 急停
+    ├── MainActivity.java       # 状态面板 + 模式切换 + 遥控方向键 + 急停
     ├── SetupActivity.java      # 设备 IP 设置 + 配网入口
-    ├── api/DeviceApi.java      # OkHttp：HTTP 请求 + WebSocket + 自动降级轮询
+    ├── api/DeviceApi.java      # OkHttp：HTTP 请求 + WebSocket + 自动降级轮询 + /api/move
     └── model/DeviceStatus.java # 状态数据模型（Gson 解析）
 ```
 
@@ -106,30 +134,46 @@ android/
   **不要**再无条件 `startActivity(SetupActivity)`，否则用户从设置页侧滑/返回后会被
   立刻重新拉回去，App 永远退不出去。
 - 状态展示：在线/离线、当前模式、电量、Wi-Fi、故障原因。
-- 模式切换四个按钮；**急停按钮常驻且最高优先级**（红色，独立请求）。
+- 模式切换五个按钮（待机/聊天/巡逻/看门/**遥控**）；**急停按钮常驻且最高优先级**（红色，独立请求）。
+- 遥控：方向键用 `OnTouch`（不是 `OnClick`）实现"按住持续走、松手停"，按住期间按 10Hz
+  重复发同一条指令。`ACTION_CANCEL` 也必须停 —— 手指滑出按钮边界时系统只给 CANCEL，
+  漏掉它狗会一直跑。退后台（`onPause`）同样停车。
 - 配网页填写 SSID/密码后下发，成功后自动更新保存的 IP。
 - 所有网络请求走子线程，回调切回主线程更新 UI。
 
 ## 4. 设备端实现（已完成，待真机验证）
 
-文件：`firmware/xiaozhi-esp32/main/boards/ai-dog-s3/ai_dog_control.{h,cc}`
+文件：`firmware/xiaozhi-esp32/main/boards/ai-dog-s3/`
 
-- `esp_http_server` 监听 80 端口，注册 4 个 URI；JSON 用 cJSON 编解码。
+| 文件 | 职责 |
+|------|------|
+| `ai_dog_control.{h,cc}` | 局域网 HTTP 控制服务：收指令 + 报状态 + 遥控看门狗 |
+| `ai_dog_motor.{h,cc}`   | TB6612 双电机驱动（GPIO + LEDC PWM），只翻译速度不决策 |
+| `ai_dog_s3_board.cc`    | 板级接线：把指令接到状态机回调，做 dir→左右轮速的差速映射 |
+
+- `esp_http_server` 监听 80 端口，注册 5 个 URI（status/mode/stop/move/wifi）；JSON 用 cJSON 编解码。
 - `ControlServer` 单例只做"收指令 + 报状态"，**不直接驱动电机**；
-  运动模块后续通过 `SetModeChangedHandler` / `SetEmergencyStopHandler` 接入，保证指令永远经过模式状态机。
+  运动模块通过 `SetModeChangedHandler` / `SetEmergencyStopHandler` / `SetMoveCommandHandler` 接入，
+  保证指令永远经过模式状态机（这是项目硬性约定，绕过它急停和模式互斥全会失效）。
 - 启停时机（在 `ai_dog_s3_board.cc` 里包装网络事件回调）：
-  - STA 连上路由器 → `Start()`；
+  - STA 连上路由器 → `Start()`（同时启动遥控看门狗定时器）；
   - 进入配网热点 → `Stop()`（热点自带 captive portal 占 80 端口，必须让开）；
-  - 断开 → 上报故障。
+  - 断开 → **立即停电机** + 上报故障（App already 发不出指令了，设备必须自己停）。
 - 配网：`SsidManager::AddSsid()` 写入 NVS 后 `WifiManager::StartStation()` 重连，失败会自动回退到配网模式，不会失联。
-- 依赖已加进 `main/CMakeLists.txt`（`esp_http_server`、`esp_wifi`、`espressif__cjson`）。
+- 依赖已加进 `main/CMakeLists.txt`（`esp_http_server`、`esp_wifi`、`espressif__cjson`、`esp_driver_ledc`）。
 - 电池采样（GPIO8 ADC）尚未接入，`battery` 暂返回 -1（App 显示"无采样"）。
 
-### 真机验证清单（硬件到货后）
+电机引脚（config.h）：左 PWM=GPIO11 / IN1=12 / IN2=13，右 PWM=GPIO14 / IN1=21 / IN2=47，
+STANDBY=GPIO10（低电平关断整片 TB6612）。PWM 20kHz（超出人耳听感，避免啸叫）+ 8bit。
 
-1. 用 `esp_http_server` 注册上述 4 个 URI；`POST` 需读取 body（注意 `httpd_req_recv` 循环读完）。
-2. 控制指令要**经过模式状态机**，不能直接改电机输出；急停走最高优先级分支（对应 PRD FR-09）。
-3. 状态里的 `battery` 来自 GPIO8 的 ADC 采样（需先标定分压比）。
+### 已完成的验证
+
+1. 固件编译：0 error / 0 warning，`xiaozhi.bin` 2,582,016 B，分区占用 63%（37% 余量）。
+2. App 用模拟设备（`tools/sim_dog.py`）端到端验证过：模式切换、7 个方向、按住 10Hz 连续发送、
+   松手即停、非遥控模式被拒并弹提示，全部符合预期。
+   用法：`python tools/sim_dog.py 8080` + `adb reverse tcp:8080 tcp:8080`，把 App 的设备 IP
+   临时填成 `127.0.0.1:8080` 即可在无硬件时跑通全链路（模拟器的拒绝逻辑与真机一致）。
+3. 电机 GPIO 行为尚未真机验证（TB6612 和底盘未焊接）。
 4. 配网写 NVS 后调用 `esp_wifi` 重连，失败要回退到原配置，避免"配错网就失联"。
 5. 该服务只在局域网监听，**不要做端口转发暴露到公网**。
 
