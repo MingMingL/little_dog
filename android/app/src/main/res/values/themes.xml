@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.AiDogControl" parent="Theme.MaterialComponents.Light.DarkActionBar">
+    <!--
+        NoActionBar：自带的 ActionBar 高度约 184px，会压住首页"设备 IP / 刷新 / 设置"那行
+        （targetSdk 36 在 Android 15 edge-to-edge 下更明显），所以关掉。
+        内容里的首行自己当头部；设置页有内嵌标题 TextView，不需要 ActionBar。
+    -->
+    <style name="Theme.AiDogControl" parent="Theme.MaterialComponents.Light.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryDark">@color/primary_dark</item>
         <item name="colorAccent">@color/accent</item>

@@ -12,6 +12,7 @@
     <string name="value_unknown">未知</string>
     <string name="status_online">在线</string>
     <string name="status_offline">离线</string>
+    <string name="device_unset">设备：未设置（点右上角“设置”填写 IP）</string>
 
     <!-- 模式 -->
     <string name="mode_idle">待机</string>

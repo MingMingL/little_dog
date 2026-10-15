@@ -1,5 +1,6 @@
 package com.aidog.control;
 
+import android.app.Activity;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.Toast;
@@ -46,6 +47,8 @@ public class SetupActivity extends AppCompatActivity {
         }
         prefs.edit().putString(KEY_IP, ip).apply();
         Toast.makeText(this, R.string.msg_saved, Toast.LENGTH_SHORT).show();
+        // 带回 RESULT_OK，MainActivity 据此判断"配置完成"而不是"用户放弃"
+        setResult(Activity.RESULT_OK);
         finish();
     }
 

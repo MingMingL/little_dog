@@ -6,6 +6,8 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.aidog.control.api.DeviceApi;
@@ -28,6 +30,24 @@ public class MainActivity extends AppCompatActivity {
 
     private String currentMode = "idle";
 
+    /**
+     * 设置页返回回调。
+     *
+     * 这里是"侧滑退不出 App"这个 bug 的关键：早期版本在 onResume 里无条件
+     * startActivity(SetupActivity)，于是用户在设置页（也就是打开 App 看到的第一个页面）
+     * 侧滑返回后，MainActivity 的 onResume 立刻又把设置页拉起来 —— 设置页被反复重建，
+     * 看起来就是"怎么滑都退不出去"。
+     *
+     * 改成由 launcher 收结果：返回时 IP 仍为空说明用户放弃配置，直接结束主界面退出 App。
+     */
+    private final ActivityResultLauncher<Intent> setupLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
+                    result -> {
+                        if (prefs.getString(KEY_IP, "").isEmpty()) {
+                            finish();
+                        }
+                    });
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -39,6 +59,11 @@ public class MainActivity extends AppCompatActivity {
 
         setupModeButtons();
         setupActions();
+
+        // 只在首次创建时引导一次，交给 launcher 收结果；onResume 不再重复拉起
+        if (prefs.getString(KEY_IP, "").isEmpty()) {
+            setupLauncher.launch(new Intent(this, SetupActivity.class));
+        }
     }
 
     @Override
@@ -46,7 +71,9 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         String ip = prefs.getString(KEY_IP, "");
         if (ip.isEmpty()) {
-            startActivity(new Intent(this, SetupActivity.class));
+            // 没配置 IP：不再自动拉起设置页（否则返回手势会被死循环吃掉），
+            // 只显示未配置状态，退出动作交给系统返回键 / 侧滑手势
+            binding.textDeviceIp.setText(R.string.device_unset);
             return;
         }
         api.setDeviceIp(ip);
@@ -90,7 +117,8 @@ public class MainActivity extends AppCompatActivity {
         });
 
         binding.buttonRefresh.setOnClickListener(v -> startListening());
-        binding.buttonSetup.setOnClickListener(v -> startActivity(new Intent(this, SetupActivity.class)));
+        binding.buttonSetup.setOnClickListener(v ->
+                setupLauncher.launch(new Intent(this, SetupActivity.class)));
     }
 
     private void startListening() {
