@@ -9,14 +9,40 @@
 #   .\build-ai-dog.ps1 -Action monitor -Port COM3   # serial monitor
 #   .\build-ai-dog.ps1 -Action menuconfig           # Kconfig menu
 #   .\build-ai-dog.ps1 -Action fullclean            # clean build dir
+#   .\build-ai-dog.ps1 -Action reconfigure          # re-run cmake configure
+#
+# IMPORTANT: run reconfigure after ADDING a new source file under
+#   main/boards/ai-dog-s3/
+# CMake's file(GLOB BOARD_SOURCES) only collects *.cc at configure time, so a
+# brand-new file is silently NOT compiled -- the build then fails at link time
+# with "undefined reference to <class>::*". idf.py build alone will not catch it
+# because it only re-configures when CMakeLists.txt itself changes.
 
 param(
-    [ValidateSet("build", "flash", "monitor", "menuconfig", "fullclean")]
+    [ValidateSet("build", "flash", "monitor", "menuconfig", "fullclean", "reconfigure")]
     [string]$Action = "build",
     [string]$Port = "COM3"
 )
 
 $ErrorActionPreference = "Stop"
+
+# Wrapper around idf.py. idf.py writes Kconfig NOTEs and compiler warnings to
+# stderr; with $ErrorActionPreference = "Stop" PowerShell turns that into a
+# NativeCommandError and kills this script mid-configure, which looks like a
+# build failure even though configure just succeeded. So switch to Continue
+# around the call and let the exit code at the bottom decide success.
+# NOTE: keep the comment block above as ASCII only (same reason as the file
+# header) - PS 5.1 reads .ps1 without BOM as GBK, so UTF-8 Chinese comments
+# get mis-decoded into stray quotes/braces and break the parser entirely.
+function Invoke-Idf {
+    param(
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$IdfArgs
+    )
+    $ErrorActionPreference = "Continue"
+    & idf.py @IdfArgs 2>&1
+    $ErrorActionPreference = "Stop"
+}
 
 $IdfActivate = "C:\Espressif\tools\Microsoft.v6.1.PowerShell_profile.ps1"
 $Project     = Join-Path $PSScriptRoot "xiaozhi-esp32"
@@ -61,12 +87,19 @@ switch ($Action) {
     "build" {
         if (-not (Test-Path "sdkconfig") -or -not (Test-Path "build")) {
             Write-Host "==> First build: setting target esp32s3" -ForegroundColor Cyan
-            idf.py set-target esp32s3
+            Invoke-Idf set-target esp32s3
         }
-        idf.py build
+        Invoke-Idf build
     }
-    "flash"      { idf.py -p $Port flash }
-    "monitor"    { idf.py -p $Port monitor }
-    "menuconfig" { idf.py menuconfig }
-    "fullclean"  { idf.py fullclean }
+    "flash"       { Invoke-Idf -p $Port flash }
+    "monitor"     { Invoke-Idf -p $Port monitor }
+    "menuconfig"  { Invoke-Idf menuconfig }
+    "fullclean"   { Invoke-Idf fullclean }
+    "reconfigure" { Invoke-Idf reconfigure }
 }
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "==> idf.py $Action failed (exit $LASTEXITCODE)" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+Write-Host "==> idf.py $Action done" -ForegroundColor Green

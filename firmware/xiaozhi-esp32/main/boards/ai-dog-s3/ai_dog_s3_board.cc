@@ -8,6 +8,7 @@
 #include "led/led.h"
 #include "ai_dog_control.h"
 #include "ai_dog_mcp_tool.h"
+#include "ai_dog_motor.h"
 
 #include <esp_log.h>
 #include <driver/gpio.h>
@@ -38,6 +39,70 @@ private:
     /** 注册语音控制工具（MCP）：让用户能通过说话切换模式 */
     void InitializeTools() {
         mcp_tool_.Initialize();
+    }
+
+    /**
+     * 遥控指令 → 左右轮速（差速转向）。
+     *
+     * 这是"状态机 → 电机"之间唯一的转换点：ControlServer 只告诉我们"该往哪走、
+     * 多快"，真正写 GPIO 的只有 MotorDriver。任何绕过状态机直接调电机的改动
+     * 都会让急停和模式互斥失效，不要这么干。
+     */
+    void ApplyMoveCommand(const aidog::MoveCommand& command) {
+        auto& motor = aidog::MotorDriver::GetInstance();
+        if (command.direction == aidog::MoveDirection::Stop) {
+            motor.Stop();
+            return;
+        }
+
+        // 速度百分比 → PWM 占空比（0..255）
+        int duty = command.speed * 255 / 100;
+        if (duty < 0)   duty = 0;
+        if (duty > 255) duty = 255;
+
+        // 转向时内侧轮降到 35%：转弯半径由这个系数据定。
+        // 裸底盘重心偏高（电池压在后轴），转太急容易侧倾，先给温和值，
+        // 真机调稳了再往上加。
+        constexpr int kTurnInnerRatio = 35;
+        const int inner = duty * kTurnInnerRatio / 100;
+
+        int left = 0;
+        int right = 0;
+        switch (command.direction) {
+            case aidog::MoveDirection::Forward:      left = duty;  right = duty;  break;
+            case aidog::MoveDirection::Backward:     left = -duty; right = -duty; break;
+            case aidog::MoveDirection::Left:         left = inner; right = duty;  break;
+            case aidog::MoveDirection::Right:        left = duty;  right = inner; break;
+            case aidog::MoveDirection::RotateLeft:   left = -duty; right = duty;  break;  // 原地左转：两轮反向
+            case aidog::MoveDirection::RotateRight:  left = duty;  right = -duty; break;
+            default:                                 left = 0;     right = 0;     break;
+        }
+        motor.SetSpeeds(left, right);
+    }
+
+    /**
+     * 初始化电机驱动，并把运动指令接到模式状态机的回调上。
+     *
+     * 关键安全约定：换模式、急停一律先停车。遥控/巡逻/看门谁接手都从静止开始，
+     * 不会带着上一个模式的残余速度继续跑。
+     */
+    void InitializeMotor() {
+        auto& motor = aidog::MotorDriver::GetInstance();
+        motor.Initialize();
+        motor.Stop();  // 上电确保是停的
+
+        auto& control = aidog::ControlServer::GetInstance();
+        control.SetMoveCommandHandler([this](const aidog::MoveCommand& command) {
+            ApplyMoveCommand(command);
+        });
+        control.SetModeChangedHandler([](aidog::Mode mode) {
+            aidog::MotorDriver::GetInstance().Stop();
+            ESP_LOGI(TAG, "模式切换 -> %s，电机已停止", aidog::ModeToString(mode));
+        });
+        control.SetEmergencyStopHandler([]() {
+            aidog::MotorDriver::GetInstance().Stop();
+            ESP_LOGW(TAG, "急停：电机已停止");
+        });
     }
 
     // SSD1306 OLED（SPI）：句柄与显示对象在 InitDisplay() 里创建
@@ -141,10 +206,15 @@ private:
                 control.Start();
                 break;
             case NetworkEvent::WifiConfigModeEnter:
+                // 进配网热点前先停车：热点模式下 App 连不上，狗不该继续跑
+                aidog::MotorDriver::GetInstance().Stop();
                 control.Stop();
                 break;
             case NetworkEvent::Disconnected:
                 control.SetFault("Wi-Fi 已断开");
+                // 断网时 App 已经发不出指令了，设备端必须自己停，
+                // 不能带着上一个速度一直跑下去（看门狗是兜底，这里才是第一道）
+                aidog::MotorDriver::GetInstance().Stop();
                 break;
             default:
                 break;
@@ -167,7 +237,8 @@ public:
     AiDogS3Board() : boot_button_(BOOT_BUTTON_GPIO) {
         InitializeButtons();
         InitializeTools();
-        ESP_LOGI(TAG, "AI Dog S3 board ready (voice: xiaozhi-esp32, OLED + LAN control + 语音模式切换)");
+        InitializeMotor();
+        ESP_LOGI(TAG, "AI Dog S3 board ready (voice: xiaozhi-esp32, OLED + LAN control + 语音模式切换 + 遥控)");
     }
 
     virtual Led* GetLed() override {
