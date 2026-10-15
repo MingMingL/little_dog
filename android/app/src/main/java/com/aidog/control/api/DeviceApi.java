@@ -51,10 +51,12 @@ public class DeviceApi {
     private String baseUrl;          // 形如 http://192.168.1.50
     private WebSocket webSocket;
     private boolean polling = false;
-    private StatusCallback pushCallback;
+    // 每次启停监听都会递增代数，旧 WebSocket / 轮询回调不得启动新轮询。
+    private long statusGeneration = 0;
 
-    /** 是否有遥控指令还在途（见 move() 的"允许丢包、不允许堆积"说明） */
-    private volatile boolean moveInFlight = false;
+    /** 遥控指令只允许一条在途；停车是安全指令，不能像运动指令一样丢弃。仅主线程访问。 */
+    private boolean moveInFlight = false;
+    private SimpleCallback pendingStopCallback;
 
     public DeviceApi() {
         client = new OkHttpClient.Builder()
@@ -70,10 +72,6 @@ public class DeviceApi {
             normalized = "http://" + normalized;
         }
         this.baseUrl = normalized;
-    }
-
-    public String getBaseUrl() {
-        return baseUrl;
     }
 
     // ------------------------------------------------------------------
@@ -122,7 +120,7 @@ public class DeviceApi {
 
     public void startStatusPush(StatusCallback callback) {
         stopStatusPush();
-        this.pushCallback = callback;
+        final long generation = statusGeneration;
 
         String wsUrl = baseUrl.replace("http://", "ws://").replace("https://", "wss://") + "/ws";
         Request request = new Request.Builder().url(wsUrl).build();
@@ -132,7 +130,9 @@ public class DeviceApi {
             public void onMessage(WebSocket ws, String text) {
                 try {
                     DeviceStatus status = gson.fromJson(text, DeviceStatus.class);
-                    mainHandler.post(() -> callback.onStatus(status));
+                    mainHandler.post(() -> {
+                        if (generation == statusGeneration) callback.onStatus(status);
+                    });
                 } catch (Exception e) {
                     Log.w(TAG, "状态推送解析失败", e);
                 }
@@ -141,39 +141,44 @@ public class DeviceApi {
             @Override
             public void onFailure(WebSocket ws, Throwable t, Response response) {
                 Log.i(TAG, "WebSocket 不可用，降级为轮询：" + t.getMessage());
-                startPolling(callback);
+                mainHandler.post(() -> {
+                    if (generation == statusGeneration && !polling) {
+                        polling = true;
+                        pollOnce(callback, generation);
+                    }
+                });
             }
         });
     }
 
-    private void startPolling(StatusCallback callback) {
-        polling = true;
-        pollOnce(callback);
-    }
-
-    private void pollOnce(StatusCallback callback) {
+    private void pollOnce(StatusCallback callback, long generation) {
+        if (!polling || generation != statusGeneration) return;
         getStatus(new StatusCallback() {
+            private void scheduleNext() {
+                mainHandler.postDelayed(() -> pollOnce(callback, generation), POLL_INTERVAL_MS);
+            }
+
             @Override
             public void onStatus(DeviceStatus status) {
-                if (polling) {
+                if (polling && generation == statusGeneration) {
                     callback.onStatus(status);
-                    mainHandler.postDelayed(() -> pollOnce(callback), POLL_INTERVAL_MS);
+                    scheduleNext();
                 }
             }
 
             @Override
             public void onError(String message) {
-                if (polling) {
+                if (polling && generation == statusGeneration) {
                     callback.onError(message);
-                    mainHandler.postDelayed(() -> pollOnce(callback), POLL_INTERVAL_MS);
+                    scheduleNext();
                 }
             }
         });
     }
 
     public void stopStatusPush() {
+        ++statusGeneration;
         polling = false;
-        pushCallback = null;
         if (webSocket != null) {
             webSocket.cancel();
             webSocket = null;
@@ -207,8 +212,9 @@ public class DeviceApi {
      *
      * 关键取舍：这条指令是"按住持续走"语义，App 按 10Hz 重复发同一条。
      * 如果网络一慢就让请求在 OkHttp 队列里堆着，等恢复瞬间设备会连着执行一批
-     * 旧指令 —— 狗会突然自己动起来。所以这里<b>允许丢包、不允许堆积</b>：
-     * 上一条还没回来就直接丢掉当前这条，反正下 100ms 还会再发一次一样的。
+     * 旧指令 —— 狗会突然自己动起来。所以运动指令允许丢包、不允许堆积：
+     * 上一条还没回来就丢掉新的运动指令，反正下 100ms 还会再发一次。
+     * 停车指令例外：保留一条待发送的 stop，等在途请求结束后优先下发。
      */
     public void move(String dir, int speed, SimpleCallback callback) {
         if (baseUrl == null) {
@@ -216,6 +222,9 @@ public class DeviceApi {
             return;
         }
         if (moveInFlight) {
+            // 松手/onPause 的停车不能被 10Hz 运动请求吞掉；只保留最后一条停车，
+            // 保持最多一个请求在途，避免网络恢复后批量执行过期运动指令。
+            if ("stop".equals(dir)) pendingStopCallback = callback;
             return;
         }
         moveInFlight = true;
@@ -232,8 +241,7 @@ public class DeviceApi {
         client.newCall(request).enqueue(new okhttp3.Callback() {
             @Override
             public void onFailure(okhttp3.Call call, java.io.IOException e) {
-                moveInFlight = false;
-                mainHandler.post(() -> callback.onResult(false, "连接失败：" + e.getMessage()));
+                mainHandler.post(() -> finishMove(callback, false, "连接失败：" + e.getMessage()));
             }
 
             @Override
@@ -242,20 +250,23 @@ public class DeviceApi {
                     String respBody = response.body() != null ? response.body().string() : "";
                     boolean ok = response.isSuccessful() && !respBody.contains("\"ok\":false");
                     String msg = respBody.isEmpty() ? ("HTTP " + response.code()) : respBody;
-                    mainHandler.post(() -> {
-                        moveInFlight = false;
-                        callback.onResult(ok, msg);
-                    });
+                    mainHandler.post(() -> finishMove(callback, ok, msg));
                 } catch (Exception e) {
-                    mainHandler.post(() -> {
-                        moveInFlight = false;
-                        callback.onResult(false, "解析失败：" + e.getMessage());
-                    });
+                    mainHandler.post(() -> finishMove(callback, false, "解析失败：" + e.getMessage()));
                 } finally {
                     response.close();
                 }
             }
         });
+    }
+
+    private void finishMove(SimpleCallback callback, boolean ok, String message) {
+        moveInFlight = false;
+        SimpleCallback stopCallback = pendingStopCallback;
+        pendingStopCallback = null;
+        // 先下发积压的停车，再通知旧运动指令的回调，避免回调又发新运动抢在停车前面。
+        if (stopCallback != null) move("stop", 0, stopCallback);
+        callback.onResult(ok, message);
     }
 
     /**
