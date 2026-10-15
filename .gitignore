@@ -14,6 +14,9 @@ firmware/xiaozhi-esp32/dependencies.lock
 android/build/
 android/app/build/
 output/0a5714d2-*/
+# output/ 是暂存/交付目录，里面的 APK 是构建产物（7.5MB），别进仓库；
+# 真要归档某个版本用 git tag + 重新构建，不要塞二进制。
+output/*.apk
 
 # ===== 上游只读参考（19MB，与原项目重复；上游版本记录在 README）=====
 vendor/
