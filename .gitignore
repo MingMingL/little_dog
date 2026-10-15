@@ -3,7 +3,6 @@
 .gradle-home/
 firmware/.idf-component-cache/
 firmware/.build-tmp/
-firmware/.ccache/
 android/.gradle/
 android/local.properties
 

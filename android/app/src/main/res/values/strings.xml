@@ -41,6 +41,13 @@
     <string name="action_setup">设置</string>
     <string name="hint_mode_switch">切换模式</string>
 
+    <!-- 操作结果提示 -->
+    <string name="msg_stop_failed">停车失败：%1$s</string>
+    <string name="msg_estop_ok">已急停</string>
+    <string name="msg_estop_failed">急停失败：%1$s</string>
+    <string name="msg_mode_switched">已切换到%1$s</string>
+    <string name="msg_mode_failed">切换失败：%1$s</string>
+
     <!-- 设置页 -->
     <string name="hint_device_ip">设备 IP（如 192.168.1.50）</string>
     <string name="hint_ssid">Wi-Fi 名称</string>
@@ -50,4 +57,6 @@
     <string name="msg_saved">已保存</string>
     <string name="msg_ip_required">请先填写设备 IP</string>
     <string name="msg_provision_ok">配网指令已下发，设备将尝试连接</string>
+    <string name="msg_provision_failed">下发失败：%1$s</string>
+    <string name="msg_ssid_required">请填写 Wi-Fi 名称</string>
 </resources>

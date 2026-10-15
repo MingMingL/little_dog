@@ -41,7 +41,8 @@ enum class MoveDirection {
     RotateRight,  // 原地右转
 };
 
-const char* MoveDirectionToString(MoveDirection dir);
+// 方向只需要"字符串 -> 枚举"这一向：设备收 App 的指令才需要解析，
+// 反序列化方向（枚举 -> 字符串）没有任何调用方，别留死代码。
 bool MoveDirectionFromString(const std::string& text, MoveDirection& out);
 
 /** 一条遥控指令：方向 + 速度百分比（0..100） */
@@ -80,7 +81,6 @@ public:
     void Start();
     /** 停止 HTTP 服务（进入配网热点模式前必须调用） */
     void Stop();
-    bool IsRunning() const { return server_ != nullptr; }
 
     // ---- 状态（线程安全） ----
     Mode GetMode() const;

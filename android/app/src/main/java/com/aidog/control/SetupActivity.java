@@ -1,7 +1,6 @@
 package com.aidog.control;
 
 import android.app.Activity;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.Toast;
 
@@ -16,12 +15,9 @@ import com.aidog.control.databinding.ActivitySetupBinding;
  */
 public class SetupActivity extends AppCompatActivity {
 
-    private static final String PREFS = "ai_dog";
-    private static final String KEY_IP = "device_ip";
-
     private ActivitySetupBinding binding;
     private DeviceApi api;
-    private SharedPreferences prefs;
+    private Prefs prefs;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,10 +26,10 @@ public class SetupActivity extends AppCompatActivity {
         setContentView(binding.getRoot());
         setTitle(R.string.title_setup);
 
-        prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        prefs = new Prefs(this);
         api = new DeviceApi();
 
-        binding.editDeviceIp.setText(prefs.getString(KEY_IP, ""));
+        binding.editDeviceIp.setText(prefs.getDeviceIp());
 
         binding.buttonSave.setOnClickListener(v -> saveIp());
         binding.buttonProvision.setOnClickListener(v -> provision());
@@ -45,7 +41,7 @@ public class SetupActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.msg_ip_required, Toast.LENGTH_SHORT).show();
             return;
         }
-        prefs.edit().putString(KEY_IP, ip).apply();
+        prefs.setDeviceIp(ip);
         Toast.makeText(this, R.string.msg_saved, Toast.LENGTH_SHORT).show();
         // 带回 RESULT_OK，MainActivity 据此判断"配置完成"而不是"用户放弃"
         setResult(Activity.RESULT_OK);
@@ -62,7 +58,7 @@ public class SetupActivity extends AppCompatActivity {
             return;
         }
         if (ssid.isEmpty()) {
-            binding.editSsid.setError("请填写 Wi-Fi 名称");
+            binding.editSsid.setError(getString(R.string.msg_ssid_required));
             return;
         }
 
@@ -72,11 +68,12 @@ public class SetupActivity extends AppCompatActivity {
             binding.buttonProvision.setEnabled(true);
             if (ok) {
                 // 成功时 message 可能是新 IP，也可能是原始响应体
-                prefs.edit().putString(KEY_IP, ip).apply();
-                Toast.makeText(this, R.string.msg_provision_ok + "（" + message + "）",
+                prefs.setDeviceIp(ip);
+                Toast.makeText(this, getString(R.string.msg_provision_ok) + "（" + message + "）",
                         Toast.LENGTH_LONG).show();
             } else {
-                Toast.makeText(this, "下发失败：" + message, Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.msg_provision_failed, message),
+                        Toast.LENGTH_LONG).show();
             }
         });
     }
