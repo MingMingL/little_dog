@@ -18,6 +18,7 @@ import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+BOOT_TIME = time.monotonic()
 STATE = {"mode": "idle"}
 STATS = {"moves": 0, "first": None, "last": None, "last_dir": None, "last_speed": None}
 
@@ -43,7 +44,7 @@ class Handler(BaseHTTPRequestHandler):
                 "charging": False,
                 "wifi": {"ssid": "SimDog", "rssi": -55},
                 "fault": None,
-                "uptime": int(time.time()),
+                "uptime": int(time.monotonic() - BOOT_TIME),
             })
             return
         self._json({"ok": False, "error": "unknown path"}, 404)
@@ -52,8 +53,11 @@ class Handler(BaseHTTPRequestHandler):
         n = int(self.headers.get("Content-Length") or 0)
         raw = self.rfile.read(n) if n else b""
         try:
-            return json.loads(raw.decode("utf-8")), None
-        except Exception:
+            data = json.loads(raw.decode("utf-8"))
+            if not isinstance(data, dict):
+                return None, "invalid json"
+            return data, None
+        except (UnicodeDecodeError, json.JSONDecodeError):
             return None, "invalid json"
 
     def do_POST(self):
@@ -67,9 +71,11 @@ class Handler(BaseHTTPRequestHandler):
             if mode not in ("idle", "chat", "patrol", "guard", "remote"):
                 self._json({"ok": False, "error": "invalid mode"})
                 return
+            if mode != STATE["mode"]:
+                # 切模式时固件会停车；再次进入 remote 不能沿用上一轮的 moving 状态。
+                STATS["last_dir"] = "stop"
+                STATS["first"] = None
             STATE["mode"] = mode
-            if mode != "remote":
-                STATS["moves"] = STATS.get("moves", 0)
             print("[mode] -> %s" % mode, flush=True)
             self._json({"ok": True, "mode": mode})
             return
@@ -77,6 +83,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path.startswith("/api/stop"):
             STATE["mode"] = "idle"
             STATS["last_dir"] = "stop"
+            STATS["first"] = None
             print("[stop] 急停：回到 idle", flush=True)
             self._json({"ok": True})
             return
@@ -87,7 +94,7 @@ class Handler(BaseHTTPRequestHandler):
             valid = ("stop", "forward", "backward", "left", "right",
                      "rotate_left", "rotate_right")
             if d not in valid:
-                self._json({"ok": False, "error": "invalid dir"}, )
+                self._json({"ok": False, "error": "invalid dir"})
                 return
             if STATE["mode"] != "remote":
                 # 和真机一致：非遥控模式拒绝，让 App 弹提示
@@ -101,7 +108,9 @@ class Handler(BaseHTTPRequestHandler):
             STATS["last"] = now
             STATS["last_dir"] = d
             STATS["last_speed"] = speed
-            hold = (now - STATS["first"]) if STATS["moves"] > 1 else 0.0
+            hold = (now - STATS["first"]) if STATS["first"] is not None else 0.0
+            if d == "stop":
+                STATS["first"] = None
             print("[move] #%-3d %-13s speed=%-3s  按住 %.2fs" % (STATS["moves"], d, speed, hold), flush=True)
             self._json({"ok": True})
             return

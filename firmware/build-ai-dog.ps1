@@ -29,8 +29,8 @@ $ErrorActionPreference = "Stop"
 # Wrapper around idf.py. idf.py writes Kconfig NOTEs and compiler warnings to
 # stderr; with $ErrorActionPreference = "Stop" PowerShell turns that into a
 # NativeCommandError and kills this script mid-configure, which looks like a
-# build failure even though configure just succeeded. So switch to Continue
-# around the call and let the exit code at the bottom decide success.
+# build failure even though configure just succeeded. Check every invocation's
+# exit code immediately so a failed set-target cannot be masked by build.
 # NOTE: keep the comment block above as ASCII only (same reason as the file
 # header) - PS 5.1 reads .ps1 without BOM as GBK, so UTF-8 Chinese comments
 # get mis-decoded into stray quotes/braces and break the parser entirely.
@@ -39,9 +39,17 @@ function Invoke-Idf {
         [Parameter(ValueFromRemainingArguments = $true)]
         [string[]]$IdfArgs
     )
+    $previousPreference = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
-    & idf.py @IdfArgs 2>&1
-    $ErrorActionPreference = "Stop"
+    try {
+        & idf.py @IdfArgs 2>&1
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+    if ($exitCode -ne 0) {
+        throw "idf.py $($IdfArgs -join ' ') failed (exit $exitCode)"
+    }
 }
 
 $IdfActivate = "C:\Espressif\tools\Microsoft.v6.1.PowerShell_profile.ps1"
@@ -82,6 +90,8 @@ New-Item -ItemType Directory -Force -Path $BuildTmp, $BuildCache | Out-Null
 $env:TMP = $BuildTmp
 $env:TEMP = $BuildTmp
 $env:CCACHE_DIR = $BuildCache
+# ccache adds another scratch path and brings no benefit on the first build.
+$env:CCACHE_DISABLE = "1"
 
 switch ($Action) {
     "build" {
@@ -98,8 +108,4 @@ switch ($Action) {
     "reconfigure" { Invoke-Idf reconfigure }
 }
 
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "==> idf.py $Action failed (exit $LASTEXITCODE)" -ForegroundColor Red
-    exit $LASTEXITCODE
-}
 Write-Host "==> idf.py $Action done" -ForegroundColor Green
