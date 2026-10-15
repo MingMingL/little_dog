@@ -19,6 +19,21 @@
     <string name="mode_chat">聊天</string>
     <string name="mode_patrol">巡逻</string>
     <string name="mode_guard">看门</string>
+    <string name="mode_remote">遥控</string>
+
+    <!-- 遥控 -->
+    <string name="hint_remote">按住方向键控制，松手即停（仅遥控模式可用）</string>
+    <string name="dir_forward">↑\n前进</string>
+    <string name="dir_backward">↓\n后退</string>
+    <string name="dir_turn_left">↖\n左转</string>
+    <string name="dir_turn_right">↗\n右转</string>
+    <string name="dir_rotate_left">↺\n原地左</string>
+    <string name="dir_rotate_right">↻\n原地右</string>
+    <string name="label_speed">速度</string>
+    <string name="msg_remote_needed">请先切到“遥控”模式</string>
+    <string name="msg_remote_rejected">指令被拒绝：%1$s</string>
+    <string name="remote_active">遥控中：按住方向键，松手即停</string>
+    <string name="remote_inactive">当前不是遥控模式，方向键不可用</string>
 
     <!-- 操作 -->
     <string name="action_emergency_stop">急停</string>

@@ -11,4 +11,19 @@
         <item name="colorAccent">@color/accent</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>
+
+    <!--
+        遥控方向按钮的共用样式：三个一行，等宽。
+        宽高在元素上还会再显式写一遍 —— 布局里漏写 layout_width/height 是
+        aapt 构建期不检查、只有 inflate 时才炸的错误，双写最稳。
+    -->
+    <style name="RemoteButton" parent="Widget.MaterialComponents.Button">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">64dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:minHeight">0dp</item>
+        <item name="android:paddingLeft">0dp</item>
+        <item name="android:paddingRight">0dp</item>
+    </style>
 </resources>

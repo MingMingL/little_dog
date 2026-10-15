@@ -8,7 +8,7 @@ import com.google.gson.annotations.SerializedName;
  */
 public class DeviceStatus {
 
-    /** idle | chat | patrol | guard */
+    /** idle | chat | patrol | guard | remote */
     @SerializedName("mode")
     public String mode;
 
@@ -49,6 +49,7 @@ public class DeviceStatus {
             case "chat":   return "聊天";
             case "patrol": return "巡逻";
             case "guard":  return "看门";
+            case "remote": return "遥控";
             default:       return mode;
         }
     }

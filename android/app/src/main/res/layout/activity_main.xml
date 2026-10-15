@@ -227,6 +227,152 @@
                 android:text="@string/mode_guard" />
         </LinearLayout>
 
+        <!-- 遥控模式（独占一行：只有切到这个模式，下面的方向键才生效） -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/button_mode_remote"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/mode_remote" />
+
+        <!-- 遥控方向键 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="遥控"
+            android:textColor="@color/primary"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:id="@+id/text_remote_hint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/remote_inactive"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+
+                <!-- 第一行：左转 / 前进 / 右转 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/button_turn_left"
+                        style="@style/RemoteButton"
+                        android:layout_width="0dp"
+                        android:layout_height="64dp"
+                        android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        android:text="@string/dir_turn_left" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/button_forward"
+                        style="@style/RemoteButton"
+                        android:layout_width="0dp"
+                        android:layout_height="64dp"
+                        android:layout_marginStart="4dp"
+                        android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        android:backgroundTint="@color/primary"
+                        android:text="@string/dir_forward" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/button_turn_right"
+                        style="@style/RemoteButton"
+                        android:layout_width="0dp"
+                        android:layout_height="64dp"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:text="@string/dir_turn_right" />
+                </LinearLayout>
+
+                <!-- 第二行：原地左转 / 后退 / 原地右转 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/button_rotate_left"
+                        style="@style/RemoteButton"
+                        android:layout_width="0dp"
+                        android:layout_height="64dp"
+                        android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        android:text="@string/dir_rotate_left" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/button_backward"
+                        style="@style/RemoteButton"
+                        android:layout_width="0dp"
+                        android:layout_height="64dp"
+                        android:layout_marginStart="4dp"
+                        android:layout_marginEnd="4dp"
+                        android:layout_weight="1"
+                        android:text="@string/dir_backward" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/button_rotate_right"
+                        style="@style/RemoteButton"
+                        android:layout_width="0dp"
+                        android:layout_height="64dp"
+                        android:layout_marginStart="4dp"
+                        android:layout_weight="1"
+                        android:text="@string/dir_rotate_right" />
+                </LinearLayout>
+
+                <!-- 速度 -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/label_speed"
+                        android:textColor="@color/text_secondary" />
+
+                    <TextView
+                        android:id="@+id/text_speed"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="end"
+                        android:text="60%"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/seek_speed"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:max="100"
+                    android:progress="60" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- 急停 -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/button_stop"

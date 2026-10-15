@@ -53,6 +53,9 @@ public class DeviceApi {
     private boolean polling = false;
     private StatusCallback pushCallback;
 
+    /** 是否有遥控指令还在途（见 move() 的"允许丢包、不允许堆积"说明） */
+    private volatile boolean moveInFlight = false;
+
     public DeviceApi() {
         client = new OkHttpClient.Builder()
                 .connectTimeout(3, TimeUnit.SECONDS)
@@ -191,6 +194,68 @@ public class DeviceApi {
     /** 急停：最高优先级，设备应立即停电机并回到 idle */
     public void emergencyStop(SimpleCallback callback) {
         post("/api/stop", "{}", callback);
+    }
+
+    // ------------------------------------------------------------------
+    // 遥控运动指令
+    // ------------------------------------------------------------------
+
+    /**
+     * 遥控运动：dir = stop|forward|backward|left|right|rotate_left|rotate_right，speed = 0..100。
+     *
+     * 设备只在 remote 模式接受，其它模式会回 ok:false（界面据此提示用户）。
+     *
+     * 关键取舍：这条指令是"按住持续走"语义，App 按 10Hz 重复发同一条。
+     * 如果网络一慢就让请求在 OkHttp 队列里堆着，等恢复瞬间设备会连着执行一批
+     * 旧指令 —— 狗会突然自己动起来。所以这里<b>允许丢包、不允许堆积</b>：
+     * 上一条还没回来就直接丢掉当前这条，反正下 100ms 还会再发一次一样的。
+     */
+    public void move(String dir, int speed, SimpleCallback callback) {
+        if (baseUrl == null) {
+            callback.onResult(false, "未设置设备 IP");
+            return;
+        }
+        if (moveInFlight) {
+            return;
+        }
+        moveInFlight = true;
+
+        JsonObject json = new JsonObject();
+        json.addProperty("dir", dir);
+        json.addProperty("speed", speed);
+
+        Request request = new Request.Builder()
+                .url(baseUrl + "/api/move")
+                .post(RequestBody.create(json.toString(), JSON))
+                .build();
+
+        client.newCall(request).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, java.io.IOException e) {
+                moveInFlight = false;
+                mainHandler.post(() -> callback.onResult(false, "连接失败：" + e.getMessage()));
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, Response response) {
+                try {
+                    String respBody = response.body() != null ? response.body().string() : "";
+                    boolean ok = response.isSuccessful() && !respBody.contains("\"ok\":false");
+                    String msg = respBody.isEmpty() ? ("HTTP " + response.code()) : respBody;
+                    mainHandler.post(() -> {
+                        moveInFlight = false;
+                        callback.onResult(ok, msg);
+                    });
+                } catch (Exception e) {
+                    mainHandler.post(() -> {
+                        moveInFlight = false;
+                        callback.onResult(false, "解析失败：" + e.getMessage());
+                    });
+                } finally {
+                    response.close();
+                }
+            }
+        });
     }
 
     /**
