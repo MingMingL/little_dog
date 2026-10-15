@@ -45,19 +45,6 @@ bool ModeFromString(const std::string& text, Mode& out) {
     return false;
 }
 
-const char* MoveDirectionToString(MoveDirection dir) {
-    switch (dir) {
-        case MoveDirection::Stop:         return "stop";
-        case MoveDirection::Forward:      return "forward";
-        case MoveDirection::Backward:     return "backward";
-        case MoveDirection::Left:         return "left";
-        case MoveDirection::Right:        return "right";
-        case MoveDirection::RotateLeft:   return "rotate_left";
-        case MoveDirection::RotateRight:  return "rotate_right";
-        default:                          return "stop";
-    }
-}
-
 bool MoveDirectionFromString(const std::string& text, MoveDirection& out) {
     if (text == "stop")         { out = MoveDirection::Stop;         return true; }
     if (text == "forward")      { out = MoveDirection::Forward;      return true; }
@@ -217,13 +204,8 @@ void ControlServer::WatchdogCallback(void* arg) {
     }
 
     if (handler) {
-        // 用显式构造：MoveCommand 带默认成员初始值，聚合初始化在 C++17 里虽然合法，
-        // 但显式写更直白，也不会踩编译器的警告
-        MoveCommand stop;
-        stop.direction = MoveDirection::Stop;
-        stop.speed = 0;
         ESP_LOGW(TAG, "遥控看门狗超时（%lld ms 无指令），自动停车", kMoveTimeoutUs / 1000);
-        handler(stop);
+        handler(MoveCommand{MoveDirection::Stop, 0});
     }
 }
 
@@ -283,6 +265,12 @@ static std::string ReadRequestBody(httpd_req_t* req) {
     return body;
 }
 
+/** 读 body 并解析；解析失败返回 nullptr，由调用方统一回 invalid json */
+static cJSON* ParseJsonBody(httpd_req_t* req) {
+    std::string body = ReadRequestBody(req);
+    return cJSON_Parse(body.c_str());
+}
+
 static void SendJson(httpd_req_t* req, cJSON* root) {
     httpd_resp_set_type(req, "application/json");
     char* text = cJSON_PrintUnformatted(root);
@@ -301,6 +289,14 @@ static void SendResult(httpd_req_t* req, bool ok, const char* error) {
     if (!ok && error != nullptr) {
         cJSON_AddStringToObject(root, "error", error);
     }
+    SendJson(req, root);
+}
+
+/** 成功且要带一个额外字段时用（切模式回 mode、配网回 ip），省得每处手搓一遍 */
+static void SendOkWith(httpd_req_t* req, const char* key, const char* value) {
+    cJSON* root = cJSON_CreateObject();
+    cJSON_AddBoolToObject(root, "ok", true);
+    cJSON_AddStringToObject(root, key, value);
     SendJson(req, root);
 }
 
@@ -349,9 +345,7 @@ esp_err_t ControlServer::StatusHandler(httpd_req_t* req) {
 }
 
 esp_err_t ControlServer::ModeHandler(httpd_req_t* req) {
-    std::string body = ReadRequestBody(req);
-
-    cJSON* root = cJSON_Parse(body.c_str());
+    cJSON* root = ParseJsonBody(req);
     if (root == nullptr) {
         SendResult(req, false, "invalid json");
         return ESP_OK;
@@ -368,10 +362,7 @@ esp_err_t ControlServer::ModeHandler(httpd_req_t* req) {
 
     GetInstance().SetMode(mode);
 
-    cJSON* resp = cJSON_CreateObject();
-    cJSON_AddBoolToObject(resp, "ok", true);
-    cJSON_AddStringToObject(resp, "mode", ModeToString(mode));
-    SendJson(req, resp);
+    SendOkWith(req, "mode", ModeToString(mode));
     return ESP_OK;
 }
 
@@ -382,9 +373,7 @@ esp_err_t ControlServer::StopHandler(httpd_req_t* req) {
 }
 
 esp_err_t ControlServer::MoveHandler(httpd_req_t* req) {
-    std::string body = ReadRequestBody(req);
-
-    cJSON* root = cJSON_Parse(body.c_str());
+    cJSON* root = ParseJsonBody(req);
     if (root == nullptr) {
         SendResult(req, false, "invalid json");
         return ESP_OK;
@@ -416,9 +405,7 @@ esp_err_t ControlServer::MoveHandler(httpd_req_t* req) {
 }
 
 esp_err_t ControlServer::WifiHandler(httpd_req_t* req) {
-    std::string body = ReadRequestBody(req);
-
-    cJSON* root = cJSON_Parse(body.c_str());
+    cJSON* root = ParseJsonBody(req);
     if (root == nullptr) {
         SendResult(req, false, "invalid json");
         return ESP_OK;
@@ -445,10 +432,7 @@ esp_err_t ControlServer::WifiHandler(httpd_req_t* req) {
     WifiManager::GetInstance().StartStation();
 
     // IP 要等连接成功才有，这里先返回空串，App 会按"已下发"处理
-    cJSON* resp = cJSON_CreateObject();
-    cJSON_AddBoolToObject(resp, "ok", true);
-    cJSON_AddStringToObject(resp, "ip", "");
-    SendJson(req, resp);
+    SendOkWith(req, "ip", "");
     return ESP_OK;
 }
 

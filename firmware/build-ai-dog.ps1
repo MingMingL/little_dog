@@ -10,6 +10,7 @@
 #   .\build-ai-dog.ps1 -Action menuconfig           # Kconfig menu
 #   .\build-ai-dog.ps1 -Action fullclean            # clean build dir
 #   .\build-ai-dog.ps1 -Action reconfigure          # re-run cmake configure
+#   .\build-ai-dog.ps1 -Jobs 4                      # build with 4 ninja jobs
 #
 # IMPORTANT: run reconfigure after ADDING a new source file under
 #   main/boards/ai-dog-s3/
@@ -21,7 +22,8 @@
 param(
     [ValidateSet("build", "flash", "monitor", "menuconfig", "fullclean", "reconfigure")]
     [string]$Action = "build",
-    [string]$Port = "COM3"
+    [string]$Port = "COM3",
+    [int]$Jobs = 2
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,9 +33,6 @@ $ErrorActionPreference = "Stop"
 # NativeCommandError and kills this script mid-configure, which looks like a
 # build failure even though configure just succeeded. Check every invocation's
 # exit code immediately so a failed set-target cannot be masked by build.
-# NOTE: keep the comment block above as ASCII only (same reason as the file
-# header) - PS 5.1 reads .ps1 without BOM as GBK, so UTF-8 Chinese comments
-# get mis-decoded into stray quotes/braces and break the parser entirely.
 function Invoke-Idf {
     param(
         [Parameter(ValueFromRemainingArguments = $true)]
@@ -82,16 +81,38 @@ $env:IDF_COMPONENT_CACHE_PATH = Join-Path $PSScriptRoot ".idf-component-cache"
 $env:CODEBUDDY_SAFE_DELETE_ENABLED = "0"
 
 # Keep compiler scratch files inside the workspace. The toolchain writes to
-# %TEMP% and the ccache dir (both outside the project), which get denied when
-# the sandbox turns them away mid-build; local dirs avoid that entirely.
+# %TEMP% (outside the project), which gets denied when the sandbox turns it
+# away mid-build; a local dir avoids that entirely.
 $BuildTmp = Join-Path $PSScriptRoot ".build-tmp"
-$BuildCache = Join-Path $PSScriptRoot ".ccache"
-New-Item -ItemType Directory -Force -Path $BuildTmp, $BuildCache | Out-Null
+New-Item -ItemType Directory -Force -Path $BuildTmp | Out-Null
 $env:TMP = $BuildTmp
 $env:TEMP = $BuildTmp
-$env:CCACHE_DIR = $BuildCache
-# ccache adds another scratch path and brings no benefit on the first build.
+# ccache is off: it only adds another out-of-project scratch path and brings no
+# benefit to a single-board build. (Keep CCACHE_DIR out of here too - dead knob.)
 $env:CCACHE_DISABLE = "1"
+
+# Cap ninja parallelism: left to itself it uses CPU+2 jobs, which is more
+# concurrent than this machine/sandbox handles gracefully. -j2 is plenty for an
+# incremental board build and is reproducible; raise it with -Jobs.
+$env:IDF_PY_BUILD_JOBS = $Jobs
+
+# Run ninja directly instead of "idf.py build". idf.py wraps ninja's stdout in a
+# Python pipe; in this environment that pipe makes ninja die mid-build with
+# "CreateProcess failed: The system cannot find the file specified" and
+# "ninja: error: exception: 0xC0000005" - a false build failure that looks like a
+# code error. Calling ninja ourselves (same env, same build dir) is reliable.
+function Invoke-Ninja {
+    param([int]$Jobs)
+    Push-Location (Join-Path $Project "build")
+    try {
+        & ninja -j $Jobs all
+        if ($LASTEXITCODE -ne 0) {
+            throw "ninja failed (exit $LASTEXITCODE)"
+        }
+    } finally {
+        Pop-Location
+    }
+}
 
 switch ($Action) {
     "build" {
@@ -99,7 +120,7 @@ switch ($Action) {
             Write-Host "==> First build: setting target esp32s3" -ForegroundColor Cyan
             Invoke-Idf set-target esp32s3
         }
-        Invoke-Idf build
+        Invoke-Ninja -Jobs $Jobs
     }
     "flash"       { Invoke-Idf -p $Port flash }
     "monitor"     { Invoke-Idf -p $Port monitor }
@@ -108,4 +129,4 @@ switch ($Action) {
     "reconfigure" { Invoke-Idf reconfigure }
 }
 
-Write-Host "==> idf.py $Action done" -ForegroundColor Green
+Write-Host "==> $Action done" -ForegroundColor Green

@@ -41,8 +41,8 @@ public class DeviceStatus {
         public int rssi;
     }
 
-    /** 转成界面上显示的中文模式名 */
-    public String modeLabel() {
+    /** 转成界面上显示的中文模式名。界面提示语也要用同一个映射，避免两处各写一套 */
+    public static String modeLabel(String mode) {
         if (mode == null) return "未知";
         switch (mode) {
             case "idle":   return "待机";
@@ -52,6 +52,10 @@ public class DeviceStatus {
             case "remote": return "遥控";
             default:       return mode;
         }
+    }
+
+    public String modeLabel() {
+        return modeLabel(mode);
     }
 
     public String batteryLabel() {

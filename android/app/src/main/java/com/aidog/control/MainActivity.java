@@ -1,7 +1,6 @@
 package com.aidog.control;
 
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -19,20 +18,23 @@ import com.aidog.control.databinding.ActivityMainBinding;
 import com.aidog.control.model.DeviceStatus;
 import com.google.android.material.button.MaterialButton;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 /**
  * 主控界面：状态面板 + 模式切换 + 急停。
  * 设备 IP 存在 SharedPreferences，没配置过就跳设置页。
  */
 public class MainActivity extends AppCompatActivity {
 
-    private static final String PREFS = "ai_dog";
-    private static final String KEY_IP = "device_ip";
-
     private ActivityMainBinding binding;
     private DeviceApi api;
-    private SharedPreferences prefs;
+    private Prefs prefs;
 
     private String currentMode = "idle";
+
+    /** 模式名 -> 按钮。既用来打 tag 分发点击，也用来高亮，避免两处各列一遍按钮 */
+    private final Map<String, MaterialButton> modeButtons = new LinkedHashMap<>();
 
     // ---- 遥控状态 ----
     /** 重复发送间隔：10Hz。设备端看门狗是 1.5s，正常网络下绝不超时 */
@@ -55,7 +57,7 @@ public class MainActivity extends AppCompatActivity {
     private final ActivityResultLauncher<Intent> setupLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
                     result -> {
-                        if (prefs.getString(KEY_IP, "").isEmpty()) {
+                        if (!prefs.hasDeviceIp()) {
                             finish();
                         }
                     });
@@ -66,7 +68,7 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        prefs = new Prefs(this);
         api = new DeviceApi();
 
         setupModeButtons();
@@ -74,7 +76,7 @@ public class MainActivity extends AppCompatActivity {
         setupRemote();
 
         // 只在首次创建时引导一次，交给 launcher 收结果；onResume 不再重复拉起
-        if (prefs.getString(KEY_IP, "").isEmpty()) {
+        if (!prefs.hasDeviceIp()) {
             setupLauncher.launch(new Intent(this, SetupActivity.class));
         }
     }
@@ -82,7 +84,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        String ip = prefs.getString(KEY_IP, "");
+        String ip = prefs.getDeviceIp();
         if (ip.isEmpty()) {
             // 没配置 IP：不再自动拉起设置页（否则返回手势会被死循环吃掉），
             // 只显示未配置状态，退出动作交给系统返回键 / 侧滑手势
@@ -104,23 +106,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupModeButtons() {
+        modeButtons.put("idle", binding.buttonModeIdle);
+        modeButtons.put("chat", binding.buttonModeChat);
+        modeButtons.put("patrol", binding.buttonModePatrol);
+        modeButtons.put("guard", binding.buttonModeGuard);
+        modeButtons.put("remote", binding.buttonModeRemote);
+
         View.OnClickListener modeClick = v -> {
             String mode = (String) v.getTag();
             if (mode == null || mode.equals(currentMode)) return;
             setMode(mode);
         };
-
-        binding.buttonModeIdle.setTag("idle");
-        binding.buttonModeChat.setTag("chat");
-        binding.buttonModePatrol.setTag("patrol");
-        binding.buttonModeGuard.setTag("guard");
-        binding.buttonModeRemote.setTag("remote");
-
-        binding.buttonModeIdle.setOnClickListener(modeClick);
-        binding.buttonModeChat.setOnClickListener(modeClick);
-        binding.buttonModePatrol.setOnClickListener(modeClick);
-        binding.buttonModeGuard.setOnClickListener(modeClick);
-        binding.buttonModeRemote.setOnClickListener(modeClick);
+        for (Map.Entry<String, MaterialButton> entry : modeButtons.entrySet()) {
+            entry.getValue().setTag(entry.getKey());
+            entry.getValue().setOnClickListener(modeClick);
+        }
     }
 
     // ------------------------------------------------------------------
@@ -217,7 +217,8 @@ public class MainActivity extends AppCompatActivity {
         api.move("stop", 0, (ok, message) -> {
             // stop 失败也不用弹窗打扰：设备端看门狗 1.5s 后会自己停
             if (!ok) {
-                Toast.makeText(this, "停车失败：" + message, Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.msg_stop_failed, message),
+                        Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -241,7 +242,10 @@ public class MainActivity extends AppCompatActivity {
         binding.buttonStop.setOnClickListener(v -> {
             cancelMoveRepeat();   // 急停最高优先级，先把本地的重复发送掐掉
             api.emergencyStop((ok, message) -> {
-                Toast.makeText(this, ok ? "已急停" : ("急停失败：" + message), Toast.LENGTH_SHORT).show();
+                Toast.makeText(this,
+                        ok ? getString(R.string.msg_estop_ok)
+                           : getString(R.string.msg_estop_failed, message),
+                        Toast.LENGTH_SHORT).show();
                 if (ok) {
                     currentMode = "idle";
                     highlightMode(currentMode);
@@ -279,9 +283,11 @@ public class MainActivity extends AppCompatActivity {
                 currentMode = mode;
                 highlightMode(mode);
                 updateRemoteHint();
-                Toast.makeText(this, "已切换到" + modeLabel(mode), Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.msg_mode_switched, DeviceStatus.modeLabel(mode)),
+                        Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "切换失败：" + message, Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.msg_mode_failed, message),
+                        Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -311,19 +317,10 @@ public class MainActivity extends AppCompatActivity {
 
     /** 高亮当前模式按钮 */
     private void highlightMode(String mode) {
-        resetButton(binding.buttonModeIdle);
-        resetButton(binding.buttonModeChat);
-        resetButton(binding.buttonModePatrol);
-        resetButton(binding.buttonModeGuard);
-        resetButton(binding.buttonModeRemote);
-
-        MaterialButton target = null;
-        if ("idle".equals(mode)) target = binding.buttonModeIdle;
-        else if ("chat".equals(mode)) target = binding.buttonModeChat;
-        else if ("patrol".equals(mode)) target = binding.buttonModePatrol;
-        else if ("guard".equals(mode)) target = binding.buttonModeGuard;
-        else if ("remote".equals(mode)) target = binding.buttonModeRemote;
-
+        for (MaterialButton button : modeButtons.values()) {
+            resetButton(button);
+        }
+        MaterialButton target = modeButtons.get(mode);
         if (target != null) {
             target.setBackgroundColor(getColor(R.color.primary));
             target.setTextColor(getColor(android.R.color.white));
@@ -333,16 +330,5 @@ public class MainActivity extends AppCompatActivity {
     private void resetButton(MaterialButton button) {
         button.setBackgroundColor(getColor(android.R.color.darker_gray));
         button.setTextColor(getColor(android.R.color.white));
-    }
-
-    private String modeLabel(String mode) {
-        switch (mode) {
-            case "idle":   return "待机";
-            case "chat":   return "聊天";
-            case "patrol": return "巡逻";
-            case "guard":  return "看门";
-            case "remote": return "遥控";
-            default:       return mode;
-        }
     }
 }

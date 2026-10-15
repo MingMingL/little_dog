@@ -233,31 +233,7 @@ public class DeviceApi {
         json.addProperty("dir", dir);
         json.addProperty("speed", speed);
 
-        Request request = new Request.Builder()
-                .url(baseUrl + "/api/move")
-                .post(RequestBody.create(json.toString(), JSON))
-                .build();
-
-        client.newCall(request).enqueue(new okhttp3.Callback() {
-            @Override
-            public void onFailure(okhttp3.Call call, java.io.IOException e) {
-                mainHandler.post(() -> finishMove(callback, false, "连接失败：" + e.getMessage()));
-            }
-
-            @Override
-            public void onResponse(okhttp3.Call call, Response response) {
-                try {
-                    String respBody = response.body() != null ? response.body().string() : "";
-                    boolean ok = response.isSuccessful() && !respBody.contains("\"ok\":false");
-                    String msg = respBody.isEmpty() ? ("HTTP " + response.code()) : respBody;
-                    mainHandler.post(() -> finishMove(callback, ok, msg));
-                } catch (Exception e) {
-                    mainHandler.post(() -> finishMove(callback, false, "解析失败：" + e.getMessage()));
-                } finally {
-                    response.close();
-                }
-            }
-        });
+        enqueuePost("/api/move", json.toString(), (ok, message) -> finishMove(callback, ok, message));
     }
 
     private void finishMove(SimpleCallback callback, boolean ok, String message) {
@@ -299,6 +275,11 @@ public class DeviceApi {
             callback.onResult(false, "未设置设备 IP");
             return;
         }
+        enqueuePost(path, body, callback);
+    }
+
+    /** 真正发 POST 的地方：成功判定和回调上主线程只有这一份，别再复制一份给 /api/move */
+    private void enqueuePost(String path, String body, SimpleCallback callback) {
         Request request = new Request.Builder()
                 .url(baseUrl + path)
                 .post(RequestBody.create(body, JSON))
