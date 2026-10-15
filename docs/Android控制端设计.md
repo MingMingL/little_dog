@@ -101,7 +101,10 @@ android/
 
 要点：
 
-- 设备 IP 存 `SharedPreferences`，首次启动自动跳转设置页。
+- 设备 IP 存 `SharedPreferences`，首次启动（`onCreate`）通过 `ActivityResultLauncher` 拉起 `SetupActivity`；
+  回调里若 IP 仍为空说明用户放弃配置，主界面直接 `finish()` 退出 —— `onResume` 里
+  **不要**再无条件 `startActivity(SetupActivity)`，否则用户从设置页侧滑/返回后会被
+  立刻重新拉回去，App 永远退不出去。
 - 状态展示：在线/离线、当前模式、电量、Wi-Fi、故障原因。
 - 模式切换四个按钮；**急停按钮常驻且最高优先级**（红色，独立请求）。
 - 配网页填写 SSID/密码后下发，成功后自动更新保存的 IP。
