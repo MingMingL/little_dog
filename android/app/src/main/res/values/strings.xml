@@ -10,9 +10,15 @@
     <string name="label_wifi">Wi-Fi</string>
     <string name="label_fault">故障</string>
     <string name="value_unknown">未知</string>
+    <string name="value_none">无</string>
     <string name="status_online">在线</string>
     <string name="status_offline">离线</string>
     <string name="device_unset">设备：未设置（点右上角“设置”填写 IP）</string>
+    <string name="device_ip_value">设备：%1$s</string>
+    <!-- 分区标题：以前写在布局里的硬编码中文，和代码里的提示语是两套，改一处会漏一处 -->
+    <string name="section_status">状态</string>
+    <string name="section_remote">遥控</string>
+    <string name="speed_value">%1$d%%</string>
 
     <!-- 模式 -->
     <string name="mode_idle">待机</string>

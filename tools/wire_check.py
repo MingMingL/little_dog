@@ -72,8 +72,6 @@ def state_sets():
         for c in range(g.DEV_COL_FIRST, g.DEV_COL_LAST + 1):
             dev_occ.add("%s.%s%d" % (rk, rl, c))
     dev_blk = g.dev_blocked_rail_names()
-    for rk, rl in g.DEV_OCCUPIED.items():
-        pass
     return (set().union(*occ.values()) | dev_occ,
             set().union(*blk.values()) | dev_blk)
 
@@ -109,17 +107,13 @@ def wire_points(comp, w):
     else:
         p0 = g.endpoint_xy(comp, w["from"])
         p1 = g.endpoint_xy(comp, w["to"])
-        raw = g.wire_segments(p0, g_ctrl(w), p1, n=90)
+        raw = g.wire_segments(p0, w["ctrl"], p1, n=90)
     pts, s = [], 0.0
     for i, (x, y) in enumerate(raw):
         if i:
             s += math.hypot(x - raw[i - 1][0], y - raw[i - 1][1])
         pts.append((x, y, s))
     return pts
-
-
-def g_ctrl(w):
-    return w["ctrl"]
 
 
 def text_spots(comp_skip):
@@ -162,7 +156,6 @@ def main(ids):
         for wi, w in enumerate(comp["wires"]):
             pts = wire_points(comp, w)
             total = pts[-1][2]
-            wl = {(comp["id"], wi, name) for name, kind, data in obs if kind == "rect"}
             hits = {}
             for idx, (x, y, s) in enumerate(pts):
                 near_end = s < END_OK or (total - s) < END_OK   # 沿程近端放过（落孔连接必然接触）

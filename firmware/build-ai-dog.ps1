@@ -91,10 +91,8 @@ $env:TEMP = $BuildTmp
 # benefit to a single-board build. (Keep CCACHE_DIR out of here too - dead knob.)
 $env:CCACHE_DISABLE = "1"
 
-# Cap ninja parallelism: left to itself it uses CPU+2 jobs, which is more
-# concurrent than this machine/sandbox handles gracefully. -j2 is plenty for an
-# incremental board build and is reproducible; raise it with -Jobs.
-$env:IDF_PY_BUILD_JOBS = $Jobs
+# No IDF_PY_BUILD_JOBS: the build calls ninja directly (see Invoke-Ninja), so
+# that env var would be a dead knob. -Jobs goes straight to "ninja -j".
 
 # Run ninja directly instead of "idf.py build". idf.py wraps ninja's stdout in a
 # Python pipe; in this environment that pipe makes ninja die mid-build with

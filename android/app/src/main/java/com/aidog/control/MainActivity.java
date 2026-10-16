@@ -42,7 +42,7 @@ public class MainActivity extends AppCompatActivity {
     private final Handler moveHandler = new Handler(Looper.getMainLooper());
     private Runnable moveRepeat;
     private String holdingDir = null;   // 当前按住的方向，null 表示没在按
-    private int currentSpeed = 60;
+    private int currentSpeed;           // 初值直接取自 SeekBar，避免"默认值"在三处各写一遍
 
     /**
      * 设置页返回回调。
@@ -92,7 +92,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         api.setDeviceIp(ip);
-        binding.textDeviceIp.setText("设备：" + ip);
+        binding.textDeviceIp.setText(getString(R.string.device_ip_value, ip));
         startListening();
     }
 
@@ -128,6 +128,11 @@ public class MainActivity extends AppCompatActivity {
     // ------------------------------------------------------------------
 
     private void setupRemote() {
+        // 默认速度只有一处定义：布局里 SeekBar 的 android:progress。
+        // 这里读回来，省掉"Java 常量 + 布局初值 + 文案初值"三处各写一个 60 的老问题。
+        currentSpeed = binding.seekSpeed.getProgress();
+        updateSpeedLabel();
+
         bindDirButton(binding.buttonForward, "forward");
         bindDirButton(binding.buttonBackward, "backward");
         bindDirButton(binding.buttonTurnLeft, "left");
@@ -139,7 +144,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 currentSpeed = progress;
-                binding.textSpeed.setText(progress + "%");
+                updateSpeedLabel();
             }
 
             @Override
@@ -232,6 +237,10 @@ public class MainActivity extends AppCompatActivity {
         holdingDir = null;
     }
 
+    private void updateSpeedLabel() {
+        binding.textSpeed.setText(getString(R.string.speed_value, currentSpeed));
+    }
+
     /** 根据当前模式刷新遥控区提示：非遥控模式要明确告诉用户方向键为什么按不动 */
     private void updateRemoteHint() {
         boolean remote = "remote".equals(currentMode);
@@ -320,10 +329,11 @@ public class MainActivity extends AppCompatActivity {
         for (MaterialButton button : modeButtons.values()) {
             resetButton(button);
         }
+        // 文字颜色不用再设一遍：resetButton 已经把所有按钮刷成白色，
+        // 高亮只是换背景色，重复设同一个值是纯冗余。
         MaterialButton target = modeButtons.get(mode);
         if (target != null) {
             target.setBackgroundColor(getColor(R.color.primary));
-            target.setTextColor(getColor(android.R.color.white));
         }
     }
 

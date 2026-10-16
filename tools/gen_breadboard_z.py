@@ -654,9 +654,6 @@ def pin_label(pin):
 # 最左针伸出 1.81mm（伸不进邻舱本体），互不遮挡；TCRT2 本体右缘 112.51 < MAX 左缘 114.30。
 # 电源（用户决策 3V3）：VCC→上内轨 +、GND→上外轨 −（轨孔均避开 ESP32 板身遮挡区
 # x[80.65,137.8]；轨与 3V3/GND 网连通由元件 9 电源区完成，图例注明）。
-def make_tcrt(idx, board, rw, col0, gpio, kind):
-    """一只 TCRT5000 探头。kind: ("direct",None) DO 直连（针列即 GPIO 网列）；
-    ("jump", 落孔名, 走线方式) 跳线到 GPIO 同列网孔，方式=("ctrl",pt) 或 ("pts",点列)。"""
 def make_tcrt(idx, board, rw, col0, gpio, kind, gnd_pts=None, vcc_ctrl=None, flip=False):
     """一只 TCRT5000 探头。kind: ("direct",) DO 直连（针列即 GPIO 网列）；
     ("ctrl",落孔名,ctrl点) 或 ("pts",落孔名,点列)：DO 跳线到 GPIO 同列网孔。
