@@ -34,6 +34,14 @@ WHITELIST = {
     ("tcrt4", 2, "tcrt4_body"), ("tcrt4", 2, "tcrt5_body"),
     # TCRT2 的 VCC 弧线末端擦 TCRT1 本体右上角 0.6mm（物理贴板角走线）
     ("tcrt2", 0, "tcrt1_body"),
+    # VL53L0X 的 VIN/GND 线贴本体西南板身角走 0.3-1mm（针在板身下沿，物理同源）
+    ("vl53l0x", 0, "vl53l0x_body"), ("vl53l0x", 1, "vl53l0x_body"),
+    # TCRT5 的 VCC 弧线微穿自身本体左缘 0.35mm（出体绕向轨孔）
+    ("tcrt5", 0, "tcrt5_body"),
+    # TCRT3（翻转）VCC/GND 弧线从板身内针孔出发，贴 VL53 本体右缘上轨、微擦 TCRT5 左缘
+    ("tcrt3", 0, "tcrt3_body"), ("tcrt3", 0, "vl53l0x_body"),
+    ("tcrt3", 1, "tcrt3_body"), ("tcrt3", 1, "vl53l0x_body"),
+    ("tcrt3", 1, "tcrt5_body"),
 }
 HOLE_R = 0.5          # 孔圆半径
 WIRE_HALF = 0.5       # 线白底半宽
@@ -83,6 +91,9 @@ def obstacles():
         if comp["id"].startswith("tcrt"):
             x0, y0, w, h = comp["body"]
             obs.append(("%s_body" % comp["id"], "rect", (x0, y0, x0 + w, y0 + h)))
+        if comp["id"] == "vl53l0x":
+            x0, y0, w, h = comp["body"]
+            obs.append(("vl53l0x_body", "rect", (x0, y0, x0 + w, y0 + h)))
     return obs
 
 
@@ -168,6 +179,8 @@ def main(ids):
                 for name, kind, data in obs:
                     if (comp["id"], wi, name) in WHITELIST:
                         continue
+                    if near_end:
+                        continue                  # 针连接必然贴板身角，物理同源
                     if kind == "circle":
                         if math.hypot(x - data[0], y - data[1]) < data[2] + 0.3:
                             hits.setdefault("BODY:" + name, 0)
