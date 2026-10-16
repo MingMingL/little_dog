@@ -24,6 +24,16 @@ WHITELIST = {
     ("tb6612fng", 6, "max_body"),
     # BIN 竖带上段压 ESP32 板身 USB 座/按钮之间的裸板区（无丝印，深色底橙线可读）
     ("tb6612fng", 5, "dev_body"), ("tb6612fng", 6, "dev_body"),
+    # TCRT 各探头 GND/DO 线从板身内针孔出发，压自身本体一小段（针焊盘在板内，物理同源）
+    ("tcrt1", 1, "tcrt1_body"), ("tcrt1", 2, "tcrt1_body"),
+    ("tcrt2", 1, "tcrt2_body"), ("tcrt2", 2, "tcrt2_body"),
+    ("tcrt3", 1, "tcrt3_body"), ("tcrt3", 2, "tcrt3_body"),
+    ("tcrt4", 1, "tcrt4_body"),
+    ("tcrt5", 1, "tcrt5_body"),
+    # TCRT4 的 DO 长跳线斜穿 TCRT5 本体 6mm（TCRT5 本体该段无丝印）
+    ("tcrt4", 2, "tcrt4_body"), ("tcrt4", 2, "tcrt5_body"),
+    # TCRT2 的 VCC 弧线末端擦 TCRT1 本体右上角 0.6mm（物理贴板角走线）
+    ("tcrt2", 0, "tcrt1_body"),
 }
 HOLE_R = 0.5          # 孔圆半径
 WIRE_HALF = 0.5       # 线白底半宽
@@ -62,14 +72,18 @@ def state_sets():
 
 def obstacles():
     """其他元件本体/符号的近似几何 -> [(name, kind, data)]。"""
-    return [
+    obs = [
         ("inmp_body", "circle", (156.19, 27.30, 7.5)),
         ("max_body", "rect", (114.30, 17.10, 132.08, 36.19)),
         ("dev_body", "rect", (80.65, -13.34, 137.80, 14.60)),
         ("spk_symbol", "rect", (139.60, 16.10, 143.40, 19.90)),
         ("spk_text", "rect", (143.90, 20.50, 153.00, 21.50)),
-        ("mic_area_unused", "circle", (156.19, 27.30, 7.5)),
     ]
+    for comp in g.COMPONENTS:
+        if comp["id"].startswith("tcrt"):
+            x0, y0, w, h = comp["body"]
+            obs.append(("%s_body" % comp["id"], "rect", (x0, y0, x0 + w, y0 + h)))
+    return obs
 
 
 def wire_points(comp, w):

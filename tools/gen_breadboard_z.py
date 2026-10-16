@@ -148,9 +148,8 @@ FULL_SVG = os.path.join(OUT_DIR, "breadboard-z.svg")
 
 CANVAS_X0, CANVAS_Y0 = -8.0, -65.34   # 画布原点（与参考图一致，左侧/上侧留边距）
 CANVAS_W = 181.1
-CANVAS_H = 228.0                      # 下缘图例区：全图 14 行，末行基线 y=155.2
-                                     # （元件 3/9 TB6612 入图：图例 +2 行且整体下移 +36，
-                                     #  腾出板外区 y[55.5,93] 放电机驱动模块/电池/电机）
+CANVAS_H = 240.0                      # 下缘图例区：全图 16 行，末行基线 y=164.0
+                                     # （元件 4/9 TCRT5000 入图：图例 +2 行，末行 155.2→164.0）
 PX_W = 1120
 PX_H = int(round(PX_W * CANVAS_H / CANVAS_W))
 
@@ -596,7 +595,6 @@ TB6612FNG = {
         + text(150.0, 93.6, "M2 · 右轮", 1.0, "#374151", "middle", "mtr-label")
     ),
 }
-COMPONENTS = [INMP441, MAX98357A, TB6612FNG]
 
 
 def row_y(prefix, letter):
@@ -641,6 +639,133 @@ def pin_label(pin):
     return pin["lab"] if isinstance(pin, dict) else pin[2]
 
 
+# 元件 4/9：TCRT5000 五路巡线传感器（用户 2026-10-16 决策：分散阵列；VCC 接 3V3）
+# 实物（docs/source/TCRT5000.svg，Fritzing 零件判读，缩放 0.28227 mm/单位）：
+#   蓝板 24.15×11.09，左端单列 4 针 Vcc/Gnd/Do/Ao（针距 2.52≈2.54，针心在板身左缘外 0.88mm）。
+#   **单列针竖插会整列同网短接（铁律）→ 只能横躺占 4 连续列**；AO 针悬空（config.h 只读 DO）。
+# config.h：LINE_SENSOR_1..5 = GPIO17/18/38/39/40（数字量 DO，不占 ADC）：
+#   GPIO17/18 = k41/k42（Y 板，同列同网须落 l/m/n/o 行 41/42 列）
+#   GPIO38/39/40 = j41/j40/j39（X 板，同列同网须落 f/g/h/i 行 39/40/41 列）
+# X 板的线与 Y 板网跨不过拼接缝（两板导轨仅物理相邻）→ 探头分两排：
+#   排 1（Y 板）：TCRT1 n 行起列 20（GOIO17→DO 跳线 l41）、TCRT2 o 行起列 33（GPIO18→跳线 o42）
+#   排 2（X 板 f 行）：TCRT3 起列 27（GPIO40→跳线 i39）、TCRT4 起列 38（GPIO39，f40 与 j40
+#     同列同网**直连零跳线**）、TCRT5 起列 49（GPIO38→跳线 i41）
+# 起列 27/38/49 + 20/33：本体 24.15mm、起列间隔 11 列（27.94mm）→ 本体间隙 3.87mm、
+# 最左针伸出 1.81mm（伸不进邻舱本体），互不遮挡；TCRT2 本体右缘 112.51 < MAX 左缘 114.30。
+# 电源（用户决策 3V3）：VCC→上内轨 +、GND→上外轨 −（轨孔均避开 ESP32 板身遮挡区
+# x[80.65,137.8]；轨与 3V3/GND 网连通由元件 9 电源区完成，图例注明）。
+def make_tcrt(idx, board, rw, col0, gpio, kind):
+    """一只 TCRT5000 探头。kind: ("direct",None) DO 直连（针列即 GPIO 网列）；
+    ("jump", 落孔名, 走线方式) 跳线到 GPIO 同列网孔，方式=("ctrl",pt) 或 ("pts",点列)。"""
+def make_tcrt(idx, board, rw, col0, gpio, kind, gnd_pts=None, vcc_ctrl=None):
+    """一只 TCRT5000 探头。kind: ("direct",) DO 直连（针列即 GPIO 网列）；
+    ("ctrl",落孔名,ctrl点) 或 ("pts",落孔名,点列)：DO 跳线到 GPIO 同列网孔。
+    gnd_pts：覆盖 GND 线为 pts 折线（TCRT2 绕开麦克风 m32 落孔/标签与板身）；vcc_ctrl 同理可覆盖。"""
+    px0 = col_x(col0)
+    spine = px0 + 1.5 * PITCH                 # 4 针排中心
+    py = row_y(board, rw)                     # 针排行心
+    # 本体：板身中心在针排中心右侧 12.96mm（Fritzing 原型：板身中心 15.66 vs 针中心 2.70，
+    # 差 12.96）→ 板身左缘 = spine - 1.81（最左针心伸出板缘 1.81mm，后 3 针焊盘在板身内，
+    # 与真实小板一致；blocked 掩膜排除全部 4 针孔）
+    x0 = spine - 1.81
+    x1 = x0 + 24.15
+    y0, y1 = py - 5.55, py + 5.55
+    if idx == 2:
+        y0 = 18.95                            # 上缘抬 1.01：让开 MAX 信号落孔 m38/39/40（孔底 18.91）
+    # 电源轨目的地：就近轨孔（Y 板 top_* 需避开板身遮挡区 x[80.65,137.8]）
+    rail_vcc, rail_vcc_ctrl, rail_gnd, rail_gnd_ctrl = {
+        1: ("zy.top_inner_16", (50.5, 14.6), "zy.top_outer_15", (50.5, 13.2)),
+        2: ("zy.top_inner_23", (74.0, 13.0), "zy.top_outer_23", None),
+        3: ("zx.top_inner_21", (69.2, -33.6), "zx.top_outer_22", (71.6, -35.0)),
+        4: ("zx.top_inner_42", (131.5, -33.6), "zx.top_outer_44", (134.5, -35.0)),
+        5: ("zx.top_inner_31", (99.0, -33.6), "zx.top_outer_32", (100.9, -35.0)),
+    }[idx]
+    if vcc_ctrl is not None:
+        rail_vcc_ctrl = vcc_ctrl
+    wires = [
+        {"from": ("pin", 0), "to": ("hole", rail_vcc), "ctrl": rail_vcc_ctrl,
+         "cls": "wire_vcc", "label": None},
+    ]
+    if gnd_pts is not None:
+        wires.append({"from": ("pin", 1), "to": ("hole", rail_gnd), "pts": gnd_pts,
+                      "cls": "wire_gnd", "label": None})
+    else:
+        wires.append({"from": ("pin", 1), "to": ("hole", rail_gnd), "ctrl": rail_gnd_ctrl,
+                      "cls": "wire_gnd", "label": None})
+    if kind[0] == "ctrl":
+        wires.append({"from": ("pin", 2), "to": ("hole", kind[1]), "ctrl": kind[2],
+                      "cls": "wire_sig", "label": None})
+    elif kind[0] == "pts":
+        wires.append({"from": ("pin", 2), "to": ("hole", kind[1]), "pts": kind[2],
+                      "cls": "wire_sig", "label": None})
+    # kind == ("direct",) 时 DO 针与 ESP32 针同列同网，零跳线
+    cx = (x0 + x1) / 2.0
+    return {
+        "id": "tcrt%d" % idx,
+        "label": "TCRT%d" % idx,
+        "sub": "线检 · GPIO%d" % gpio,
+        "board": board,
+        "boards": (board,),
+        "label_pos": (cx, y0 + 2.6),
+        "sub_pos": (cx, y0 + 4.5),
+        "pins": [(rw, col0, "VCC"), (rw, col0 + 1, "GND"),
+                 (rw, col0 + 2, "DO"), (rw, col0 + 3, "AO")],
+        "body": (x0, y0, x1 - x0, y1 - y0),
+        "blocked_rects": [(x0, y0, x1, y1)],   # 本体掩膜（自动排除 4 个针孔）
+        "wires": wires,
+    }
+
+
+TCRT1 = make_tcrt(1, "zy", "n", 20, 17, ("ctrl", "zy.l41", (76.0, 17.0)))
+TCRT2 = make_tcrt(2, "zy", "o", 33, 18,
+                  # DO 落 l42（同列 42 同连 GPIO18；o42 在本体挡孔内故改上排孔）：
+                  # o35 → 上抬 n/o 缝中线 y=22.22 → 横右 → 列 42/43 缝 x=109.22 竖上 → 入 l42
+                  ("pts", "zy.l42", [(col_x(35), 23.49), (col_x(35), 22.22),
+                                     (109.22, 22.22), (109.22, 15.87), (col_x(42), 15.87)]),
+                  # VCC 弧线从 m32（麦克风 3V3 落孔）与其标签西侧 1.2mm 外掠过，
+                  # 末端擦 TCRT1 本体右上角 0.6mm（白名单豁免，物理即贴板角走线）
+                  vcc_ctrl=(77.0, 16.0),
+                  # GND 绕开：o34 → 斜左（贴 n/o 缝避开 o32 落孔）→ 竖段 x=79.5 出板身左缘外 →
+                  # 两轨之间缝 y=7.2 横左 → 入 top_outer_23（VCC 入 top_inner_23，错开布线）
+                  gnd_pts=[(88.9, 23.49), (82.0, 21.0), (79.5, 15.0), (79.5, 7.2),
+                           (74.93, 7.2), (74.93, 5.71)])
+TCRT3 = make_tcrt(3, "zx", "f", 27, 40, ("ctrl", "zx.i39", (88.0, -19.0)))
+# TCRT4 与 TCRT5 交换起列区：TCRT5（GPIO38）放起列 39，DO 针 f41 与 j41（GPIO38）同列同网
+# **直连零跳线**；TCRT4（GPIO39）放最右起列 51，DO 跳线 f53→i40 斜穿 TCRT5 本体 6mm
+# （"压线不压体"先例，TCRT5 本体该段无丝印）。
+TCRT4 = make_tcrt(4, "zx", "f", 51, 39, ("ctrl", "zx.i40", (112.0, -14.6)))
+TCRT5 = make_tcrt(5, "zx", "f", 39, 38, ("direct",))       # f41 与 j41 同列同网，零跳线
+COMPONENTS = [INMP441, MAX98357A, TB6612FNG, TCRT1, TCRT2, TCRT3, TCRT4, TCRT5]
+
+def auto_blocked(comp):
+    """按 comp["blocked_rects"]（世界坐标矩形 [(x0,y0,x1,y1)]）自动生成挡孔名集合，
+    排除元件自身针孔（针孔必须可插——"挡孔≠占孔"铁律）。"""
+    rects = comp.get("blocked_rects")
+    if not rects:
+        return set()
+    pin_holes = set()
+    for pin in comp["pins"]:
+        ref = pin_ref(pin)
+        if ref[0] == "rc":
+            pin_holes.add("%s.%s%d" % (comp["board"], ref[1], ref[2]))
+    out = set()
+    for prefix, rows in (("zx", X_ROWS), ("zy", Y_ROWS)):
+        if prefix not in comp.get("boards", (comp["board"],)):
+            continue
+        ty = X_TY if prefix == "zx" else Y_TY
+        for c in range(1, N_COLS + 1):
+            x = COL_X0 + (c - 1) * PITCH
+            for i, letter in enumerate(rows):
+                y = (ROW_Y_TOP[i] if i < 5 else ROW_Y_BOT[i - 5]) + ty
+                for x0, y0, x1, y1 in rects:
+                    if x0 <= x <= x1 and y0 <= y <= y1:
+                        nm = "%s.%s%d" % (prefix, letter, c)
+                        if nm not in pin_holes:
+                            out.add(nm)
+                        break
+    return out
+
+
 def component_hole_marks():
     """元件针孔 + 跳线落孔 -> ({prefix: set(孔名)}, {prefix: set(本体挡孔)})。
     供 hole_circles 标 occupied / blocked。"""
@@ -660,6 +785,8 @@ def component_hole_marks():
             b = blk.setdefault(comp["board"], set())
             for nm in comp.get("blocked", ()):
                 b.add(nm)
+            if comp.get("blocked_rects"):
+                b |= auto_blocked(comp)      # 矩形本体自动掩膜（排除自身针孔）
     return occ, blk
 
 
@@ -778,11 +905,11 @@ def build(include_holes):
     p.append('<svg xmlns="http://www.w3.org/2000/svg" viewBox="%s %s %s %s" width="%d" height="%d" font-family="%s">'
              % (fmt(CANVAS_X0), fmt(CANVAS_Y0), fmt(CANVAS_W), fmt(CANVAS_H), PX_W, PX_H, FONT))
     if include_holes:
-        p.append("<title>面包板 Z · 双 830 点并排拼接（28 行 × 63 列 · 共 1660 插孔 · 中央插 ESP32-S3 · 元件 3/9 INMP441 + MAX98357A + TB6612FNG）</title>")
+        p.append("<title>面包板 Z · 双 830 点并排拼接（28 行 × 63 列 · 共 1660 插孔 · 中央插 ESP32-S3 · 元件 4/9 INMP441 + MAX98357A + TB6612FNG + TCRT5000×5）</title>")
         p.append("<desc>Two 830-point breadboards joined along their power-rail long edges "
                  "into board Z (28 rows x 63 columns), with an ESP32-S3 board plugged across "
-                 "the seam and components 3/9 (INMP441, MAX98357A, TB6612FNG motor driver, "
-                 "body placed off-board) wired in. Units: millimetres. "
+                 "the seam and components 4/9 (INMP441, MAX98357A, TB6612FNG motor driver, "
+                 "five TCRT5000 line sensors) wired in. Units: millimetres. "
                  "Planning drawing, not an electrical verification.</desc>")
     else:
         p.append("<title>面包板 Z · 轮廓 —— 双 830 点并排拼接（28 行 × 63 列）</title>")
@@ -829,7 +956,7 @@ def build(include_holes):
                       3.2, COLOR["title"], "start", "doc-title", bold=True))
         p.append(text(-6, -57.2, "X（上板，行 a–j）+ Y（下板，行 k–t）沿电源轨长边拼接为整板 Z；"
                                   "先轮廓（#z-outline）后插孔（#z-holes），再插 ESP32-S3（#z-devices），"
-                                  "然后逐个接入元件与跳线（#z-components 本体 + #z-wires 跳线，当前 3/9：INMP441 + MAX98357A 功放 + TB6612FNG 电机驱动）。",
+                                  "然后逐个接入元件与跳线（#z-components 本体 + #z-wires 跳线，当前 4/9：INMP441 + MAX98357A 功放 + TB6612FNG 电机驱动 + TCRT5000×5 巡线）。",
                       1.8, COLOR["note"], "start", "doc-subtitle"))
         p.append(text(-6, 98, "行序（自上而下，'|' = 隔断）：X = | - + | a b c d e | f g h i j | + - | ；"
                               "Y = | - + | k l m n o | p q r s t | + - |",
@@ -865,15 +992,25 @@ def build(include_holes):
                                 "J1 针同列 l–o 同网；m/n/o 45–51 列被 MAX 本体挡死，l 行是唯一合法行，斜线压 MAX 本体下插）；"
                                 "BIN1/BIN2→X 板 i48/i49（GPIO47/21，同列 f–i 同网）；红 VCC→o32（3V3）；黑 GND→下轨外轨 − 第 44 孔。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 142.0, "孔三态：深灰 = 空闲 / 被 ESP32 针（44）或跳线与模块针（32）占用；"
-                                "浅灰 = 被板身遮挡不可插（blocked 117 孔 = ESP32 靠缝 4 轨 72 孔 + INMP441 本体 10 孔 + MAX98357A 本体 35 孔）。",
+        p.append(text(-6, 142.0, "元件 4：TCRT5000 五路巡线（用户 2026-10-16 决策：分散阵列、VCC 接 3V3）。蓝板 24.15×11.09，"
+                                "左端单列 4 针 Vcc/Gnd/Do/Ao——单列针竖插会整列同网短接（铁律），只能横躺占 4 连续列；"
+                                "AO 针悬空（config.h 只读数字量 DO，不占 ADC、与 WiFi 无冲突）。",
+                      1.8, COLOR["pcb"], "start", "doc-legend"))
+        p.append(text(-6, 146.4, "五探头分两排：Y 板 n 行起列 20（TCRT1·GPIO17，DO 跳线→l41）、o 行起列 33（TCRT2·GPIO18，DO 跳线→o42）；"
+                                "X 板 f 行起列 27/38/49（TCRT3·GPIO40 跳线→i39、TCRT4·GPIO39 落 f40 与 j40 同列直连零线、"
+                                "TCRT5·GPIO38 跳线→i41）——GPIO17/18 的网在 Y 板，X 板的线跨不过拼接缝，故两探头分到 Y 板。"
+                                "VCC 全落上内轨 +、GND 全落上外轨 −（轨避板身遮挡区；轨与 3V3/GND 网连通由元件 9 电源区完成）。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 146.4, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通；每条电源轨沿长度方向中间断开（图中'断'）。",
+        p.append(text(-6, 150.8, "孔三态：深灰 = 空闲 / 被 ESP32 针（44）或跳线与模块针（66）占用；"
+                                "浅灰 = 被板身遮挡不可插（blocked 252 孔 = ESP32 靠缝 4 轨 72 孔 + INMP441 本体 10 孔 + "
+                                "MAX98357A 本体 35 孔 + TCRT5000×5 本体 135 孔）。",
+                      1.8, COLOR["note"], "start", "doc-legend"))
+        p.append(text(-6, 155.2, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通；每条电源轨沿长度方向中间断开（图中'断'）。",
                       1.8, COLOR["warn"], "start", "doc-legend"))
-        p.append(text(-6, 150.8, "中隔槽将 a–e 与 f–j（Y 板为 k–o 与 p–t）隔开：同一列、同一半区的 5 孔才互通；"
+        p.append(text(-6, 159.6, "中隔槽将 a–e 与 f–j（Y 板为 k–o 与 p–t）隔开：同一列、同一半区的 5 孔才互通；"
                               "两排针模块必须骑槽插，若两排针插进同一半区，模块自己的两排针就会同列短接。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 155.2, "本图为规划图，几何/电气均为近似，不代表实测结果。",
+        p.append(text(-6, 164.0, "本图为规划图，几何/电气均为近似，不代表实测结果。",
                       1.8, COLOR["note"], "start", "doc-legend"))
     else:
         p.append(text(-6, -61.84, "面包板 Z · 轮廓 —— 双 830 点并排拼接（28 行 × 63 列）",
@@ -1114,6 +1251,11 @@ def main():
           "STBY/PWMA/AIN1/AIN2/PWMB 落 l47–l51（GPIO10–14，斜线压 MAX 本体），BIN1/BIN2 落 "
           "X i48/i49（GPIO47/21），VCC→o32（3V3），GND→下轨外轨 − 44；"
           "VM→7.4V 电池、AO1/AO2、BO1/BO2→电机 M1/M2；落孔 9，板外线 5")
+    print("OK  元件 4 TCRT5000×5：单列 4 针只能横躺（同列同网铁律），AO 悬空；"
+          "TCRT1/2 落 Y 板 n20–23（GPIO17→跳线 l41）、o33–36（GPIO18→pts 跳线 l42）；"
+          "TCRT3/5/4 落 X 板 f 行 27/39/51（GPIO40→跳线 i39、GPIO38 直连 f41=j41、"
+          "GPIO39→跳线 i40 斜穿 TCRT5 本体）；VCC→上内轨 +、GND→上外轨 −（轨由元件 9 接网）；"
+          "本体挡孔 135，落孔/占孔 34")
 
 
 if __name__ == "__main__":
