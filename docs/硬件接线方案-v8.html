@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>机器狗 V1 · 硬件接线方案 v8（面包板 Z：双 830 点拼接 + 元件接入总表）</title>
+<style>
+:root{--primary:#3F51B5;--primary-light:#E8EAF6;--surface:#F7F8FA;--border:#E0E0E0;--text:#212121;--text2:#616161;--new:#2E7D32;--new-bg:#E8F5E9;--todo:#EF6C00;--todo-bg:#FFF3E0;--warn:#C62828}
+*{box-sizing:border-box}body{margin:0;padding:0 24px 70px;font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;background:#fff;color:var(--text);line-height:1.7}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:26px;margin:0 0 6px}h2{font-size:20px;margin:40px 0 14px;padding-left:12px;border-left:4px solid var(--primary)}
+h3{font-size:16px;margin:24px 0 10px;color:var(--primary)}p,li{font-size:14.5px}
+code{background:var(--surface);padding:1px 5px;border-radius:3px;font-size:13px;font-family:Consolas,Monaco,monospace}
+header{padding:34px 0 20px;border-bottom:2px solid var(--primary);margin-bottom:26px}
+.sub{color:var(--text2);font-size:13.5px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12.5px}
+th,td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--primary-light);font-weight:600}tr:nth-child(even) td{background:#FAFAFA}
+figure{margin:20px 0;text-align:center}figcaption{font-size:13px;color:var(--text2);margin-top:8px}
+svg{max-width:100%;height:auto}
+.note{background:var(--todo-bg);border-left:4px solid var(--todo);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.danger{background:#FFEBEE;border-left:4px solid var(--warn);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.ok{background:var(--new-bg);border-left:4px solid var(--new);padding:10px 14px;margin:14px 0;font-size:13.5px}
+footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--border);color:var(--text2);font-size:13px}
+</style></head><body><div class="wrap">
+<header>
+<h1>机器狗 V1 · 硬件接线方案 v8</h1>
+<div class="sub">v8 = <b>面包板 Z（双 830 点沿电源轨长边拼接，28 行 × 63 列 = 1660 孔）元件接入总表</b> · ESP32-S3 骑缝直插 + 元件 1/2（INMP441、MAX98357A）已接线 · 引脚级 · 与 <code>docs/source/breadboard-z.svg</code> 一一对应</div>
+</header>
+
+<div class="ok"><b>v8 相对 v7 的变化（本版新增/改动）：</b><br>
+① <b>新拓扑：面包板 Z</b>。v7 是"一块 830 点单板"的规划；实际改用<b>两块 830 点沿电源轨长边拼接</b>（X 上行 a–j，Y 下行 k–t，列数不变仍 63 列），所有列号与 v7 <b>不通用</b>，以本版第三节为准；<br>
+② <b>ESP32-S3 骑拼接缝直插</b>（USB 朝右：上排 J3 → X 板 j 行、下排 J1 → Y 板 k 行，列 32–53），模块可插区域因此从"列 5–26 之外"变成"避开板身遮挡 + 已占孔"；<br>
+③ <b>GAIN / SD_MODE 接法决策更新</b>：v7 表里 GAIN 写"悬空"，现按用户决策改为 <b>GAIN→GND、SD_MODE→VIN</b>（见第五节）；<br>
+④ 新增"元件接入明细"（逐根线：针 → 落孔）与"插孔三态账"，后续元件按同一格式追加。
+</div>
+
+<h2>一、修改历史</h2>
+<table>
+<tr><th style="width:8%">版本</th><th style="width:12%">日期</th><th>变更</th></tr>
+<tr><td>v1</td><td>2026-10-14</td><td>直连端子版初版</td></tr>
+<tr><td>v2</td><td>2026-10-14</td><td>830 点面包板版：功率域/逻辑域分离 + 星形接地</td></tr>
+<tr><td>v3</td><td>2026-10-14</td><td>400 点 + 四足仿生 + 引脚级 + 新手友好化（连通规则描述有误，v7 勘误）</td></tr>
+<tr><td>v4</td><td>2026-10-14</td><td>加配 7 针 SPI OLED 屏幕接口（型号后于 v5 更正）</td></tr>
+<tr><td>v5</td><td>2026-10-14</td><td>USB 临时供电方案（电池未到货）；OLED 型号更正为 1.3 寸 SH1106</td></tr>
+<tr><td>v6</td><td>2026-10-14</td><td>"两个 2WD 电机"措辞澄清（一套底盘 / 两台电机）</td></tr>
+<tr><td>v7</td><td>2026-10-15</td><td>830 点单板修正 + 小白逐级上电教程 + 连通规则勘误 + ESP32 5V 直连 + 烧坏案例表</td></tr>
+<tr style="background:var(--new-bg)"><td><b>v8</b></td><td>2026-10-16</td><td><b>本次改动（绿框标出）：</b>① 面包板 Z 双 830 拼接拓扑（28×63，1660 孔）与 ESP32 骑缝落位（j/k 行列 32–53，USB 朝右）；② 引脚 → Z 板落点总表（config.h 为准，esp32_pin_map.py 为唯一换算工具）；③ 元件接入明细：INMP441（元件 1）、MAX98357A + 喇叭（元件 2）；④ GAIN→GND / SD_MODE→VIN 决策（替代 v7 悬空）；⑤ 插孔三态账（occupied 67 / blocked 117 / free 1476）。</td></tr>
+</table>
+
+<h2>二、面包板 Z 拓扑与连通规则（接线前必读）</h2>
+<div class="ok">
+<b>连通性铁律：</b>终端区金属条是<b>竖条</b>——同一列、同一半区的 5 个孔相通，凹槽断开。X 板行序<code>| - + | a b c d e | f g h i j | + - |</code>，Y 板行序<code>| - + | k l m n o | p q r s t | + - |</code>。例如 Y 板第 38 列：k38–o38 五孔相通，p38–t38 五孔相通，o38 与 p38 被凹槽隔开。<br>
+<b>ESP32 直插安全的原理：</b>44 针各占一列，同列不同针各落不同行、互不短接；信号跳线落孔取"该列 k–o（或 f–i）半区的空闲孔"即与对应 ESP32 针同网。
+</div>
+<table>
+<tr><th style="width:22%">项</th><th>值</th></tr>
+<tr><td>Z 板构成</td><td>X（上板，行 a–j）+ Y（下板，行 k–t）沿电源轨长边拼接，拼接重叠 1.26mm，板面连续</td></tr>
+<tr><td>规模</td><td>28 行 × 63 列 = 1764 终端孔 + 两板各 4 条轨 × 50 孔 = 400 轨孔，合计 1660 孔</td></tr>
+<tr><td>电源轨</td><td>每条轨 50 孔、沿长度方向中间断开（5 孔一组 × 5 组）；<b>拼接缝处两板导轨仅物理相邻、电气不互通</b></td></tr>
+<tr><td>ESP32-S3 N16R8</td><td>双 Type-C、44 针，插拼接缝正中央横跨两板，USB 口朝右；上排 22 针 = J3 → X 板 j 行、下排 22 针 = J1 → Y 板 k 行（均列 32–53，左→右 = 列 32→53）</td></tr>
+<tr><td>J1/J3 判定</td><td>官方 user guide v1.1：J1 = 3V3/RST/GPIO4-14/5V/GND 侧；J3 = GND/TX/RX/GPIO1-2/42-19/GND 侧。USB 朝右时 J1 在下（k 行）、J3 在上（j 行）</td></tr>
+<tr><td>规划图</td><td><code>docs/source/breadboard-z.svg</code>（矢量）/ <code>breadboard-z.png</code>（预览）；生成器 <code>tools/gen_breadboard_z.py</code>，每次改动重跑并过 <code>validate()</code></td></tr>
+</table>
+
+<h2>三、GPIO → Z 板落点总表</h2>
+<p>以 <code>firmware/xiaozhi-esp32/main/boards/ai-dog-s3/config.h</code> 为准；行列换算用 <code>tools/esp32_pin_map.py</code>。"落孔"列只对<b>已接入元件</b>填写（跳线实际落点）；未填的等对应元件接入时定。</p>
+<table>
+<tr><th style="width:16%">GPIO</th><th style="width:26%">功能（config.h）</th><th style="width:18%">ESP32 针位</th><th>Z 板落孔 / 备注</th></tr>
+<tr><td>GPIO4</td><td>INMP441 WS</td><td>k35（J1）</td><td><b>已接：</b>麦克风 SCK 针 → m35 孔</td></tr>
+<tr><td>GPIO5</td><td>INMP441 SCK</td><td>k36（J1）</td><td><b>已接：</b>麦克风 WS 针 → m36 孔</td></tr>
+<tr><td>GPIO6</td><td>INMP441 DIN(SD)</td><td>k37（J1）</td><td><b>已接：</b>麦克风 R 针 → m37 孔（L 针与 GND 短接=选左声道）</td></tr>
+<tr><td>GPIO7</td><td>MAX98357A DOUT(DIN)</td><td>k38（J1）</td><td><b>已接：</b>功放 DIN 针(q47) → m38 孔</td></tr>
+<tr><td>GPIO15</td><td>MAX98357A BCLK</td><td>k39（J1）</td><td><b>已接：</b>功放 BCLK 针(q46) → m39 孔</td></tr>
+<tr><td>GPIO16</td><td>MAX98357A LRCK</td><td>k40（J1）</td><td><b>已接：</b>功放 LRC 针(q45) → m40 孔</td></tr>
+<tr><td>GPIO8</td><td>电池分压 ADC</td><td>k43（J1）</td><td>待接入（元件 8/9）</td></tr>
+<tr><td>GPIO9</td><td>模式键</td><td>k46（J1）</td><td>待接入（元件 7/9）</td></tr>
+<tr><td>GPIO10</td><td>TB6612 STBY</td><td>k47（J1）</td><td>待接入（元件 3/9）</td></tr>
+<tr><td>GPIO11/12/13</td><td>左电机 PWM/IN1/IN2</td><td>k48/k49/k50</td><td>待接入（元件 3/9）</td></tr>
+<tr><td>GPIO14</td><td>右电机 PWM</td><td>k51（J1）</td><td>待接入（元件 3/9）</td></tr>
+<tr><td>GPIO17/18</td><td>巡线 1/2</td><td>k41/k42（J1）</td><td>待接入（元件 4/9，TCRT5000×5）</td></tr>
+<tr><td>GPIO1/2</td><td>OLED SCL/MOSI</td><td>j35/j36（J3）</td><td>待接入（元件 6/9）</td></tr>
+<tr><td>GPIO46</td><td>OLED DC</td><td>k45（J1）</td><td>待接入（元件 6/9）</td></tr>
+<tr><td>GPIO48</td><td>OLED RES</td><td>j47（J3）</td><td>待接入（元件 6/9）；CS 接 GND 不占 GPIO</td></tr>
+<tr><td>GPIO41/42</td><td>I²C SDA/SCL（VL53L0X）</td><td>j38/j37（J3）</td><td>待接入（元件 5/9）</td></tr>
+<tr><td>GPIO38/39/40</td><td>巡线 3/4/5</td><td>j41/j40/j39（J3）</td><td>待接入（元件 4/9）</td></tr>
+<tr><td>GPIO21/47</td><td>右电机 IN1/IN2</td><td>j49/j48（J3）</td><td>待接入（元件 3/9）</td></tr>
+<tr><td>5V 针</td><td>整机 5V 输入</td><td>k52（J1）</td><td>电源区（元件 9/9）：供 5V 轨 +</td></tr>
+<tr><td>GND 针</td><td>整机 GND</td><td>k53（J1）</td><td>电源区（元件 9/9）：供 GND 轨 −</td></tr>
+</table>
+
+<h2>四、元件接入明细（逐根线）</h2>
+<h3>4.1 元件 1：INMP441 数字麦克风（I²S，圆形小板 Ø15mm）</h3>
+<p>两排针<b>骑中隔槽</b>插入：上排 SCK/WS/L → o 行 60–62 列，下排 R/VDD/GND → p 行 60–62 列。</p>
+<table>
+<tr><th style="width:16%">模块针</th><th style="width:18%">接到</th><th style="width:30%">Z 板接法</th><th>备注</th></tr>
+<tr><td>VDD</td><td>3V3</td><td>p61 → m32 孔（k32 为 3V3 针）</td><td>麦克风只能 3.3V</td></tr>
+<tr><td>GND</td><td>GND</td><td>p62 → 下轨外轨 − 第 50 孔</td><td></td></tr>
+<tr><td>SCK / WS / R</td><td>GPIO4 / 5 / 6</td><td>o60 → m35、o61 → m36、o62 → m37</td><td>同列同半区 k–o 同网</td></tr>
+<tr><td>L</td><td>GND</td><td>o62 同排短接到 GND 针</td><td>接地 = 选左声道</td></tr>
+</table>
+<h3>4.2 元件 2：MAX98357A I2S 功放 + 4Ω 3W 喇叭</h3>
+<p>7 针单排插 Y 板 <b>q 行 45–51 列</b>（丝印左→右 = LRC/BCLK/DIN/GAIN/SD/GND/VIN），顶部 2P 端子接喇叭。</p>
+<table>
+<tr><th style="width:16%">模块针</th><th style="width:18%">接到</th><th style="width:30%">Z 板接法</th><th>备注</th></tr>
+<tr><td>VIN</td><td>5V</td><td>q51 → 下轨内轨 + 第 41 孔</td><td>~200mA；轨由电源区从 k52 供电</td></tr>
+<tr><td>GND</td><td>GND</td><td>q50 → 下轨外轨 − 第 40 孔</td><td></td></tr>
+<tr><td>LRC / BCLK / DIN</td><td>GPIO16 / 15 / 7</td><td>q45 → m40、q46 → m39、q47 → m38</td><td>同列同半区 k–o 同网；三线"下潜—左扫"走弧线避开本体横穿</td></tr>
+<tr><td>GAIN</td><td>GND</td><td>q48 → q50（模块内短接）</td><td><b>用户决策</b>，见第五节</td></tr>
+<tr><td>SD_MODE</td><td>VIN</td><td>q49 → q51（模块内短接）</td><td><b>用户决策</b>，见第五节</td></tr>
+<tr><td>输出 VO+/VO−</td><td>喇叭 4Ω 3W</td><td>端子块两颗螺丝 → 喇叭符号</td><td>喇叭无极性，仅示意；VO+ = 右螺丝、VO− = 左螺丝</td></tr>
+</table>
+<div class="note"><b>站位说明：</b>最初选"p 行 列 38–44"，实测该站位本体下沿盖住 p 行、连累列 38–40 的 l–o 半区被挡，而三根信号线唯一合法落孔正是该区孔（k38–40 又被 ESP32 针占）——信号无处落孔。改为等价的 <b>q 行 45–51</b>：本体只挡 m–r 行 × 45–51 列，信号针到目标列距离不变，本体下沿距 ESP32 板身 2.5mm、距麦克风圆板 16.6mm。</div>
+
+<h2>五、GAIN / SD_MODE 决策（更新 v7"悬空"）</h2>
+<div class="ok">
+按用户 2026-10-16 决策：<b>SD_MODE 接 VIN、GAIN 接 GND</b>。<br>
+① <b>SD_MODE</b>（低有效关断）：接 VIN 恒为高 → 功放常开，不需要时分复用 GPIO 去拉它；若将来要省电，可改接一个 GPIO 配软件开关。<br>
+② <b>GAIN</b>：接 GND = 9dB 固定增益（悬空为默认 12dB 档；接 VIN 为 15dB）。选 9dB 是因为喇叭只有 3W，I²S 数字音量已在固件侧可调，模拟增益留小、数字音量留头，避免削顶失真。<br>
+③ 固件 <code>config.h</code> 无需改动（两脚都不是 GPIO）。
+</div>
+
+<h2>六、插孔三态账（每轮接入后核对，总数守恒 1660）</h2>
+<table>
+<tr><th style="width:20%">状态</th><th style="width:14%">个数</th><th>构成</th></tr>
+<tr><td>occupied（占用）</td><td>67</td><td>ESP32 44 针 + 元件针孔与跳线落孔 23（INMP441 11 + MAX98357A 12）</td></tr>
+<tr><td>blocked（板身遮挡）</td><td>117</td><td>ESP32 靠缝 4 轨 72 孔 + INMP441 本体 10 孔 + MAX98357A 本体 35 孔</td></tr>
+<tr><td>free（空闲可插）</td><td>1476</td><td>1660 − 67 − 117</td></tr>
+</table>
+
+<h2>七、待接入元件计划（3/9 起，按用户优先级逐轮"预告→问方位→设计→确认→提交"）</h2>
+<table>
+<tr><th style="width:8%">序号</th><th style="width:24%">元件</th><th style="width:26%">占用 GPIO</th><th>要点</th></tr>
+<tr><td>3/9</td><td>TB6612FNG 电机驱动</td><td>10/11/12/13/14/21/47</td><td>板外直连电机电源；7 根信号母对母夹顶或跳线</td></tr>
+<tr><td>4/9</td><td>TCRT5000 巡线 ×5</td><td>17/18/38/39/40</td><td>DO 数字输出；跨凹槽走线</td></tr>
+<tr><td>5/9</td><td>VL53L0X 激光测距</td><td>41/42（I²C）</td><td>与 OLED 共用 I²C 总线需查地址冲突</td></tr>
+<tr><td>6/9</td><td>SH1106 OLED（1.3 寸）</td><td>1/2/46/48</td><td>7 针 SPI；CS 接 GND</td></tr>
+<tr><td>7/9</td><td>模式按键</td><td>9</td><td>配 10kΩ 上拉到 3V3</td></tr>
+<tr><td>8/9</td><td>电池分压电阻</td><td>8（ADC）</td><td>100kΩ/47kΩ 分压</td></tr>
+<tr><td>9/9</td><td>电源区</td><td>5V/GND 针（k52/k53）</td><td>2S 电池 → MP1584 → 5V 轨；逐级上电教程见 v7 第二节，仍然有效</td></tr>
+</table>
+<div class="danger"><b>红线不变：</b>INMP441/OLED 只能 3.3V；电池 7.4V 绝不直接碰 ESP32 针脚；电机大电流不走面包板。逐级上电防烧流程以 v7 第二节为准。</div>
+
+<figure>
+<img src="../source/breadboard-z.png" alt="面包板 Z 规划图（双 830 拼接 + ESP32 + INMP441 + MAX98357A）" style="max-width:100%;border:1px solid var(--border);border-radius:6px">
+<figcaption>面包板 Z 当前状态（2026-10-16）：ESP32-S3 骑缝 + 元件 1（INMP441，右上圆板）+ 元件 2（MAX98357A，中下绿板）与喇叭示意符号。矢量图见 <code>docs/source/breadboard-z.svg</code>。</figcaption>
+</figure>
+
+<footer>
+机器狗 V1 · 硬件接线方案 v8 · 2026-10-16 · 与面包板 Z 生成器（tools/gen_breadboard_z.py）同源维护：改图必改文档，改文档必改图。
+</footer>
+</div></body></html>

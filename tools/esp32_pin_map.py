@@ -4,13 +4,14 @@
 ESP32-S3 N16R8 引脚 -> Z 面包板（行, 列）速查工具
 ====================================================
 数据源：tools/data/esp32s3_n16r8_component.svg（元件 44 针，data-pin 标签）。
-物理取向：USB 口朝右（2026-10-16 用户决定）。外层变换 translate(112.4 -13.34) rotate(90)：
-    世界(x, y) = (112.4 - y_local, -13.34 + x_local)
+物理取向：USB 口朝右（2026-10-16 用户决定）。外层变换 translate(137.8 -13.34) rotate(90)
+    （2026-10-17 应用户要求从 112.4 整体右移 10 列）：
+    世界(x, y) = (137.8 - y_local, -13.34 + x_local)
   - 上排 22 针（局部 x=1.27）-> 世界 y=-12.07 = X 板 **j 行**，官方 pinout 属 **J3**
-    （GND TX RX GPIO1/2/42-19/GND；与 CH343 同侧）
+   （GND TX RX GPIO1/2/42-19/GND；与 CH343 同侧）
   - 下排 22 针（局部 x=26.67）-> 世界 y=13.33 = Y 板 **k 行**，属 **J1**
-    （3V3 3V3 RST GPIO4-14 5V GND）
-每排左->右 = 列 22..43（列 c 孔心 x = 3.81 + (c-1)*2.54）。
+   （3V3 3V3 RST GPIO4-14 5V GND）
+每排左->右 = 列 32..53（列 c 孔心 x = 3.81 + (c-1)*2.54）。
 
 用法：
     python tools/esp32_pin_map.py            # 打印两排序列 + GPIO->(行,列) 表
@@ -42,7 +43,7 @@ def load_pins():
         if el.tag != "circle" or not el.get("data-pin"):
             continue
         lx, ly = float(el.get("cx")), float(el.get("cy"))
-        wx, wy = 112.4 - ly, -13.34 + lx
+        wx, wy = 137.8 - ly, -13.34 + lx
         label = el.get("data-pin").replace("esp32s3_n16r8_dual_usb_1.", "")
         row = ROW_OF_WY[round(wy, 2)]
         col = int(round((wx - COL_X0) / PITCH)) + 1

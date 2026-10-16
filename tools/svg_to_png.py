@@ -125,28 +125,38 @@ def render(svg_path, png_path, scale=4.0):
             dr.line(loop, fill=stroke, width=sw, joint="curve")
 
     def draw_rotated_text(s, font, fill, anchor, base_m, x, y, bold):
-        """文字随自身 transform 旋转：画 tile -> 旋转 -> 用标记像素定位枢轴后粘贴。"""
+        """文字随自身 transform 旋转：画 tile -> 旋转 -> 用标记像素定位枢轴后粘贴。
+
+        坑（2026-10-17 修）：tile 宽度必须按**推进宽度**（advance = font.getlength）开，
+        不能按墨迹宽（getbbox）。否则 middle/end 锚点的文字右半溢出 tile 被裁
+        （实测标题 "INMP441" 只剩 "INMP"），且枢轴按墨迹左缘/中点算会让整段文字偏移。
+        SVG 锚点语义：start=推进左缘 / middle=推进中点 / end=推进右缘。
+        文字统一从 tile 左缘 pad 起画（anchor="ls"），枢轴 pivot_x 按锚点语义取。
+        """
         size_px = font.size
         pad = 4
+        adv = font.getlength(s)
         bb = font.getbbox(s)
-        tw = (bb[2] - bb[0]) + 2 * pad
-        th = (bb[3] - bb[1]) + 2 * pad + size_px  # 基线上下各留
-        # tile 内锚点：把 SVG (x,y)（基线点）映射到 tile 坐标
-        anchor_x = {"l": pad - bb[0], "m": pad - bb[0] + (bb[2] - bb[0]) / 2.0,
-                    "r": pad - bb[0] + (bb[2] - bb[0])}[anchor]
-        anchor_y = pad + size_px
+        tw = int(math.ceil(adv)) + 2 * pad + 2      # 推进宽 + 左右余量（防旋转膨胀/描边溢出）
+        th = int(math.ceil(bb[3] - bb[1])) + 2 * pad + size_px  # 基线上/下各留
+        anchor_x = pad                              # 文字左缘固定画这里
+        anchor_y = pad + size_px                    # 基线
+        pivot_x = {"l": pad, "m": pad + adv / 2.0, "r": pad + adv}[anchor]
         tile = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
         td = ImageDraw.Draw(tile)
         td.text((anchor_x, anchor_y), s, font=font, fill=fill, anchor="ls",
                 stroke_width=max(1, size_px // 14) if bold else 0, stroke_fill=fill)
         angle = mat_angle(base_m)
+        # 文字锚点也要先过自身/组的 transform 矩阵再映射像素（与 rect 分支同理：
+        # 漏了 mat_apply，带 translate 的组里的文字会整体错位一个平移量）
+        tx, ty = T(*mat_apply(base_m, x, y))
         if abs(angle) < 1e-9:
-            img.paste(tile, (int(T(x, y)[0] - anchor_x), int(T(x, y)[1] - anchor_y)), tile)
+            img.paste(tile, (int(tx - pivot_x), int(ty - anchor_y)), tile)
             return
         # 标记像素法：复制 tile 在枢轴点画唯一色点，旋转后找到该点新坐标
         marker = tile.copy()
-        marker.putpixel((int(anchor_x), int(anchor_y)), (255, 0, 0, 255))
-        rm = marker.rotate(-angle, resample=Image.NEAREST, expand=True, center=(anchor_x, anchor_y))
+        marker.putpixel((int(round(pivot_x)), anchor_y), (255, 0, 0, 255))
+        rm = marker.rotate(-angle, resample=Image.NEAREST, expand=True, center=(pivot_x, anchor_y))
         rp = None
         mp = rm.load()
         for yy in range(rm.height):
@@ -157,10 +167,9 @@ def render(svg_path, png_path, scale=4.0):
             if rp:
                 break
         if rp is None:   # 理论上不会发生（枢轴在 tile 内）
-            rp = (anchor_x, anchor_y)
-        rot = tile.rotate(-angle, resample=Image.BICUBIC, expand=True, center=(anchor_x, anchor_y))
-        px, py = T(x, y)
-        img.paste(rot, (int(round(px - rp[0])), int(round(py - rp[1]))), rot)
+            rp = (int(round(pivot_x)), anchor_y)
+        rot = tile.rotate(-angle, resample=Image.BICUBIC, expand=True, center=(pivot_x, anchor_y))
+        img.paste(rot, (int(round(tx - rp[0])), int(round(ty - rp[1]))), rot)
 
     def walk(node, m):
         tr = node.get("transform")
@@ -179,7 +188,11 @@ def render(svg_path, png_path, scale=4.0):
                 rx = float(ch.get("rx", 0))
                 rotated = abs(m[1]) > 1e-9 or abs(m[2]) > 1e-9
                 if not rotated:
-                    p0, p1 = T(x + 0, y + 0), T(x + ww, y + hh)
+                    # 注意：必须先过组矩阵再映射像素，否则带 translate 的组（如 X 板
+                    # translate(0 -53.34)）里的矩形会画到错误位置（实测板身整个飘出画布）
+                    ax, ay = mat_apply(m, x, y)
+                    bx, by = mat_apply(m, x + ww, y + hh)
+                    p0, p1 = T(ax, ay), T(bx, by)
                     box = [p0[0], p0[1], p1[0], p1[1]]
                     if rx > 0:
                         dr.rounded_rectangle(box, radius=rx * scale, fill=fill,

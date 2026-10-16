@@ -26,20 +26,54 @@ Y 板终端行改名 k-t，避免与 X 板 a-j 重名（拼接后同一块板内
     docs/source/breadboard-z-outline.svg   仅轮廓（第一步：板体/导轨/隔断/标号/拼接缝）
     docs/source/breadboard-z.svg           轮廓 + 全部 1660 个插孔（第二步）
                                           + ESP32-S3 元件插在拼接缝中央（第三步）
+                                          + 逐个接入的元件与跳线（第四步起，见元件接入层）
 
 第三步（ESP32-S3 插入）要点：
     元件几何来自 docs/source/breadboard.svg 的同型元件，原样存于
-    tools/data/esp32s3_n16r8_component.svg（局部(x,y) -> 世界(112.4-y, -13.34+x)）：
-      板身世界 x[55.25,112.4] y[-13.34,14.6]，中心(83.8, 0.63) 正压拼接缝中心；
+    tools/data/esp32s3_n16r8_component.svg（局部(x,y) -> 世界(137.8-y, -13.34+x)）：
+      板身世界 x[80.65,137.8] y[-13.34,14.6]，中心(109.2, 0.63) 正压拼接缝中心；
       上排针（局部 x=1.27）落在世界 y=-12.07 = X 板 j 行，下排针（局部 x=26.67）
-      落在世界 y=13.33 = Y 板 k 行；针距 2.54，每排 22 针、列 22..43（22 针在 63 列
-      上最居中的合法落点，中心与板中心仅差半孔）。
+      落在世界 y=13.33 = Y 板 k 行；针距 2.54，每排 22 针、列 32..53（2026-10-17
+      应用户要求从原来的 22..43 整体右移 10 列；右端 139.19mm 仍在板内 165.1mm）。
       排针对应的连接器（按官方 pinout user guide v1.1，已用 data-pin 逐针核对）：
       上排 = J3（GND/TX/RX/GPIO1/2/42-19/GND，与 CH343 同侧），下排 = J1
       （3V3/3V3/RST/GPIO4-14/5V/GND）；USB 双口朝右（USB 在局部低 y 端）。
-    孔三态：free（空闲）/ occupied（被针插入，44 孔）/ blocked（被板身遮挡，76 孔）。
+    孔三态：free（空闲）/ occupied（被针插入，44 孔 + 元件针孔与跳线落孔）/ blocked（被遮挡不可插，
+    个数随板身位置动态算：ESP32 板身遮住的靠缝 4 轨 72 孔 + INMP441 本体 10 孔 + MAX98357A 本体 35 孔）。
     注意：用户原话"J1→j、J3→k"与"USB 朝右"互为镜像，二者只能取一；按 2026-10-16
     用户决定保持 USB 朝右，故图中引线标注/图例以官方 pinout 为准（J3→j、J1→k）。
+
+第四步起（元件接入层）要点：
+    连通性铁律（2026-10-16 用户纠正）：MB-102/830 终端区金属条是**竖条**——每列、每个半区
+    （a–e 区 / f–j 区）5 孔一条，凹槽断开；横向的"行"不是网络；导轨是横条 50 孔（中段断开）。
+    因此 ESP32 直插安全（44 针各占一列，互不短接）；J1 的 GPIO 针在 k 行列 c，同列 l–o 行
+    （Y 板）同网；J3 的 GPIO 针在 j 行列 c，同列 f–i 行（X 板）同网。
+    元件一律横跨若干列插入（各列独立网络），用跳线归位到目标列的同网孔；落孔名与 data-hole 对齐。
+    两排针模块（如 INMP441 圆形小板）必须**骑中隔槽**插入：两排针分落槽两侧的半区
+    （Y 板 o 行 + p 行）——若同插一个半区，模块自己的两排针会在同一列短接！
+    元件几何取实物/Fritzing 零件：INMP441 见 docs/source/inmp441.svg（Ø15mm 圆板，
+    上下两排各 3 孔，下排 SD/VDD/GND、上排 SCK/WS/L/R，列距 2.54mm、行距 7.57mm）。
+    元件本体挡住的孔记 blocked（新增）；线从针位画到落孔（跳线实际落在同列空闲孔）。
+
+元件 2/9（MAX98357A I2S 功放，用户 2026-10-17 确认：7 针单排 + 顶部 2P 喇叭端子，
+    SD_MODE 接 VIN、GAIN 接 GND、喇叭 4Ω 3W 画示意符号）：
+    几何抄 docs/source/MAX98357A.svg（Adafruit REV-A：板身 17.78×19.09mm、7 针间距 2.54 在下沿、
+    针心距板顶 16.55mm、顶部 2P 端子螺丝心局部 (7.04,3.50)/(10.54,3.50)）。
+    用户原选"p 行列 38–44"实测不可行：那样本体盖住列 38–40 的 l–o 半区，而三根信号线唯一的
+    合法落孔正是同列同半区孔（k38–40 又被 ESP32 针占）——信号线无处落孔。故按等价意图改为
+    **针插 q 行（33.65）列 45–51**：本体 x[114.30,132.08] y[17.10,36.19]（只压 m–r 行 × 45–51 列，
+    m38/39/40 落孔自在），信号针到 k38/39/40 的距离与用户意图一致；本体下沿距 r 行孔心恰 2.54mm。
+    接线：LRC/BCK/DIN → m40/m39/m38（GPIO16/15/7，J1 针同列 l–o 同网，走"下潜—左扫"弧线避开本体）；
+    GAIN→GND、SD→VIN 两根模块内并接跳线；GND→下轨外轨 − 第 40 孔、VDD→下轨内轨 + 第 41 孔
+    （与"VDD→5V 轨、GND→GND 轨"的项目约定一致；轨由后续电源区从 k52/k53 供电）；
+    喇叭符号放右上净空楔形 x[138.6,147.8] y[16.0,20.0]（避开 ESP32 板身/J1 标注/麦克风圆板与跳线）。
+    绘制顺序调整：**先画全部本体、再画全部跳线**（component_body_group + component_wires_group），
+    否则后画元件的本体盖住先画元件的跳线（麦克风 4 根线横穿功放本体，必须压线不压体）。
+    微调：INMP441 的 WS 跳线控制点上移 4mm（20.5→24.5），否则它正好从功放喇叭端子的螺丝中心穿过；
+    针脚/落孔/网络均未变。
+    标签策略：信号线孔侧不写文字（麦克风 GPIO4/5/6 标签已占到 x≈98.6，m38 上方无空位，
+    2026-10-17 渲染目检确认"7"与原"GPIO6"压字后去掉），GPIO 全称改放在针上方白丝印；
+    电源/轨线标签照常（所在区域无争用）。
 """
 
 import os
@@ -70,14 +104,26 @@ RAIL_HOLES_PER_SIDE = 25           # 断开两侧各 25 孔，一条轨共 50 �
 # ---------------------------------------------------------------- ESP32-S3 元件（第三步）
 DEVICE_SVG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data",
                           "esp32s3_n16r8_component.svg")   # 元件几何数据（原样导出，勿手改坐标）
-DEV_COL_FIRST, DEV_COL_LAST = 22, 43      # 上下两排针各 22 针占据的列
+DEV_COL_FIRST, DEV_COL_LAST = 32, 53      # 上下两排针各 22 针占据的列（2026-10-17 右移 10 列）
 DEV_PINS_PER_ROW = DEV_COL_LAST - DEV_COL_FIRST + 1        # 22
-DEV_BODY_X0, DEV_BODY_X1 = 55.25, 112.4   # 元件板身世界 x 区间（判定导轨挡孔用）
+DEV_BODY_X0, DEV_BODY_X1 = 80.65, 137.8   # 元件板身世界 x 区间（判定导轨挡孔用）
 # 引脚插入的行：上排针 -> X 板 j 行（世界 y=-12.07）；下排针 -> Y 板 k 行（世界 y=13.33）
 DEV_OCCUPIED = {"zx": "j", "zy": "k"}
-# 板身遮挡的导轨：X 板靠拼接缝的下两条轨、Y 板靠拼接缝的上两条轨（板身 x 区间内各 19 孔）
+# 板身遮挡的导轨：X 板靠拼接缝的下两条轨、Y 板靠拼接缝的上两条轨
 DEV_BLOCKED_RAILS = {"zx": ("bottom_inner", "bottom_outer"),
                      "zy": ("top_outer", "top_inner")}
+
+
+def dev_blocked_rail_names():
+    """板身遮住的导轨孔名集合：4 条靠缝轨中，孔心 x 落在板身区间 [DEV_BODY_X0, X1] 内的孔。
+    板身移动后个数会变（列 22-43 时 19 孔/轨，列 32-53 时 18 孔/轨），故不写死。"""
+    out = set()
+    for prefix, rails in DEV_BLOCKED_RAILS.items():
+        for rname in rails:
+            for i in range(1, 2 * RAIL_HOLES_PER_SIDE + 1):
+                if DEV_BODY_X0 - 1e-6 <= rail_hole_x(i) <= DEV_BODY_X1 + 1e-6:
+                    out.add("%s.%s_%d" % (prefix, rname, i))
+    return out
 
 COLOR = {
     "body": "#f3f1e9", "body_stroke": "#c9c5b6",
@@ -86,6 +132,11 @@ COLOR = {
     "hole": "#3b3b3b", "hole_blocked": "#9ca3af", "label": "#6b6b6b", "name": "#8a8577",
     "seam": "#d97706", "title": "#111827", "note": "#6b7280",
     "warn": "#92400e", "badge": "#fef3c7",
+    # 元件模块（第四步起）与跳线（红=VCC / 近黑=GND / 紫=信号）
+    "pcb": "#15803d", "pcb_stroke": "#052e16", "pcb_text": "#f0fdf4",
+    "module_pin": "#e7e5e4", "module_pin_edge": "#57534e",
+    "wire_vcc": "#dc2626", "wire_gnd": "#111827", "wire_sig": "#7c3aed",
+    "wire_spk": "#0f766e",                       # 喇叭线（teal，与红/黑/紫区分）
 }
 FONT = "system-ui, -apple-system, 'PingFang SC', 'Noto Sans CJK SC', sans-serif"
 
@@ -96,7 +147,7 @@ FULL_SVG = os.path.join(OUT_DIR, "breadboard-z.svg")
 
 CANVAS_X0, CANVAS_Y0 = -8.0, -65.34   # 画布原点（与参考图一致，左侧/上侧留边距）
 CANVAS_W = 181.1
-CANVAS_H = 162.0                      # 下缘图例区：全图 8 行，末行基线 y=92.8
+CANVAS_H = 176.0                      # 下缘图例区：全图 12 行，末行基线 y=110.4（元件 2/9 起图例加长）
 PX_W = 1120
 PX_H = int(round(PX_W * CANVAS_H / CANVAS_W))
 
@@ -186,7 +237,7 @@ def board_group(board_id, ty, rows, name_text):
 
 def seam_marker():
     """X|Y 拼接缝标记：重叠区正中一条琥珀色虚线 + 说明。
-    标签避开元件板身（世界 x[55.25,112.4]），放在左侧空处 x=32。"""
+    标签避开元件板身（世界 x[80.65,137.8]），放在左侧空处 x=32。"""
     out = ['<g id="seam" class="seam">']
     out.append(line(2, SEAM_Y, 163, SEAM_Y, COLOR["seam"], 0.3, "seam-mark", dash="1.2 0.9"))
     out.append(text(32, 2.5, "X｜Y 拼接缝（导轨相邻 · 电气不互通）", 1.4, COLOR["seam"], "middle", "seam-label"))
@@ -201,36 +252,49 @@ def rail_hole_x(i):
     return base + (j // 5) * RAIL_GROUP_STEP + (j % 5) * PITCH
 
 
-def hole_circles(prefix, rows, with_device=True):
+def hole_circles(prefix, rows, with_device=True, extra_occ=None, extra_blk=None):
     """一块板的全部 830 个插孔：终端 10 行 x 63 列 + 4 条轨 x 50 孔。
     with_device=True 时按 ESP32-S3 插入情况标注三态：
       hole-free      空闲
-      hole-occupied  被引脚插入（X j / Y k 行列 22-43，上下两排共 44 孔）
-      hole-blocked   被板身遮挡、不可插（靠拼接缝的 4 条轨、板身 x 区间内，共 76 孔）
-    挡孔样式（浅灰 #9ca3af）照参考图；占孔与空闲同色，靠上面的引脚圆覆盖区分。
+      hole-occupied  被引脚插入（X j / Y k 行列 32-53，上下两排共 44 孔）；
+                     或第四步起的模块针 / 跳线落孔（extra_occ，INMP441 共 11 孔）
+      hole-blocked   被板身遮挡、不可插：ESP32 板身遮住的靠缝 4 条轨（共 72 孔）；
+                     或第四步起元件本体遮住的孔（extra_blk，INMP441 圆板共 10 孔）
+    挡孔样式（浅灰 #9ca3af）照参考图；占孔与空闲同色，靠上面的引脚圆/落孔彩环覆盖区分。
     """
     occ_row = DEV_OCCUPIED[prefix] if with_device else None
     blk_rails = DEV_BLOCKED_RAILS[prefix] if with_device else ()
+    dev_blk = dev_blocked_rail_names() if with_device else set()
+    extra_occ = extra_occ or set()
+    extra_blk = extra_blk or set()
     out = []
     for c in range(1, N_COLS + 1):
         x = COL_X0 + (c - 1) * PITCH
         for i, letter in enumerate(rows):
             y = ROW_Y_TOP[i] if i < 5 else ROW_Y_BOT[i - 5]
-            if letter == occ_row and DEV_COL_FIRST <= c <= DEV_COL_LAST:
-                cls = "hole hole-occupied"
-            else:
-                cls = "hole hole-free"
-            out.append('<circle cx="%s" cy="%s" r="0.5" fill="%s" class="%s" data-hole="%s.%s%d"/>'
-                       % (fmt(x), fmt(y), COLOR["hole"], cls, prefix, letter, c))
-    for rname, ry in RAIL_YS:
-        for i in range(1, 2 * RAIL_HOLES_PER_SIDE + 1):
-            x = rail_hole_x(i)
-            if rname in blk_rails and DEV_BODY_X0 - 1e-6 <= x <= DEV_BODY_X1 + 1e-6:
+            name = "%s.%s%d" % (prefix, letter, c)
+            if (letter == occ_row and DEV_COL_FIRST <= c <= DEV_COL_LAST) or name in extra_occ:
+                cls, fill = "hole hole-occupied", COLOR["hole"]
+            elif name in extra_blk:
                 cls, fill = "hole hole-blocked", COLOR["hole_blocked"]
             else:
                 cls, fill = "hole hole-free", COLOR["hole"]
-            out.append('<circle cx="%s" cy="%s" r="0.5" fill="%s" class="%s" data-hole="%s.%s_%d"/>'
-                       % (fmt(x), fmt(ry), fill, cls, prefix, rname, i))
+            out.append('<circle cx="%s" cy="%s" r="0.5" fill="%s" class="%s" data-hole="%s"/>'
+                       % (fmt(x), fmt(y), fill, cls, name))
+    for rname, ry in RAIL_YS:
+        for i in range(1, 2 * RAIL_HOLES_PER_SIDE + 1):
+            x = rail_hole_x(i)
+            name = "%s.%s_%d" % (prefix, rname, i)
+            if rname in blk_rails and name in dev_blk:
+                cls, fill = "hole hole-blocked", COLOR["hole_blocked"]
+            elif name in extra_occ:
+                cls, fill = "hole hole-occupied", COLOR["hole"]
+            elif name in extra_blk:
+                cls, fill = "hole hole-blocked", COLOR["hole_blocked"]
+            else:
+                cls, fill = "hole hole-free", COLOR["hole"]
+            out.append('<circle cx="%s" cy="%s" r="0.5" fill="%s" class="%s" data-hole="%s"/>'
+                       % (fmt(x), fmt(ry), fill, cls, name))
     return "".join(out)
 
 
@@ -249,7 +313,8 @@ def device_group():
     """第三步：ESP32-S3 N16R8 插到拼接缝正中央，横跨 X/Y 两板。
     物理取向：USB 口朝右（用户 2026-10-16 决定）。按官方 pinout（user guide v1.1，
     已用 data-pin 逐针核对）：上排 22 针 = J3（GND/TX/RX/GPIO1/2/42-19/GND）落
-    X 板 j 行，下排 22 针 = J1（3V3/RST/GPIO4-14/5V/GND）落 Y 板 k 行（均为列 22-43）。
+    X 板 j 行，下排 22 针 = J1（3V3/RST/GPIO4-14/5V/GND）落 Y 板 k 行（均为列 32-53，
+    2026-10-17 起由列 22-43 整体右移 10 列）。
     用户原话"J1→j、J3→k"与该取向互为镜像（绕缝心转 180° 才能同时满足），已定 USB 朝右。
     图层顺序：元件本体（含 44 针与丝印）-> 元件徽标 -> J1/J3 引线标注 -> 拼接缝虚线
     （缝线最后画，覆盖在元件上，直观表达"元件骑缝"）。
@@ -257,33 +322,300 @@ def device_group():
     p = ['<g id="z-devices" class="devices">']
     p.append(load_device_xml())
     # 元件徽标（坐标照参考图 annotations 中该元件的徽标）
+    # 位置史：初始贴板身左沿 (55.25,15.2) -> 2026-10-17 上午右移 (98.0,15.2) 避 m 行落孔标签
+    # -> 同日下午板身右移 10 列后改贴板身右沿 (123.65,15.2)（此时落孔标签在 x<=99，左沿被占）。
+    # 该带（板身下沿 14.6 与 m 行标签基线 17.26 之间）只有 x>99 是净空。
     p.append('<g class="badge" data-badge="esp32s3_n16r8_dual_usb_1">')
-    p.append(rect(55.25, 15.2, 14.15, 2.4, 0.5, COLOR["badge"], COLOR["seam"], 0.2, "badge"))
-    p.append(text(56.25, 16.9, "⚠ 几何近似 电气近似", 1.4, COLOR["warn"], "start", "badge"))
+    p.append(rect(123.65, 15.2, 14.15, 2.4, 0.5, COLOR["badge"], COLOR["seam"], 0.2, "badge"))
+    p.append(text(124.65, 16.9, "⚠ 几何近似 电气近似", 1.4, COLOR["warn"], "start", "badge"))
     p.append('</g>')
-    # J1 / J3 引线标注：引线指向上下两排针右端，文字落在板右侧空白处。
-    # USB 朝右取向下，上排针（j 行）属 J3、下排针（k 行）属 J1（官方 pinout）。
-    p.append(line(112.7, -12.07, 116.3, -10.9, COLOR["seam"], 0.25, "device-call"))
-    p.append(text(117.0, -10.5, "J3（上排 22 针）→ X 板 j 行", 1.4, COLOR["title"], "start", "device-call"))
-    p.append(line(112.7, 13.33, 116.3, 14.5, COLOR["seam"], 0.25, "device-call"))
-    p.append(text(117.0, 15.1, "J1（下排 22 针）→ Y 板 k 行", 1.4, COLOR["title"], "start", "device-call"))
-    # 引脚序列速查（左->右 = 列 22..43），方便后续元件接线时查 GPIO 落点
-    p.append(text(117.0, -6.7, "j 行（J3）列22..43：GND TX RX 1 2 42 41 40 39 38 37 36 35 0 45 48 47 21 20 19 GND GND",
+    # J1 / J3 引线标注：引线指向上下两排针右端（末针列 53 -> x=135.89，偏移量同旧版 +2.21），
+    # 文字落在板右侧空白处。USB 朝右取向下，上排针（j 行）属 J3、下排针（k 行）属 J1（官方 pinout）。
+    p.append(line(138.1, -12.07, 141.7, -10.9, COLOR["seam"], 0.25, "device-call"))
+    p.append(text(142.4, -10.5, "J3（上排 22 针）→ X 板 j 行", 1.4, COLOR["title"], "start", "device-call"))
+    p.append(line(138.1, 13.33, 141.7, 14.5, COLOR["seam"], 0.25, "device-call"))
+    p.append(text(142.4, 15.1, "J1（下排 22 针）→ Y 板 k 行", 1.4, COLOR["title"], "start", "device-call"))
+    # 引脚序列速查（左->右 = 列 32..53），方便后续元件接线时查 GPIO 落点。
+    # 2026-10-17 随板身右移改挂到板身左侧空白带（x=3.0）：右侧只剩 29mm 放不下整行，
+    # 且撞 J1/J3 引线标注；左侧 78mm 净空与旧位置同高（贴近各自行），语义不变。
+    p.append(text(3.0, -6.7, "j 行（J3）列32..53：GND TX RX 1 2 42 41 40 39 38 37 36 35 0 45 48 47 21 20 19 GND GND",
                   1.1, COLOR["note"], "start", "device-call"))
-    p.append(text(117.0, 11.3, "k 行（J1）列22..43：3V3 3V3 RST 4 5 6 7 15 16 17 18 8 3 46 9 10 11 12 13 14 5V GND",
+    p.append(text(3.0, 11.3, "k 行（J1）列32..53：3V3 3V3 RST 4 5 6 7 15 16 17 18 8 3 46 9 10 11 12 13 14 5V GND",
                   1.1, COLOR["note"], "start", "device-call"))
     # 拼接缝虚线覆盖元件（画在元件之后，表达元件骑在缝上）
     p.append(line(2, SEAM_Y, 163, SEAM_Y, COLOR["seam"], 0.3, "seam-mark", dash="1.2 0.9"))
-    # 挡孔叠加：板身遮住的 76 个导轨孔，用浅灰点画到元件之上，让"这些孔插不了线"
+    # 挡孔叠加：板身遮住的 72 个导轨孔，用浅灰点画到元件之上，让"这些孔插不了线"
     # 在图上一眼可见（不带 data-hole；正式数据仍以 #z-holes 里的 hole-blocked 为准）
-    for prefix, ty in (("zx", X_TY), ("zy", Y_TY)):
-        for rname in DEV_BLOCKED_RAILS[prefix]:
-            wy = dict(RAIL_YS)[rname] + ty
-            for i in range(1, 2 * RAIL_HOLES_PER_SIDE + 1):
-                x = rail_hole_x(i)
-                if DEV_BODY_X0 - 1e-6 <= x <= DEV_BODY_X1 + 1e-6:
-                    p.append('<circle cx="%s" cy="%s" r="0.5" fill="%s" class="hole hole-blocked"/>'
-                             % (fmt(x), fmt(wy), COLOR["hole_blocked"]))
+    for nm in sorted(dev_blocked_rail_names()):
+        prefix, rest = nm.split(".")
+        rname, i = rest.rsplit("_", 1)
+        wy = dict(RAIL_YS)[rname] + (X_TY if prefix == "zx" else Y_TY)
+        p.append('<circle cx="%s" cy="%s" r="0.5" fill="%s" class="hole hole-blocked"/>'
+                 % (fmt(rail_hole_x(int(i))), fmt(wy), COLOR["hole_blocked"]))
+    p.append('</g>')
+    return "".join(p)
+
+
+# ---------------------------------------------------------------- 元件接入层（第四步起，逐个添加）
+# 列连通规则下的接线圈模型：模块针排横跨若干列（各列独立网络，绝不能竖插同一列），
+# 落点全部用"孔名"与 #z-holes 的 data-hole 对齐（终端孔 prefix.row col；导轨孔 prefix.轨名_序号）。
+# INMP441（元件 1/9，用户 2026-10-16 确认实物 = Fritzing 圆形板 2×3）：
+#   落点由用户指定：上排针（SCK/WS/L/R）插 o 行 60–62 列，下排针（SD/VDD/GND）插 p 行 60–62 列。
+#   o/p 两行分居中隔槽两侧（同列不同网），这正是两排针模块唯一合法插法。
+#   落点依据：J1 的 GPIO 针在 k 行，同列 l–o 行同网，故信号/VCC 的跳线统一落在 m 行目标列
+#   （m32=3V3、m35=GPIO4、m36=GPIO5、m37=GPIO6）；GND 针就近落 Y 下轨外轨（− 轨）第 50 孔；
+#   L/R 针与 GND 针同列跨槽，用短跳线在模块处短接（INMP441 选左声道，L/R 必须接 GND）。
+#   坑：GND 针若落列 32/33 会短接 3V3、列 34 会把 RST 钳到地——所以模块放右侧全空闲列 60–62。
+#   （ESP32 右移 10 列后，落孔列号随之 +10：m22/25/26/27 -> m32/35/36/37。）
+#   本体 Ø15mm 圆板盖住 10 个周边孔（记 blocked）：n60–62 / o59,o63 / p59,p63 / q60–62。
+# 电源红线 / GND 黑线 / 信号紫线。
+INMP441 = {
+    "id": "inmp441",
+    "label": "INMP441",
+    "sub": "I2S 麦克风",
+    "board": "zy",
+    "label_dx": -2.6,                               # 圆板标题左移至板块中心附近，避开板内 L/R→GND 竖线白底线（x≈158.2）
+    # 针（行, 列, 丝印）：上排 SCK/WS/L/R → o 行；下排 SD/VDD/GND → p 行（各 3 列跨槽）
+    "pins": [("o", 60, "SCK"), ("o", 61, "WS"), ("o", 62, "L/R"),
+             ("p", 60, "SD"), ("p", 61, "VDD"), ("p", 62, "GND")],
+    "body": {"shape": "circle", "cx": 156.19, "cy": 27.30, "r": 7.5},   # Ø15mm，中心=6 孔中心
+    "blocked": ["zy.n60", "zy.n61", "zy.n62", "zy.o59", "zy.o63",
+                "zy.p59", "zy.p63", "zy.q60", "zy.q61", "zy.q62"],
+    "wires": [
+        # from/to: ("pin", 针下标) 或 ("hole", 孔名)；ctrl 为二次贝塞尔控制点（世界坐标）
+        # 落孔随 ESP32 右移 10 列 +10：m25/26/27/22 -> m35/36/37/32（ctrl x 同步 +25.4）
+        # WS 的 ctrl y 2026-10-17 由 20.5 上移到 24.5：原弧线正好从 MAX98357A 喇叭端子的
+        # 螺丝中心穿过（螺丝心 y=20.60），上移后净空 ≥1.6mm；针脚/落孔/网络均未变。
+        {"from": ("pin", 0), "to": ("hole", "zy.m35"), "ctrl": (125.4, 21.5),
+         "cls": "wire_sig", "label": "GPIO4", "label_dx": -0.6, "label_anchor": "end"},
+        {"from": ("pin", 1), "to": ("hole", "zy.m36"), "ctrl": (129.4, 24.5),
+         "cls": "wire_sig", "label": "GPIO5", "label_dx": 0.0, "label_anchor": "middle"},
+        {"from": ("pin", 3), "to": ("hole", "zy.m37"), "ctrl": (127.4, 29.0),
+         "cls": "wire_sig", "label": "GPIO6", "label_dx": 0.6, "label_anchor": "start"},
+        {"from": ("pin", 4), "to": ("hole", "zy.m32"), "ctrl": (121.4, 25.5),
+         "cls": "wire_vcc", "label": "3V3", "label_dx": 0.0, "label_anchor": "middle"},
+        {"from": ("pin", 5), "to": ("hole", "zy.bottom_outer_50"), "ctrl": (158.0, 41.0),
+         "cls": "wire_gnd", "label": "GND −轨", "label_dx": 0.9, "label_anchor": "start", "label_dy": 0.55},
+        {"from": ("pin", 2), "to": ("pin", 5), "ctrl": (158.73, 27.3),
+         "cls": "wire_gnd", "label": None},
+    ],
+}
+# 元件 2/9：MAX98357A I2S 功放（Adafruit REV-A 7 针 + 顶部 2P 喇叭端子）
+# 放置：针插 Y 板 q 行（y=33.65）列 45–51。用户原选"p 行列 38–44"实测不可行——
+# 本体下沿会盖住 p 行，进而盖住列 38–40 的 l–o 半区（信号线唯一合法落孔区），
+# 而 k38–40 已被 ESP32 针占用 → 信号无处落孔。q 行方案本体 y[17.10,36.19]，
+# 只挡 m–r 行 × 45–51 列；m38/39/40 落孔空闲，信号距离意图不变。
+MAX98357A = {
+    "id": "max98357a",
+    "label": "MAX98357A",
+    "sub": "I2S 功放",
+    "board": "zy",
+    # 丝印顺序来自 Fritzing 原件：LRC/BCLK/DIN/GAIN/SD/GND/Vin（左->右）
+    "pins": [("q", 45, "LRC"), ("q", 46, "BCLK"), ("q", 47, "DIN"),
+             ("q", 48, "GAIN"), ("q", 49, "SD"), ("q", 50, "GND"), ("q", 51, "VIN")],
+    # 本体世界坐标（左上角 + 宽高）：x[114.30,132.08] y[17.10,36.19]
+    "body": (114.30, 17.10, 17.78, 19.09),
+    # 本体覆盖区挡孔：m/n/o/p/r 行 × 列 45–51 = 35 孔（q45–51 是针孔，占 occupied）
+    "blocked": [  # m 行
+        "zy.m45", "zy.m46", "zy.m47", "zy.m48", "zy.m49", "zy.m50", "zy.m51",
+        # n 行
+        "zy.n45", "zy.n46", "zy.n47", "zy.n48", "zy.n49", "zy.n50", "zy.n51",
+        # o 行
+        "zy.o45", "zy.o46", "zy.o47", "zy.o48", "zy.o49", "zy.o50", "zy.o51",
+        # p 行
+        "zy.p45", "zy.p46", "zy.p47", "zy.p48", "zy.p49", "zy.p50", "zy.p51",
+        # r 行（孔心 y=36.19 恰在本体下沿）
+        "zy.r45", "zy.r46", "zy.r47", "zy.r48", "zy.r49", "zy.r50", "zy.r51",
+    ],
+    "wires": [
+        # I2S 三信号针 -> ESP32 同列同半区空闲孔 m40/m39/m38（ESP32 针在 k38–40，同网）。
+        # 走"下潜—左扫"二次贝塞尔（ctrl x 深插左侧）避开本体横穿；三者互交 1 次属
+        # 端点换序的拓扑必然（最右针 LRC 落最左网 GPIO16）。
+        # 孔侧不写标签：麦克风 GPIO4/5/6 标签已占到 x≈98.6，m38 上方无空位；GPIO 全称
+        # 丝印放在针上方（见 extra_svg 白字），映射关系由图例说明。
+        {"from": ("pin", 0), "to": ("hole", "zy.m40"), "ctrl": (104.0, 46.0),
+         "cls": "wire_sig", "label": None},
+        {"from": ("pin", 1), "to": ("hole", "zy.m39"), "ctrl": (106.5, 44.0),
+         "cls": "wire_sig", "label": None},
+        {"from": ("pin", 2), "to": ("hole", "zy.m38"), "ctrl": (109.0, 42.0),
+         "cls": "wire_sig", "label": None},
+        # GAIN/SD_MODE 按用户决策模块内并接（替代默认悬空）：GAIN->GND、SD->VIN。
+        {"from": ("pin", 3), "to": ("pin", 5), "ctrl": (125.73, 28.0),
+         "cls": "wire_gnd", "label": None},
+        {"from": ("pin", 4), "to": ("pin", 6), "ctrl": (128.27, 28.0),
+         "cls": "wire_vcc", "label": None},
+        # 电源：GND->下轨外轨 - 第 40 孔；VIN->下轨内轨 + 第 41 孔（与 v3/v4 文档一致）
+        {"from": ("pin", 5), "to": ("hole", "zy.bottom_outer_40"), "ctrl": (126.0, 42.0),
+         "cls": "wire_gnd", "label": "GND −轨", "label_dx": 0.9, "label_anchor": "start", "label_dy": 0.55},
+        {"from": ("pin", 6), "to": ("hole", "zy.bottom_inner_41"), "ctrl": (130.81, 40.0),
+         "cls": "wire_vcc", "label": "5V +轨", "label_dx": 0.9, "label_anchor": "start", "label_dy": 0.55},
+        # 喇叭输出：VO+ 接右螺丝、VO- 接左螺丝（喇叭无极性，仅示意）；teal 色区分
+        {"from": ("xy", (124.84, 20.60)), "to": ("xy", (139.60, 18.20)), "ctrl": (133.0, 17.5),
+         "cls": "wire_spk", "label": None},
+        {"from": ("xy", (121.34, 20.60)), "to": ("xy", (139.60, 17.80)), "ctrl": (130.5, 15.0),
+         "cls": "wire_spk", "label": None},
+    ],
+    # 附加图形：喇叭端子块（深色）+ 两螺丝；VO+/VO- 标签；针侧 GPIO 全称丝印；
+    # 右上净空楔形内的喇叭示意符号（音圈 + 锥盆 + 标注）
+    "extra_svg": (
+        '<rect x="119.59" y="18.50" width="7.40" height="5.60" rx="0.4" '
+        'fill="#1f2937" stroke="#111827" stroke-width="0.15"/>'
+        '<circle cx="121.34" cy="20.60" r="1.30" fill="#9ca3af" stroke="#4b5563" stroke-width="0.15"/>'
+        '<circle cx="124.84" cy="20.60" r="1.30" fill="#9ca3af" stroke="#4b5563" stroke-width="0.15"/>'
+        + text(121.34, 25.25, "VO-", 0.85, COLOR["wire_spk"], "middle", "spk-label")
+        + text(124.84, 25.25, "VO+", 0.85, COLOR["wire_spk"], "middle", "spk-label")
+        # 针侧 GPIO 全称丝印：孔侧不写标签（与麦克风标签争位），全称在这里（白字）
+        + text(115.57, 32.10, "GPIO16", 0.8, "#e5e7eb", "middle", "module-pin-label")
+        + text(118.11, 32.10, "GPIO15", 0.8, "#e5e7eb", "middle", "module-pin-label")
+        + text(120.65, 32.10, "GPIO7", 0.8, "#e5e7eb", "middle", "module-pin-label")
+        # 喇叭示意符号（右上净空楔形 x[138.6,147.8] y[16.0,20.0]）
+        + '<rect x="139.60" y="17.30" width="1.00" height="1.40" rx="0.12" '
+        'fill="#374151" stroke="#111827" stroke-width="0.12"/>'
+        + '<polygon points="140.60,17.30 143.40,16.10 143.40,19.90 140.60,18.70" '
+        'fill="#e5e7eb" stroke="#374151" stroke-width="0.18"/>'
+        + text(143.90, 21.30, "喇叭 4Ω 3W", 1.0, "#374151", "start", "spk-label")
+    ),
+    # 标题/副标题自定义位置：默认值会与端子块、针丝印、并接跳线相撞
+    "label_pos": (123.19, 26.30),
+    "sub_pos": (123.19, 28.50),
+}
+COMPONENTS = [INMP441, MAX98357A]
+
+
+def row_y(prefix, letter):
+    """行字母 -> 世界 y 孔心坐标（X 板 translate X_TY，Y 板不偏）。"""
+    rows = X_ROWS if prefix == "zx" else Y_ROWS
+    i = rows.index(letter)
+    y = ROW_Y_TOP[i] if i < 5 else ROW_Y_BOT[i - 5]
+    return y + (X_TY if prefix == "zx" else Y_TY)
+
+
+def col_x(c):
+    """列号 -> 世界 x 孔心坐标。"""
+    return COL_X0 + (c - 1) * PITCH
+
+
+def hole_xy(name):
+    """孔名（如 zy.m22 / zy.top_outer_41）-> 世界坐标。"""
+    prefix, rest = name.split(".")
+    ty = X_TY if prefix == "zx" else Y_TY
+    if "_" in rest:                                   # 导轨孔：轨名_序号
+        rname, idx = rest.rsplit("_", 1)
+        for rn, ry in RAIL_YS:
+            if rn == rname:
+                return rail_hole_x(int(idx)), ry + ty
+        raise ValueError("未知导轨: %s" % name)
+    letter, c = rest[:-2], int(rest[-2:])             # 终端孔：字母+列号
+    return col_x(c), row_y(prefix, letter)
+
+
+def component_hole_marks():
+    """元件针孔 + 跳线落孔 -> ({prefix: set(孔名)}, {prefix: set(本体挡孔)})。
+    供 hole_circles 标 occupied / blocked。"""
+    occ, blk = {}, {}
+    for comp in COMPONENTS:
+        s = occ.setdefault(comp["board"], set())
+        for rw, cl, _lab in comp["pins"]:
+            s.add("%s.%s%d" % (comp["board"], rw, cl))
+        for w in comp["wires"]:
+            for end in (w["from"], w["to"]):
+                if end[0] == "hole":
+                    s.add(end[1])
+        b = blk.setdefault(comp["board"], set())
+        for nm in comp.get("blocked", ()):
+            b.add(nm)
+    return occ, blk
+
+
+def endpoint_xy(comp, end):
+    """线端 -> 世界坐标。end = ("pin", 针下标) / ("hole", 孔名) / ("xy", (x,y))。
+    xy 端点用于不落在孔上的连接（如喇叭端子螺丝 -> 喇叭符号）。"""
+    if end[0] == "pin":
+        rw, cl = comp["pins"][end[1]][0], comp["pins"][end[1]][1]
+        return col_x(cl), row_y(comp["board"], rw)
+    if end[0] == "xy":
+        return end[1]
+    return hole_xy(end[1])
+
+
+def wire_segments(p0, ctrl, p1, n=26):
+    """二次贝塞尔采样为折线点列（渲染器只认 line/circle/rect/text，不认 path）。"""
+    pts = []
+    for k in range(n + 1):
+        t = k / float(n)
+        mt = 1.0 - t
+        pts.append((mt * mt * p0[0] + 2 * mt * t * ctrl[0] + t * t * p1[0],
+                    mt * mt * p0[1] + 2 * mt * t * ctrl[1] + t * t * p1[1]))
+    return pts
+
+
+def component_body_group(comp):
+    """元件本体层：板身（圆形/矩形）+ extra_svg + 标题/副标题 + 针脚圆与丝印。
+    针丝印位置：上半区行排在针上方、下半区行排在针下方——都在本体内部（真实 PCB 丝印
+    就在板内），避开跳线与孔位；两排针模块因此上下各有 3 个丝印标签。
+    与 component_wires_group 分离：build() 先画全部本体、再画全部跳线，否则麦克风
+    横穿功放本体的跳线会被后画的本体盖住。"""
+    p = ['<g class="component-module" data-component="%s">' % comp["id"]]
+    rows = X_ROWS if comp["board"] == "zx" else Y_ROWS
+    body = comp["body"]
+    if isinstance(body, dict) and body.get("shape") == "circle":
+        cx, cy, r = body["cx"], body["cy"], body["r"]
+        p.append('<circle cx="%s" cy="%s" r="%s" fill="%s" stroke="%s" stroke-width="0.25" class="module-body"/>'
+                 % (fmt(cx), fmt(cy), fmt(r), COLOR["pcb"], COLOR["pcb_stroke"]))
+        lx = cx + comp.get("label_dx", 0.0)   # 圆板标题可左移，避开板内竖直跳线
+        p.append(text(lx, cy - 1.0, comp["label"], comp.get("label_size", 1.7),
+                      COLOR["pcb_text"], "middle", "module-label", bold=True))
+        p.append(text(lx, cy + 1.3, comp["sub"], comp.get("sub_size", 1.05),
+                      COLOR["pcb_text"], "middle", "module-label"))
+    else:
+        x0, y0, w, h = body
+        p.append(rect(x0, y0, w, h, 0.5, COLOR["pcb"], COLOR["pcb_stroke"], 0.25, "module-body"))
+        cx = x0 + w / 2.0
+        if comp.get("extra_svg"):               # 端子块/螺丝/喇叭符号等附加图形
+            p.append(comp["extra_svg"])
+        lx, ly = comp.get("label_pos", (cx, y0 + h * 0.52))
+        sx, sy = comp.get("sub_pos", (cx, y0 + h * 0.80))
+        p.append(text(lx, ly, comp["label"], comp.get("label_size", 1.7),
+                      COLOR["pcb_text"], "middle", "module-label", bold=True))
+        p.append(text(sx, sy, comp["sub"], comp.get("sub_size", 1.05),
+                      COLOR["pcb_text"], "middle", "module-label"))
+    for _i, (rw, cl, lab) in enumerate(comp["pins"]):
+        px, py = col_x(cl), row_y(comp["board"], rw)
+        p.append('<circle cx="%s" cy="%s" r="0.42" fill="%s" stroke="%s" stroke-width="0.08" class="module-pin"/>'
+                 % (fmt(px), fmt(py), COLOR["module_pin"], COLOR["module_pin_edge"]))
+        upper = rows.index(rw) < 5
+        ly = py - 1.55 if upper else py + 1.95
+        p.append(text(px, ly, lab, 0.95, COLOR["pcb_text"], "middle", "module-pin-label"))
+    p.append('</g>')
+    return "".join(p)
+
+
+def component_wires_group(comp):
+    """元件跳线层：白底彩线 + 落孔彩环与标签（在本体层之后统一绘制）。"""
+    p = ['<g class="component-wires" data-component="%s">' % comp["id"]]
+    for w in comp["wires"]:
+        p0p = endpoint_xy(comp, w["from"])
+        p1p = endpoint_xy(comp, w["to"])
+        segs = wire_segments(p0p, w["ctrl"], p1p)
+        for a, b in zip(segs, segs[1:]):              # 白底线：交叠处仍可分辨
+            p.append(line(a[0], a[1], b[0], b[1], "#ffffff", 1.0, "wire-under"))
+        for a, b in zip(segs, segs[1:]):
+            p.append(line(a[0], a[1], b[0], b[1], COLOR[w["cls"]], 0.45, "wire"))
+        if w.get("label"):
+            if w["to"][0] == "hole":
+                hx, hy = hole_xy(w["to"][1])
+                if "_" in w["to"][1].split(".")[1]:   # 落轨：标签放孔的右侧
+                    p.append(text(hx + w.get("label_dx", 0.9), hy + w.get("label_dy", 0.55),
+                                  w["label"], w.get("label_size", 1.0), COLOR[w["cls"]], "start", "wire-label"))
+                else:                                 # 落终端行：标签放孔上方（避开下行孔）
+                    p.append(text(hx + w.get("label_dx", 0.0), hy - 1.15,
+                                  w["label"], w.get("label_size", 1.0), COLOR[w["cls"]], w.get("label_anchor", "middle"), "wire-label"))
+                p.append('<circle cx="%s" cy="%s" r="0.85" fill="none" stroke="%s" stroke-width="0.3" class="wire-land"/>'
+                         % (fmt(hx), fmt(hy), COLOR[w["cls"]]))
+            else:                                     # 模块针对模块针（如 L/R 并接 GND）
+                px, py2 = endpoint_xy(comp, w["to"])
+                p.append('<circle cx="%s" cy="%s" r="0.85" fill="none" stroke="%s" stroke-width="0.3" class="wire-land"/>'
+                         % (fmt(px), fmt(py2), COLOR[w["cls"]]))
     p.append('</g>')
     return "".join(p)
 
@@ -293,9 +625,10 @@ def build(include_holes):
     p.append('<svg xmlns="http://www.w3.org/2000/svg" viewBox="%s %s %s %s" width="%d" height="%d" font-family="%s">'
              % (fmt(CANVAS_X0), fmt(CANVAS_Y0), fmt(CANVAS_W), fmt(CANVAS_H), PX_W, PX_H, FONT))
     if include_holes:
-        p.append("<title>面包板 Z · 双 830 点并排拼接（28 行 × 63 列 · 共 1660 插孔）</title>")
+        p.append("<title>面包板 Z · 双 830 点并排拼接（28 行 × 63 列 · 共 1660 插孔 · 中央插 ESP32-S3 · 元件 2/9 INMP441 + MAX98357A）</title>")
         p.append("<desc>Two 830-point breadboards joined along their power-rail long edges "
-                 "into board Z (28 rows x 63 columns). Units: millimetres. "
+                 "into board Z (28 rows x 63 columns), with an ESP32-S3 board plugged across "
+                 "the seam and components 2/9 (INMP441, MAX98357A) wired in. Units: millimetres. "
                  "Planning drawing, not an electrical verification.</desc>")
     else:
         p.append("<title>面包板 Z · 轮廓 —— 双 830 点并排拼接（28 行 × 63 列）</title>")
@@ -313,21 +646,36 @@ def build(include_holes):
     # 注意：孔分组必须带上与板体相同的 translate，否则两块板的孔会重叠在同一区域
     if include_holes:
         p.append('<g id="z-holes">')
+        wire_holes, body_blocked = component_hole_marks()
         p.append('<g id="holes:zx" transform="translate(0 %s)">' % fmt(X_TY))
-        p.append(hole_circles("zx", X_ROWS, with_device=True))
+        p.append(hole_circles("zx", X_ROWS, with_device=True,
+                              extra_occ=wire_holes.get("zx"), extra_blk=body_blocked.get("zx")))
         p.append('</g>')
         p.append('<g id="holes:zy" transform="translate(0 %s)">' % fmt(Y_TY))
-        p.append(hole_circles("zy", Y_ROWS, with_device=True))
+        p.append(hole_circles("zy", Y_ROWS, with_device=True,
+                              extra_occ=wire_holes.get("zy"), extra_blk=body_blocked.get("zy")))
         p.append('</g>')
         p.append('</g>')
         # 第三步：ESP32-S3 元件（画在孔之上，引脚盖住占孔）
         p.append(device_group())
+        # 第四步起：逐个加入的元件与其跳线（画在 ESP32 之上）
+        # 两趟绘制：先画全部元件本体，再画全部跳线——否则麦克风横穿功放本体的
+        # 跳线会被后画的功放本体盖住（SVG 无 z-index，全靠文档顺序）
+        p.append('<g id="z-components">')
+        for comp in COMPONENTS:
+            p.append(component_body_group(comp))
+        p.append('</g>')
+        p.append('<g id="z-wires">')
+        for comp in COMPONENTS:
+            p.append(component_wires_group(comp))
+        p.append('</g>')
     # 标题与图例
     if include_holes:
         p.append(text(-6, -61.84, "面包板 Z · 双 830 点并排拼接（28 行 × 63 列 · 共 1660 插孔 · 中央插 ESP32-S3）",
                       3.2, COLOR["title"], "start", "doc-title", bold=True))
         p.append(text(-6, -57.2, "X（上板，行 a–j）+ Y（下板，行 k–t）沿电源轨长边拼接为整板 Z；"
-                                  "先轮廓（#z-outline）后插孔（#z-holes），再插 ESP32-S3（#z-devices）。",
+                                  "先轮廓（#z-outline）后插孔（#z-holes），再插 ESP32-S3（#z-devices），"
+                                  "然后逐个接入元件与跳线（#z-components 本体 + #z-wires 跳线，当前 2/9：INMP441 + MAX98357A 功放）。",
                       1.8, COLOR["note"], "start", "doc-subtitle"))
         p.append(text(-6, 62, "行序（自上而下，'|' = 隔断）：X = | - + | a b c d e | f g h i j | + - | ；"
                               "Y = | - + | k l m n o | p q r s t | + - |",
@@ -336,20 +684,34 @@ def build(include_holes):
                                 "Z 共 1660 孔。孔距 2.54 mm，单位 mm。",
                       1.8, COLOR["note"], "start", "doc-legend"))
         p.append(text(-6, 70.8, "ESP32-S3 N16R8（双 Type-C，44 针）插在拼接缝正中央横跨两板，USB 口朝右："
-                                "上排 22 针 = J3 → X 板 j 行、下排 22 针 = J1 → Y 板 k 行（均为列 22–43，左→右 = 列 22→43）。",
+                                "上排 22 针 = J3 → X 板 j 行、下排 22 针 = J1 → Y 板 k 行（均为列 32–53，左→右 = 列 32→53）。",
                       1.8, COLOR["note"], "start", "doc-legend"))
         p.append(text(-6, 75.2, "J1/J3 按官方 pinout（user guide v1.1）判定：USB 朝右时 J1 在下（k 行）、J3 在上（j 行），"
                                 "与最初'J1→j、J3→k'的表述互为镜像；两种取向只能取一，本图取 USB 朝右。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 79.6, "孔三态：深灰 = 空闲或被针占用（free / occupied）；"
-                                "浅灰 = 被板身遮挡不可插（blocked 76 孔：靠缝 4 条轨各 19 孔）。",
+        p.append(text(-6, 79.6, "元件 1：INMP441 数字麦克风（I2S）圆形小板 Ø15mm，上排针 SCK/WS/L/R 插 o 行 60–62 列、"
+                                "下排针 SD/VDD/GND 插 p 行 60–62 列——两排针骑中隔槽分插两个半区（同半区会同列短接）。",
+                      1.8, COLOR["pcb"], "start", "doc-legend"))
+        p.append(text(-6, 84, "接线圈 5 根 + 1 根模块内短跳线（线端彩环 = 跳线落孔）：红 VDD→m32（3V3）；"
+                              "紫 SCK/WS/SD→m35/m36/m37（GPIO4/5/6，J1 针同列 l–o 同网）；"
+                              "黑 GND→下轨外轨 − 第 50 孔；L/R 与 GND 两针短接（选左声道）。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 84, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通；每条电源轨沿长度方向中间断开（图中'断'）。",
+        p.append(text(-6, 88.4, "元件 2：MAX98357A I2S 功放（7 针单排 + 顶部 2P 喇叭端子），7 针插 Y 板 q 行（下半区）列 45–51，"
+                                "丝印左→右 = LRC/BCLK/DIN/GAIN/SD/GND/VIN；本体下沿距 ESP32 板身 2.5mm。",
+                      1.8, COLOR["pcb"], "start", "doc-legend"))
+        p.append(text(-6, 92.8, "接线圈 8 根 + 1 根模块内短跳线（线端彩环 = 跳线落孔）：紫 LRC/BCLK/DIN→m40/m39/m38（GPIO16/15/7）；"
+                                "GAIN→GND、SD→VIN 两针短接（用户决策，替代默认悬空）；黑 GND→下轨外轨 − 第 40 孔；"
+                                "红 VIN→下轨内轨 + 第 41 孔；青 VO+/VO−→喇叭 4Ω 3W 示意符号。",
+                      1.8, COLOR["note"], "start", "doc-legend"))
+        p.append(text(-6, 97.2, "孔三态：深灰 = 空闲 / 被 ESP32 针（44）或跳线与模块针（23）占用；"
+                                "浅灰 = 被板身遮挡不可插（blocked 117 孔 = ESP32 靠缝 4 轨 72 孔 + INMP441 本体 10 孔 + MAX98357A 本体 35 孔）。",
+                      1.8, COLOR["note"], "start", "doc-legend"))
+        p.append(text(-6, 101.6, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通；每条电源轨沿长度方向中间断开（图中'断'）。",
                       1.8, COLOR["warn"], "start", "doc-legend"))
-        p.append(text(-6, 88.4, "中隔槽将 a–e 与 f–j（Y 板为 k–o 与 p–t）隔开；"
-                              "Y 板 k–t 与 X 板 a–j 是各自独立的行号空间。",
+        p.append(text(-6, 106.0, "中隔槽将 a–e 与 f–j（Y 板为 k–o 与 p–t）隔开：同一列、同一半区的 5 孔才互通；"
+                              "两排针模块必须骑槽插，若两排针插进同一半区，模块自己的两排针就会同列短接。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 92.8, "本图为规划图，几何/电气均为近似，不代表实测结果。",
+        p.append(text(-6, 110.4, "本图为规划图，几何/电气均为近似，不代表实测结果。",
                       1.8, COLOR["note"], "start", "doc-legend"))
     else:
         p.append(text(-6, -61.84, "面包板 Z · 轮廓 —— 双 830 点并排拼接（28 行 × 63 列）",
@@ -365,7 +727,8 @@ def build(include_holes):
         p.append(text(-6, 70.8, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通。",
                       1.8, COLOR["warn"], "start", "doc-legend"))
         p.append(text(-6, 75.2, "第二步：叠加全部 1660 个插孔；第三步：拼接缝正中央插入 ESP32-S3"
-                                "（USB 朝右：上排 J3 → X 板 j 行、下排 J1 → Y 板 k 行）。均见 breadboard-z.svg。",
+                                "（USB 朝右：上排 J3 → X 板 j 行、下排 J1 → Y 板 k 行）。"
+                                "第四步起逐个接入元件（当前 2/9：INMP441 + MAX98357A 功放）。均见 breadboard-z.svg。",
                       1.8, COLOR["note"], "start", "doc-legend"))
         p.append(text(-6, 79.6, "本图为规划图，几何/电气均为近似，不代表实测结果。",
                       1.8, COLOR["note"], "start", "doc-legend"))
@@ -431,6 +794,7 @@ def validate(path, expect_holes):
     occ_names, blk_names = set(), set()
     pins = []          # (world_x, world_y) 引脚圆心
     has_device = False
+    has_component = {}  # data-component -> True（第四步起的元件分组）
 
     def walk(node, m):
         tr = node.get("transform")
@@ -440,6 +804,8 @@ def validate(path, expect_holes):
             if ch.tag == ns + "g":
                 if (ch.get("id") or "").startswith("component:"):
                     nonlocal_check(ch)
+                if ch.get("data-component"):
+                    has_component[ch.get("data-component")] = True
                 walk(ch, m)
             elif ch.tag == ns + "circle":
                 cx, cy = mat_apply(m, float(ch.get("cx")), float(ch.get("cy")))
@@ -462,7 +828,7 @@ def validate(path, expect_holes):
     def nonlocal_check(comp_node):
         nonlocal has_device
         has_device = True
-        assert comp_node.get("transform") == "translate(112.4 -13.34) rotate(90)", \
+        assert comp_node.get("transform") == "translate(137.8 -13.34) rotate(90)", \
             "%s: 元件变换被改动: %r" % (path, comp_node.get("transform"))
 
     walk(root, mat_identity())
@@ -474,7 +840,7 @@ def validate(path, expect_holes):
         assert has_device, "%s: 缺少 ESP32 元件分组（#z-devices）" % path
         assert len(pins) == 2 * DEV_PINS_PER_ROW, \
             "%s: 引脚圆 %d 个，应为 %d（上下两排 22 针）" % (path, len(pins), 2 * DEV_PINS_PER_ROW)
-        # 引脚落位：上排 y=-12.07（X 板 j 行）、下排 y=13.33（Y 板 k 行），x 覆盖列 22..43
+        # 引脚落位：上排 y=-12.07（X 板 j 行）、下排 y=13.33（Y 板 k 行），x 覆盖列 32..53
         row_of = {}
         for px, py in pins:
             rk = "zx" if abs(py - (-12.07)) < 0.05 else ("zy" if abs(py - 13.33) < 0.05 else None)
@@ -487,27 +853,66 @@ def validate(path, expect_holes):
             "%s: X 板 j 行引脚列不连续" % path
         assert sorted(row_of.get("zy", [])) == list(range(DEV_COL_FIRST, DEV_COL_LAST + 1)), \
             "%s: Y 板 k 行引脚列不连续" % path
-        # 占孔：恰好覆盖 44 个针位，且与引脚一一对应
-        want = set()
+        # 占孔：恰好覆盖 44 个 ESP32 针位 + 元件针孔/跳线落孔，且与引脚一一对应
+        comp_occ, comp_blk = component_hole_marks()
+        module_blk = set()
+        for comp in COMPONENTS:
+            module_blk |= comp_blk.get(comp["board"], set())
+        dev_occ = set()
         for rk, rl in DEV_OCCUPIED.items():
             for c in range(DEV_COL_FIRST, DEV_COL_LAST + 1):
-                want.add("%s.%s%d" % (rk, rl, c))
+                dev_occ.add("%s.%s%d" % (rk, rl, c))
+        want = set(dev_occ)
+        for comp in COMPONENTS:                      # 元件针孔与跳线落孔（第四步起）
+            for h in comp_occ.get(comp["board"], ()):
+                want.add(h)
         assert occ_names == want, \
-            "%s: occupied 孔 %d 个与针位 %d 个不匹配（多=%s 缺=%s）" % (
+            "%s: occupied 孔 %d 个与针位/落孔 %d 个不匹配（多=%s 缺=%s）" % (
                 path, len(occ_names), len(want),
                 sorted(occ_names - want)[:4], sorted(want - occ_names)[:4])
-        assert states["hole-occupied"] == 2 * DEV_PINS_PER_ROW, \
-            "%s: occupied 孔 %d != %d" % (path, states["hole-occupied"], 2 * DEV_PINS_PER_ROW)
-        # 挡孔：靠缝 4 条轨、板身 x 区间内共 76 孔
-        assert len(blk_names) == 76, "%s: blocked 孔 %d != 76" % (path, len(blk_names))
-        assert states["hole-blocked"] == 76, "%s: hole-blocked 计数 %d != 76" % (path, states["hole-blocked"])
+        assert states["hole-occupied"] == len(want), \
+            "%s: occupied 孔 %d != %d" % (path, states["hole-occupied"], len(want))
+        # ---- 元件接入层校验（第四步起）----
+        for comp in COMPONENTS:
+            assert has_component.get(comp["id"]), \
+                "%s: 缺少元件分组 data-component=%s" % (path, comp["id"])
+            for rw, cl, _lab in comp["pins"]:
+                name = "%s.%s%d" % (comp["board"], rw, cl)
+                assert name in occ_names, "%s: 元件 %s 的针孔 %s 未标占" % (path, comp["id"], name)
+                assert name not in dev_occ, \
+                    "%s: 元件 %s 的针孔 %s 与 ESP32 针位重叠" % (path, comp["id"], name)
+            for w in comp["wires"]:
+                for end in (w["from"], w["to"]):
+                    assert end[0] in ("pin", "hole", "xy"), \
+                        "%s: 元件 %s 的线端类型非法: %r" % (path, comp["id"], end)
+                    if end[0] == "hole":
+                        assert end[1] in occ_names, \
+                            "%s: 元件 %s 的跳线落孔 %s 未标占" % (path, comp["id"], end[1])
+                        assert end[1].split(".")[0] == comp["board"], \
+                            "%s: 落孔 %s 与元件不在同一板（%s）" % (path, end[1], comp["id"])
+            for nm in comp_blk.get(comp["board"], ()):   # 本体挡孔
+                assert nm.split(".")[0] == comp["board"], \
+                    "%s: 挡孔 %s 与元件不在同一板（%s）" % (path, nm, comp["id"])
+                assert nm not in occ_names, \
+                    "%s: 挡孔 %s 又是占孔（本体遮挡与插针冲突）" % (path, nm)
+            for rw, cl, _lab in comp["pins"]:             # 针孔不得落在本体挡孔里
+                nm = "%s.%s%d" % (comp["board"], rw, cl)
+                assert nm not in comp_blk.get(comp["board"], ()), \
+                    "%s: 元件 %s 的针孔 %s 又被本体挡（自相矛盾）" % (path, comp["id"], nm)
+        # 挡孔：ESP32 靠缝 4 条轨（个数随板身位置动态算）+ 元件本体遮挡孔（INMP441 圆板 10 孔）
+        n_blocked = len(dev_blocked_rail_names()) + len(module_blk)
+        assert len(blk_names) == n_blocked, "%s: blocked 孔 %d != %d" % (path, len(blk_names), n_blocked)
+        assert states["hole-blocked"] == n_blocked, \
+            "%s: hole-blocked 计数 %d != %d" % (path, states["hole-blocked"], n_blocked)
         for nm in blk_names:
+            if nm in module_blk:
+                continue                          # 元件本体挡孔不必在靠缝导轨上
             rk, rest = nm.split(".")
             assert rest.rsplit("_", 1)[0] in DEV_BLOCKED_RAILS[rk], \
                 "%s: 挡孔 %s 不在靠缝导轨上" % (path, nm)
-        # 总数守恒：1660 = 空闲 + 44 占 + 76 挡
-        assert states["hole-free"] == 1660 - 44 - 76, \
-            "%s: free 孔 %d 异常" % (path, states["hole-free"])
+        # 总数守恒：1660 = 空闲 + ESP32 44 占 + 元件针/跳线落孔 + 挡孔
+        assert states["hole-free"] == 1660 - len(want) - n_blocked, \
+            "%s: free 孔 %d 异常（应为 %d）" % (path, states["hole-free"], 1660 - len(want) - n_blocked)
     return n
 
 
@@ -523,9 +928,20 @@ def main():
     n2 = validate(FULL_SVG, 1660)
     print("OK  %-28s %6.1f KB  插孔 %d" % (os.path.basename(OUTLINE_SVG),
                                            len(outline.encode("utf-8")) / 1024.0, n1))
-    print("OK  %-28s %6.1f KB  插孔 %d（free 1540 / occupied 44 / blocked 76）"
-          % (os.path.basename(FULL_SVG), len(full.encode("utf-8")) / 1024.0, n2))
-    print("OK  ESP32-S3 N16R8：44 针全部落在 X j 行 / Y k 行列 22–43，元件骑拼接缝中央")
+    comp_occ, comp_blk = component_hole_marks()
+    n_mod_occ = sum(len(v) for v in comp_occ.values())      # 元件针孔 + 跳线落孔
+    n_mod_blk = sum(len(v) for v in comp_blk.values())      # 元件本体挡孔
+    n_occ = 2 * DEV_PINS_PER_ROW + n_mod_occ
+    n_blk = len(dev_blocked_rail_names()) + n_mod_blk
+    print("OK  %-28s %6.1f KB  插孔 %d（free %d / occupied %d = ESP32 %d + 元件 %d / blocked %d）"
+          % (os.path.basename(FULL_SVG), len(full.encode("utf-8")) / 1024.0, n2,
+             1660 - n_occ - n_blk, n_occ, 2 * DEV_PINS_PER_ROW, n_mod_occ, n_blk))
+    print("OK  ESP32-S3 N16R8：44 针全部落在 X j 行 / Y k 行列 32–53，元件骑拼接缝中央")
+    print("OK  元件 1 INMP441：圆板 2×3，SCK/WS/L/R 插 o 行 60–62、SD/VDD/GND 插 p 行 60–62；"
+          "5 根跳线落孔（m32/m35/m36/m37/bottom_outer_50）+ L/R→GND 模块内短接；本体挡孔 10")
+    print("OK  元件 2 MAX98357A：7 针单排插 q 行 45–51（丝印 LRC/BCLK/DIN/GAIN/SD/GND/VIN）；"
+          "3 信号落 m40/m39/m38（GPIO16/15/7），GND→下轨外轨 − 40、VIN→下轨内轨 + 41，"
+          "GAIN→GND / SD→VIN 短接，VO+/VO−→喇叭 4Ω 3W；本体挡孔 35")
 
 
 if __name__ == "__main__":
