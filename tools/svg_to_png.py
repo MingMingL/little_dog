@@ -4,15 +4,18 @@
 极简 SVG -> PNG 预览工具（仅覆盖本项目图纸用到的图元子集）
 ==========================================================
 用途：本机没有 cairo/rsvg 等原生 SVG 渲染库时，用 Pillow 把规划图渲成 PNG 做视觉校验。
-支持：viewBox 平移、g[transform=translate]、rect(含 rx)、line(含 stroke-dasharray)、
-      circle、text(font-size/fill/text-anchor/font-weight)。图元按文档顺序绘制。
+支持：viewBox 平移、g[transform=translate/rotate[about point]/scale]（矩阵累加）、
+      rect(含 rx，旋转时按多边形绘制)、line(含 stroke-dasharray)、circle、text
+      (font-size/fill/text-anchor/font-weight，支持随 transform 旋转)。图元按文档顺序绘制。
 
 用法：
     python tools/svg_to_png.py docs/source/breadboard-z.svg out.png [scale]
 
 注意：文字度量是近似值（仅用于校验布局，不作为交付物）。
+      旋转文字用"标记像素"法确定旋转枢轴，任意角度均可用（当前图只用到 90/180/-90）。
 """
 
+import math
 import sys
 import xml.etree.ElementTree as ET
 from PIL import Image, ImageDraw, ImageFont
@@ -23,6 +26,7 @@ FONT_CANDIDATES = [
     r"C:\Windows\Fonts\msyh.ttc",
     r"C:\Windows\Fonts\simhei.ttf",
 ]
+ANCHOR_MAP = {"start": "l", "middle": "m", "end": "r"}
 
 
 def load_font(px):
@@ -34,8 +38,69 @@ def load_font(px):
     return ImageFont.load_default()
 
 
+# ---------------------------------------------------------------- 仿射矩阵 (a,b,c,d,e,f)
+def mat_identity():
+    return (1.0, 0.0, 0.0, 1.0, 0.0, 0.0)
+
+
+def mat_compose(m1, m2):
+    """先应用 m1 再应用 m2（SVG transform 列表顺序）。"""
+    a1, b1, c1, d1, e1, f1 = m1
+    a2, b2, c2, d2, e2, f2 = m2
+    return (a1 * a2 + c1 * b2, b1 * a2 + d1 * b2,
+            a1 * c2 + c1 * d2, b1 * c2 + d1 * d2,
+            a1 * e2 + c1 * f2 + e1, b1 * e2 + d1 * f2 + f1)
+
+
+def mat_apply(m, x, y):
+    a, b, c, d, e, f = m
+    return (a * x + c * y + e, b * x + d * y + f)
+
+
+def mat_angle(m):
+    """矩阵的旋转角（度，屏幕系顺时针为正）；无旋转返回 0。"""
+    if abs(m[1]) < 1e-9 and abs(m[2]) < 1e-9:
+        return 0.0
+    return math.degrees(math.atan2(m[1], m[0]))
+
+
+def parse_transform(s):
+    m = mat_identity()
+    for name, args in _iter_fns(s):
+        v = [float(t) for t in args.replace(",", " ").split()]
+        if name == "translate":
+            mm = (1.0, 0.0, 0.0, 1.0, v[0], v[1] if len(v) > 1 else 0.0)
+        elif name == "scale":
+            mm = (v[0], 0.0, 0.0, v[1] if len(v) > 1 else v[0], 0.0, 0.0)
+        elif name == "rotate":
+            ang = math.radians(v[0])
+            ca, sa = math.cos(ang), math.sin(ang)   # 屏幕系 y 向下，顺时针为正
+            if len(v) >= 3:
+                cx, cy = v[1], v[2]
+                mm = mat_compose(
+                    mat_compose((1.0, 0.0, 0.0, 1.0, cx, cy), (ca, sa, -sa, ca, 0.0, 0.0)),
+                    (1.0, 0.0, 0.0, 1.0, -cx, -cy))
+            else:
+                mm = (ca, sa, -sa, ca, 0.0, 0.0)
+        else:
+            continue
+        m = mat_compose(m, mm)
+    return m
+
+
+def _iter_fns(s):
+    import re
+    return re.findall(r"(translate|rotate|scale)\(([^)]*)\)", s or "")
+
+
 def parse_floats(s):
     return [float(v) for v in s.replace(",", " ").split()]
+
+
+def _col(c, default=None):
+    if c is None or c in ("none", "transparent"):
+        return default
+    return c
 
 
 def render(svg_path, png_path, scale=4.0):
@@ -50,40 +115,92 @@ def render(svg_path, png_path, scale=4.0):
     def T(x, y):
         return ((x - x0) * scale, (y - y0) * scale)
 
-    def walk(node, tx, ty):
+    def draw_poly(pts, fill, stroke, sw):
+        """pts: 已换算到像素的多边形顶点。旋转矩形等非轴对齐场景用它。"""
+        if fill:
+            dr.polygon(pts, fill=fill)
+        if stroke:
+            sw = max(1, int(round(sw)))
+            loop = list(pts) + [pts[0]]
+            dr.line(loop, fill=stroke, width=sw, joint="curve")
+
+    def draw_rotated_text(s, font, fill, anchor, base_m, x, y, bold):
+        """文字随自身 transform 旋转：画 tile -> 旋转 -> 用标记像素定位枢轴后粘贴。"""
+        size_px = font.size
+        pad = 4
+        bb = font.getbbox(s)
+        tw = (bb[2] - bb[0]) + 2 * pad
+        th = (bb[3] - bb[1]) + 2 * pad + size_px  # 基线上下各留
+        # tile 内锚点：把 SVG (x,y)（基线点）映射到 tile 坐标
+        anchor_x = {"l": pad - bb[0], "m": pad - bb[0] + (bb[2] - bb[0]) / 2.0,
+                    "r": pad - bb[0] + (bb[2] - bb[0])}[anchor]
+        anchor_y = pad + size_px
+        tile = Image.new("RGBA", (tw, th), (0, 0, 0, 0))
+        td = ImageDraw.Draw(tile)
+        td.text((anchor_x, anchor_y), s, font=font, fill=fill, anchor="ls",
+                stroke_width=max(1, size_px // 14) if bold else 0, stroke_fill=fill)
+        angle = mat_angle(base_m)
+        if abs(angle) < 1e-9:
+            img.paste(tile, (int(T(x, y)[0] - anchor_x), int(T(x, y)[1] - anchor_y)), tile)
+            return
+        # 标记像素法：复制 tile 在枢轴点画唯一色点，旋转后找到该点新坐标
+        marker = tile.copy()
+        marker.putpixel((int(anchor_x), int(anchor_y)), (255, 0, 0, 255))
+        rm = marker.rotate(-angle, resample=Image.NEAREST, expand=True, center=(anchor_x, anchor_y))
+        rp = None
+        mp = rm.load()
+        for yy in range(rm.height):
+            for xx in range(rm.width):
+                if mp[xx, yy] == (255, 0, 0, 255):
+                    rp = (xx, yy)
+                    break
+            if rp:
+                break
+        if rp is None:   # 理论上不会发生（枢轴在 tile 内）
+            rp = (anchor_x, anchor_y)
+        rot = tile.rotate(-angle, resample=Image.BICUBIC, expand=True, center=(anchor_x, anchor_y))
+        px, py = T(x, y)
+        img.paste(rot, (int(round(px - rp[0])), int(round(py - rp[1]))), rot)
+
+    def walk(node, m):
         tr = node.get("transform")
         if tr:
-            # 仅支持 translate(x y)
-            vals = parse_floats(tr[tr.index("(") + 1:tr.rindex(")")])
-            tx, ty = tx + vals[0], ty + vals[1]
+            m = mat_compose(m, parse_transform(tr))
         for ch in node:
             tag = ch.tag.replace(NS, "")
             if tag == "g":
-                walk(ch, tx, ty)
+                walk(ch, m)
             elif tag == "rect":
-                x, y = float(ch.get("x", 0)) + tx, float(ch.get("y", 0)) + ty
+                x, y = float(ch.get("x", 0)), float(ch.get("y", 0))
                 ww, hh = float(ch.get("width")), float(ch.get("height"))
-                rx = float(ch.get("rx", 0))
-                p0, p1 = T(x, y), T(x + ww, y + hh)
-                box = [p0[0], p0[1], p1[0], p1[1]]
-                fill = ch.get("fill")
-                stroke = ch.get("stroke")
+                fill = _col(ch.get("fill"))
+                stroke = _col(ch.get("stroke"))
                 sw = float(ch.get("stroke-width", 0)) * scale
-                if rx > 0:
-                    dr.rounded_rectangle(box, radius=rx * scale, fill=fill,
-                                         outline=stroke, width=max(1, int(round(sw))) if stroke else 0)
+                rx = float(ch.get("rx", 0))
+                rotated = abs(m[1]) > 1e-9 or abs(m[2]) > 1e-9
+                if not rotated:
+                    p0, p1 = T(x + 0, y + 0), T(x + ww, y + hh)
+                    box = [p0[0], p0[1], p1[0], p1[1]]
+                    if rx > 0:
+                        dr.rounded_rectangle(box, radius=rx * scale, fill=fill,
+                                             outline=stroke,
+                                             width=max(1, int(round(sw))) if stroke else 0)
+                    else:
+                        dr.rectangle(box, fill=fill, outline=stroke,
+                                     width=max(1, int(round(sw))) if stroke else 0)
                 else:
-                    dr.rectangle(box, fill=fill, outline=stroke,
-                                 width=max(1, int(round(sw))) if stroke else 0)
+                    # 旋转：四角变换后按多边形画（rx 在旋转场景忽略，本项目 rx<=0.26mm 可忽略）
+                    corners = [(x, y), (x + ww, y), (x + ww, y + hh), (x, y + hh)]
+                    pts = [T(*mat_apply(m, cx, cy)) for cx, cy in corners]
+                    draw_poly(pts, fill, stroke, sw)
             elif tag == "line":
-                a, b = T(float(ch.get("x1")) + tx, float(ch.get("y1")) + ty), \
-                       T(float(ch.get("x2")) + tx, float(ch.get("y2")) + ty)
-                stroke = ch.get("stroke", "#000000")
+                a = T(*mat_apply(m, float(ch.get("x1")), float(ch.get("y1"))))
+                b = T(*mat_apply(m, float(ch.get("x2")), float(ch.get("y2"))))
+                stroke = _col(ch.get("stroke"), "#000000")
                 sw = max(1, int(round(float(ch.get("stroke-width", 1)) * scale)))
                 dash = ch.get("stroke-dasharray")
                 if dash:
                     # 手动虚线：沿线按 dash/on-off 步进
-                    import math
                     x1, y1, x2, y2 = a[0], a[1], b[0], b[1]
                     length = math.hypot(x2 - x1, y2 - y1)
                     if length == 0:
@@ -104,22 +221,22 @@ def render(svg_path, png_path, scale=4.0):
                 else:
                     dr.line([a[0], a[1], b[0], b[1]], fill=stroke, width=sw)
             elif tag == "circle":
-                cx, cy = float(ch.get("cx")) + tx, float(ch.get("cy")) + ty
-                r = float(ch.get("r"))
+                cx, cy = mat_apply(m, float(ch.get("cx")), float(ch.get("cy")))
+                r = float(ch.get("r")) * scale * math.sqrt(abs(m[0] * m[3] - m[1] * m[2]))
                 c = T(cx, cy)
-                rr = r * scale
-                dr.ellipse([c[0] - rr, c[1] - rr, c[0] + rr, c[1] + rr], fill=ch.get("fill"))
+                dr.ellipse([c[0] - r, c[1] - r, c[0] + r, c[1] + r], fill=_col(ch.get("fill")))
             elif tag == "text":
-                x, y = float(ch.get("x")) + tx, float(ch.get("y")) + ty
+                x, y = float(ch.get("x", 0)), float(ch.get("y", 0))
                 size_px = int(round(float(ch.get("font-size")) * scale))
                 font = load_font(size_px)
-                anchor = {"start": "l", "middle": "m", "end": "r"}[ch.get("text-anchor", "start")]
+                anchor = ANCHOR_MAP[ch.get("text-anchor", "start")]
                 bold = ch.get("font-weight") == "bold"
-                dr.text((T(x, y)[0], T(x, y)[1]), ch.text or "", font=font,
-                        fill=ch.get("fill", "#000000"), anchor=anchor + "s",
-                        stroke_width=max(1, size_px // 14) if bold else 0,
-                        stroke_fill=ch.get("fill", "#000000"))
-    walk(root, 0, 0)
+                s = ch.text if ch.text else ""
+                if s:
+                    tr2 = ch.get("transform")
+                    tm = mat_compose(m, parse_transform(tr2)) if tr2 else m
+                    draw_rotated_text(s, font, _col(ch.get("fill"), "#000000"), anchor, tm, x, y, bold)
+    walk(root, mat_identity())
     img.save(png_path)
     return png_path, img.size
 
