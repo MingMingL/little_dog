@@ -7,6 +7,10 @@
     板身世界坐标 x[55.25,112.4] y[-13.34,14.6]，中心(83.8, 0.63) 正压拼接缝。
   上排针（局部 x=1.27）落在世界 y=-12.07 = X 板 j 行；下排针（局部 x=26.67）落在
   世界 y=13.33 = Y 板 k 行；针距 2.54，每排 22 针（世界 x 57.15..110.49，列 22..43）。
+  排对应的连接器（官方 pinout user guide v1.1，已按 data-pin 逐针核对）：
+    上排 = J3：GND TX(43) RX(44) 1 2 42 41 40 39 38 37 36 35 0 45 48 47 21 20 19 GND GND
+    下排 = J1：3V3 3V3 RST 4 5 6 7 15 16 17 18 8 3 46 9 10 11 12 13 14 5V GND
+  （每排左->右 = 列 22..43；USB 双口在局部低 y 端，当前取向 USB 朝右）
   gen_breadboard_z.py 读取本文件嵌入 breadboard-z.svg；修改请同步更新图例与校验。
 -->
 <g id="component:esp32s3_n16r8_dual_usb_1" transform="translate(112.4 -13.34) rotate(90)" class="component on-board" data-component="esp32s3_n16r8_dual_usb_1"><rect x="-0.1" y="0.1" width="27.94" height="57.15" rx="0.26" fill="#0b0e0f" stroke="#030505" stroke-width="0.22"/>

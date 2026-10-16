@@ -34,7 +34,12 @@ Y 板终端行改名 k-t，避免与 X 板 a-j 重名（拼接后同一块板内
       上排针（局部 x=1.27）落在世界 y=-12.07 = X 板 j 行，下排针（局部 x=26.67）
       落在世界 y=13.33 = Y 板 k 行；针距 2.54，每排 22 针、列 22..43（22 针在 63 列
       上最居中的合法落点，中心与板中心仅差半孔）。
+      排针对应的连接器（按官方 pinout user guide v1.1，已用 data-pin 逐针核对）：
+      上排 = J3（GND/TX/RX/GPIO1/2/42-19/GND，与 CH343 同侧），下排 = J1
+      （3V3/3V3/RST/GPIO4-14/5V/GND）；USB 双口朝右（USB 在局部低 y 端）。
     孔三态：free（空闲）/ occupied（被针插入，44 孔）/ blocked（被板身遮挡，76 孔）。
+    注意：用户原话"J1→j、J3→k"与"USB 朝右"互为镜像，二者只能取一；按 2026-10-16
+    用户决定保持 USB 朝右，故图中引线标注/图例以官方 pinout 为准（J3→j、J1→k）。
 """
 
 import os
@@ -91,7 +96,7 @@ FULL_SVG = os.path.join(OUT_DIR, "breadboard-z.svg")
 
 CANVAS_X0, CANVAS_Y0 = -8.0, -65.34   # 画布原点（与参考图一致，左侧/上侧留边距）
 CANVAS_W = 181.1
-CANVAS_H = 156.4                      # 下缘图例区：全图 7 行，末行基线 y=88.4
+CANVAS_H = 162.0                      # 下缘图例区：全图 8 行，末行基线 y=92.8
 PX_W = 1120
 PX_H = int(round(PX_W * CANVAS_H / CANVAS_W))
 
@@ -242,7 +247,10 @@ def load_device_xml():
 
 def device_group():
     """第三步：ESP32-S3 N16R8 插到拼接缝正中央，横跨 X/Y 两板。
-    J1 上排 22 针 -> X 板 j 行；J3 下排 22 针 -> Y 板 k 行（均为列 22-43）。
+    物理取向：USB 口朝右（用户 2026-10-16 决定）。按官方 pinout（user guide v1.1，
+    已用 data-pin 逐针核对）：上排 22 针 = J3（GND/TX/RX/GPIO1/2/42-19/GND）落
+    X 板 j 行，下排 22 针 = J1（3V3/RST/GPIO4-14/5V/GND）落 Y 板 k 行（均为列 22-43）。
+    用户原话"J1→j、J3→k"与该取向互为镜像（绕缝心转 180° 才能同时满足），已定 USB 朝右。
     图层顺序：元件本体（含 44 针与丝印）-> 元件徽标 -> J1/J3 引线标注 -> 拼接缝虚线
     （缝线最后画，覆盖在元件上，直观表达"元件骑缝"）。
     """
@@ -253,11 +261,17 @@ def device_group():
     p.append(rect(55.25, 15.2, 14.15, 2.4, 0.5, COLOR["badge"], COLOR["seam"], 0.2, "badge"))
     p.append(text(56.25, 16.9, "⚠ 几何近似 电气近似", 1.4, COLOR["warn"], "start", "badge"))
     p.append('</g>')
-    # J1 / J3 引线标注：引线指向上下两排针右端，文字落在板右侧空白处
+    # J1 / J3 引线标注：引线指向上下两排针右端，文字落在板右侧空白处。
+    # USB 朝右取向下，上排针（j 行）属 J3、下排针（k 行）属 J1（官方 pinout）。
     p.append(line(112.7, -12.07, 116.3, -10.9, COLOR["seam"], 0.25, "device-call"))
-    p.append(text(117.0, -10.5, "J1（上排 22 针）→ X 板 j 行", 1.4, COLOR["title"], "start", "device-call"))
+    p.append(text(117.0, -10.5, "J3（上排 22 针）→ X 板 j 行", 1.4, COLOR["title"], "start", "device-call"))
     p.append(line(112.7, 13.33, 116.3, 14.5, COLOR["seam"], 0.25, "device-call"))
-    p.append(text(117.0, 15.1, "J3（下排 22 针）→ Y 板 k 行", 1.4, COLOR["title"], "start", "device-call"))
+    p.append(text(117.0, 15.1, "J1（下排 22 针）→ Y 板 k 行", 1.4, COLOR["title"], "start", "device-call"))
+    # 引脚序列速查（左->右 = 列 22..43），方便后续元件接线时查 GPIO 落点
+    p.append(text(117.0, -6.7, "j 行（J3）列22..43：GND TX RX 1 2 42 41 40 39 38 37 36 35 0 45 48 47 21 20 19 GND GND",
+                  1.1, COLOR["note"], "start", "device-call"))
+    p.append(text(117.0, 11.3, "k 行（J1）列22..43：3V3 3V3 RST 4 5 6 7 15 16 17 18 8 3 46 9 10 11 12 13 14 5V GND",
+                  1.1, COLOR["note"], "start", "device-call"))
     # 拼接缝虚线覆盖元件（画在元件之后，表达元件骑在缝上）
     p.append(line(2, SEAM_Y, 163, SEAM_Y, COLOR["seam"], 0.3, "seam-mark", dash="1.2 0.9"))
     # 挡孔叠加：板身遮住的 76 个导轨孔，用浅灰点画到元件之上，让"这些孔插不了线"
@@ -321,18 +335,21 @@ def build(include_holes):
         p.append(text(-6, 66.4, "每板 830 孔 = 终端 10 行 × 63 列（630）+ 电源轨 4 条 × 50 孔（200）；"
                                 "Z 共 1660 孔。孔距 2.54 mm，单位 mm。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 70.8, "ESP32-S3 N16R8（双 Type-C，44 针）插在拼接缝正中央横跨两板："
-                                "J1 上排 22 针 → X 板 j 行，J3 下排 22 针 → Y 板 k 行（均为列 22–43）。",
+        p.append(text(-6, 70.8, "ESP32-S3 N16R8（双 Type-C，44 针）插在拼接缝正中央横跨两板，USB 口朝右："
+                                "上排 22 针 = J3 → X 板 j 行、下排 22 针 = J1 → Y 板 k 行（均为列 22–43，左→右 = 列 22→43）。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 75.2, "孔三态：深灰 = 空闲或被针占用（free / occupied）；"
+        p.append(text(-6, 75.2, "J1/J3 按官方 pinout（user guide v1.1）判定：USB 朝右时 J1 在下（k 行）、J3 在上（j 行），"
+                                "与最初'J1→j、J3→k'的表述互为镜像；两种取向只能取一，本图取 USB 朝右。",
+                      1.8, COLOR["note"], "start", "doc-legend"))
+        p.append(text(-6, 79.6, "孔三态：深灰 = 空闲或被针占用（free / occupied）；"
                                 "浅灰 = 被板身遮挡不可插（blocked 76 孔：靠缝 4 条轨各 19 孔）。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 79.6, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通；每条电源轨沿长度方向中间断开（图中'断'）。",
+        p.append(text(-6, 84, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通；每条电源轨沿长度方向中间断开（图中'断'）。",
                       1.8, COLOR["warn"], "start", "doc-legend"))
-        p.append(text(-6, 84, "中隔槽将 a–e 与 f–j（Y 板为 k–o 与 p–t）隔开；"
+        p.append(text(-6, 88.4, "中隔槽将 a–e 与 f–j（Y 板为 k–o 与 p–t）隔开；"
                               "Y 板 k–t 与 X 板 a–j 是各自独立的行号空间。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 88.4, "本图为规划图，几何/电气均为近似，不代表实测结果。",
+        p.append(text(-6, 92.8, "本图为规划图，几何/电气均为近似，不代表实测结果。",
                       1.8, COLOR["note"], "start", "doc-legend"))
     else:
         p.append(text(-6, -61.84, "面包板 Z · 轮廓 —— 双 830 点并排拼接（28 行 × 63 列）",
@@ -348,7 +365,7 @@ def build(include_holes):
         p.append(text(-6, 70.8, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通。",
                       1.8, COLOR["warn"], "start", "doc-legend"))
         p.append(text(-6, 75.2, "第二步：叠加全部 1660 个插孔；第三步：拼接缝正中央插入 ESP32-S3"
-                                "（J1 → X 板 j 行、J3 → Y 板 k 行）。均见 breadboard-z.svg。",
+                                "（USB 朝右：上排 J3 → X 板 j 行、下排 J1 → Y 板 k 行）。均见 breadboard-z.svg。",
                       1.8, COLOR["note"], "start", "doc-legend"))
         p.append(text(-6, 79.6, "本图为规划图，几何/电气均为近似，不代表实测结果。",
                       1.8, COLOR["note"], "start", "doc-legend"))
