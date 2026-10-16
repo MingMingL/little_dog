@@ -456,42 +456,18 @@ void ControlServer::Start() {
             return;
         }
 
-        httpd_uri_t status_uri = {
-            .uri = "/api/status",
-            .method = HTTP_GET,
-            .handler = StatusHandler,
-            .user_ctx = nullptr
+        // 路由表：五个接口除了 uri/method/handler 其它字段都一样，
+        // 摊平成一张表循环注册，加接口时只改这一处。
+        const httpd_uri_t routes[] = {
+            {.uri = "/api/status", .method = HTTP_GET,  .handler = StatusHandler, .user_ctx = nullptr},
+            {.uri = "/api/mode",   .method = HTTP_POST, .handler = ModeHandler,   .user_ctx = nullptr},
+            {.uri = "/api/stop",   .method = HTTP_POST, .handler = StopHandler,   .user_ctx = nullptr},
+            {.uri = "/api/move",   .method = HTTP_POST, .handler = MoveHandler,   .user_ctx = nullptr},
+            {.uri = "/api/wifi",   .method = HTTP_POST, .handler = WifiHandler,   .user_ctx = nullptr},
         };
-        httpd_uri_t mode_uri = {
-            .uri = "/api/mode",
-            .method = HTTP_POST,
-            .handler = ModeHandler,
-            .user_ctx = nullptr
-        };
-        httpd_uri_t stop_uri = {
-            .uri = "/api/stop",
-            .method = HTTP_POST,
-            .handler = StopHandler,
-            .user_ctx = nullptr
-        };
-        httpd_uri_t move_uri = {
-            .uri = "/api/move",
-            .method = HTTP_POST,
-            .handler = MoveHandler,
-            .user_ctx = nullptr
-        };
-        httpd_uri_t wifi_uri = {
-            .uri = "/api/wifi",
-            .method = HTTP_POST,
-            .handler = WifiHandler,
-            .user_ctx = nullptr
-        };
-
-        httpd_register_uri_handler(server_, &status_uri);
-        httpd_register_uri_handler(server_, &mode_uri);
-        httpd_register_uri_handler(server_, &stop_uri);
-        httpd_register_uri_handler(server_, &move_uri);
-        httpd_register_uri_handler(server_, &wifi_uri);
+        for (const httpd_uri_t& route : routes) {
+            httpd_register_uri_handler(server_, &route);
+        }
         started = true;
     }
 

@@ -34,6 +34,8 @@ public class DeviceApi {
     private static final String TAG = "DeviceApi";
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
     private static final long POLL_INTERVAL_MS = 2000L;
+    /** 没配 IP 时所有接口的错误文案；以前三个方法各写一遍字面量，改一处会漏两处 */
+    private static final String MSG_NO_IP = "未设置设备 IP";
 
     public interface StatusCallback {
         void onStatus(DeviceStatus status);
@@ -81,7 +83,7 @@ public class DeviceApi {
     /** 单次查询状态 */
     public void getStatus(StatusCallback callback) {
         if (baseUrl == null) {
-            callback.onError("未设置设备 IP");
+            callback.onError(MSG_NO_IP);
             return;
         }
         Request request = new Request.Builder()
@@ -218,7 +220,7 @@ public class DeviceApi {
      */
     public void move(String dir, int speed, SimpleCallback callback) {
         if (baseUrl == null) {
-            callback.onResult(false, "未设置设备 IP");
+            callback.onResult(false, MSG_NO_IP);
             return;
         }
         if (moveInFlight) {
@@ -272,7 +274,7 @@ public class DeviceApi {
 
     private void post(String path, String body, SimpleCallback callback) {
         if (baseUrl == null) {
-            callback.onResult(false, "未设置设备 IP");
+            callback.onResult(false, MSG_NO_IP);
             return;
         }
         enqueuePost(path, body, callback);
