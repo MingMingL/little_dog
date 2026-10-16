@@ -137,6 +137,7 @@ COLOR = {
     "module_pin": "#e7e5e4", "module_pin_edge": "#57534e",
     "wire_vcc": "#dc2626", "wire_gnd": "#111827", "wire_sig": "#7c3aed",
     "wire_spk": "#0f766e",                       # 喇叭线（teal，与红/黑/紫区分）
+    "wire_mtr": "#ea580c",                       # 电机驱动线（橙，TB6612 控制/电源/电机输出）
 }
 FONT = "system-ui, -apple-system, 'PingFang SC', 'Noto Sans CJK SC', sans-serif"
 
@@ -147,7 +148,9 @@ FULL_SVG = os.path.join(OUT_DIR, "breadboard-z.svg")
 
 CANVAS_X0, CANVAS_Y0 = -8.0, -65.34   # 画布原点（与参考图一致，左侧/上侧留边距）
 CANVAS_W = 181.1
-CANVAS_H = 176.0                      # 下缘图例区：全图 12 行，末行基线 y=110.4（元件 2/9 起图例加长）
+CANVAS_H = 228.0                      # 下缘图例区：全图 14 行，末行基线 y=155.2
+                                     # （元件 3/9 TB6612 入图：图例 +2 行且整体下移 +36，
+                                     #  腾出板外区 y[55.5,93] 放电机驱动模块/电池/电机）
 PX_W = 1120
 PX_H = int(round(PX_W * CANVAS_H / CANVAS_W))
 
@@ -479,7 +482,121 @@ MAX98357A = {
     "label_pos": (123.19, 26.30),
     "sub_pos": (123.19, 28.50),
 }
-COMPONENTS = [INMP441, MAX98357A]
+# 元件 3/9：TB6612FNG 双路电机驱动（用户 2026-10-17 确认：方框+丝印、两个电机示意符号）
+# 关键决策：**模块本体放板外**——VM（4.5–10V）与电机输出电流（1.2A/路）绝不上面包板
+# （面包板触点额定电流约 500mA，且板内无 VMM 电源网络）。只把 7 根控制信号 + VCC/GND 落孔。
+# 落孔（9 个，config.h 权威引脚：STBY=GPIO10、PWMA/AIN1/AIN2/PWMB=11/12/13/14、BIN1/BIN2=47/21）：
+#   STBY/PWMA/AIN1/AIN2/PWMB → zy.l47–l51（GPIO10–14）
+#     —— J1 针在 k 行，同列 l–o 同网；m/n/o 行 × 45–51 列被 MAX98357A 本体挡死（blocked）、
+#     k47–51 是 ESP32 针，故 l 行是唯一合法行。5 根线只能斜线压 MAX 本体下插（麦克风 4 线
+#     横穿功放本体已确立"压线不压体"先例；贝塞尔 ctrl 深插左下，压体段集中在 MAX 左上无丝印区）。
+#   BIN1/BIN2 → zx.i48/i49（GPIO47/21）——同列 f–i 同网（j48/49 是 ESP32 针，同列同网）。
+#     走列 48/49 缝隙竖带（x=124.46/127.00）南下：过 ESP32 j/k 针缝隙（距针心 1.27 不碰）、
+#     压 MAX 右侧无丝印区（GAIN/SD 丝印在 x≤121）、过 p–t 行缝隙与轨缝，板下横移入框。
+#   VCC → zy.o32（3V3，与麦克风 VDD→m32 同网；l32 正下方会穿麦克风 VDD 落孔彩环，故落 o 行）
+#   GND → zy.bottom_outer_44（下轨外轨 −；与麦克风 GND（50 孔）、MAX GND（40 孔）同轨）
+# 板外布局：方框 x[92,126] y[63,87]（图例整体下移 +36 后腾出板外区）；框上沿 9 针=9 根落线入口，
+# 框左沿 VM 接 7.4V 电池符号（x≈27），框右沿 AO1/AO2、BO1/BO2 接电机 M1/M2（圆心 (150,68)/(150,86)）。
+# 线色：橙 wire_mtr（与红 VCC/黑 GND/紫信号/teal 喇叭区分）。
+TB6612FNG = {
+    "id": "tb6612fng",
+    "label": "TB6612FNG",
+    "sub": "双路电机驱动 · 板外",
+    "board": "zy",                                # 锚板（无板上针，占孔全来自 wires）
+    "boards": ("zy", "zx"),                       # 落孔跨两板（信号在 Y、BIN 在 X）
+    "off_board": True,                            # 本体在板外：不占针孔、无挡孔
+    "label_pos": (109.0, 66.2),
+    "sub_pos": (109.0, 68.1),
+    "body": (92.0, 63.0, 34.0, 24.0),             # 板外方框 x[92,126] y[63,87]
+    # 针：板外元件用世界坐标 dict（不占孔）。idx0–8 = 框上沿 9 针（= 9 根落线入口）；
+    # idx9 VM（左沿）、idx10–13 AO1/AO2、BO1/BO2（右沿）。上沿 9 针丝印写在 extra_svg
+    # 的框内顶行（避免压框外横带跳线），故此处 lab=""。
+    "pins": [
+        {"xy": (95.0, 63.0), "lab": ""},          # 0 STBY
+        {"xy": (98.5, 63.0), "lab": ""},          # 1 PWMA
+        {"xy": (102.0, 63.0), "lab": ""},         # 2 AIN1
+        {"xy": (105.5, 63.0), "lab": ""},         # 3 AIN2
+        {"xy": (109.0, 63.0), "lab": ""},         # 4 PWMB
+        {"xy": (112.5, 63.0), "lab": ""},         # 5 VCC
+        {"xy": (116.0, 63.0), "lab": ""},         # 6 BIN1
+        {"xy": (119.5, 63.0), "lab": ""},         # 7 BIN2
+        {"xy": (123.0, 63.0), "lab": ""},         # 8 GND
+        {"xy": (92.0, 73.0), "lab": "VM"},        # 9  VM（7.4V 电机电源）
+        {"xy": (126.0, 75.0), "lab": "AO1"},      # 10
+        {"xy": (126.0, 78.0), "lab": "AO2"},      # 11
+        {"xy": (126.0, 82.0), "lab": "BO1"},      # 12
+        {"xy": (126.0, 85.0), "lab": "BO2"},      # 13
+    ],
+    "wires": [
+        # 5 根信号：l 行孔 → 框上沿针。二次贝塞尔斜穿 MAX 本体左上无丝印区（"压线不压体"
+        # 先例同麦克风线）；ctrl 深插左下让弧线尽快离开 MAX（x<114.3 后彻底干净）。
+        # 终点升序排列使 5 线互不相交；GPIO 丝印见图例（l 行上方是 ESP32 k 针，无标签空位）。
+        {"from": ("hole", "zy.l47"), "to": ("pin", 0), "ctrl": (110.0, 40.0), "cls": "wire_mtr"},
+        {"from": ("hole", "zy.l48"), "to": ("pin", 1), "ctrl": (106.0, 38.0), "cls": "wire_mtr"},
+        {"from": ("hole", "zy.l49"), "to": ("pin", 2), "ctrl": (105.0, 36.0), "cls": "wire_mtr"},
+        {"from": ("hole", "zy.l50"), "to": ("pin", 3), "ctrl": (104.0, 34.0), "cls": "wire_mtr"},
+        {"from": ("hole", "zy.l51"), "to": ("pin", 4), "ctrl": (103.0, 32.0), "cls": "wire_mtr"},
+        # BIN1/BIN2：X 板 i48/i49 孔 → 竖带（BIN1 x=124.46 列 48/49 缝；BIN2 x=134.62 列 52/53 缝）
+        # → 板下 y=61.2/58.5 横带左行 → 入框上沿针。
+        # BIN1 斜段直接入带（不碰邻孔 i49）；BIN2 须先上抬走 h/i 行间缝中线 y=-15.88
+        # （距两行孔心各 1.27）再横右入带，否则斜段压 i50/i51 行孔。
+        # 134.62 竖带：越 MAX 右缘 132.08（不压体）、过 l/m/n/o 与 p–t 行列缝（距孔心 1.27）、
+        # 避开 MAX "GND −轨"/"5V +轨" 标签与 GND 落孔 bottom_outer_44（138.43）、
+        # 与 5 根 l 线扇形零交叉（扇形最右点 130.81）；仅压 ESP32 板身 USB/按钮间裸板区。
+        {"from": ("hole", "zx.i48"), "to": ("pin", 6), "pts": [(123.19, -14.61), (124.46, -13.8), (124.46, 61.2), (116.0, 61.2), (116.0, 63.0)], "cls": "wire_mtr"},
+        {"from": ("hole", "zx.i49"), "to": ("pin", 7), "pts": [(125.73, -14.61), (125.73, -15.88), (134.62, -15.88), (134.62, 58.5), (119.5, 58.5), (119.5, 63.0)], "cls": "wire_mtr"},
+        # VCC：o32（3V3）→ 框上沿针。单条贝塞尔，全程 x<114.3 不碰 MAX；穿 p/q 行空闲孔（先例允许）。
+        {"from": ("hole", "zy.o32"), "to": ("pin", 5), "ctrl": (98.0, 44.0), "cls": "wire_vcc"},
+        # GND：框上沿针 → 下轨外轨 − 第 44 孔。pts 反向书写让 label 渲染在轨孔侧
+        # （标签右移 label_dx=2.6，避开本线 x=139.70 竖带）。
+        {"from": ("pin", 8), "to": ("hole", "zy.bottom_outer_44"),
+         "pts": [(123.0, 63.0), (123.0, 62.8), (139.70, 62.8), (139.70, 51.5), (138.43, 48.89)],
+         "cls": "wire_gnd", "label": "GND −轨", "label_dx": 2.6, "label_anchor": "start", "label_dy": 0.55},
+        # VM：电池正极 ⇒ 框左沿针（水平长线，板外净空带）
+        {"from": ("xy", (32.0, 73.0)), "to": ("pin", 9), "pts": [(32.0, 73.0), (92.0, 73.0)], "cls": "wire_vcc"},
+        # 电机输出：AO1/AO2 → M1（左轮）；BO1/BO2 → M2（右轮）。落点均在电机符号圆弧上。
+        {"from": ("pin", 10), "to": ("xy", (145.0, 66.0)), "pts": [(126.0, 75.0), (145.0, 66.0)], "cls": "wire_mtr"},
+        {"from": ("pin", 11), "to": ("xy", (145.0, 70.0)), "pts": [(126.0, 78.0), (145.0, 70.0)], "cls": "wire_mtr"},
+        {"from": ("pin", 12), "to": ("xy", (145.0, 84.5)), "pts": [(126.0, 82.0), (145.0, 84.5)], "cls": "wire_mtr"},
+        {"from": ("pin", 13), "to": ("xy", (145.0, 87.5)), "pts": [(126.0, 85.0), (145.0, 87.5)], "cls": "wire_mtr"},
+    ],
+    # 框内 16 针丝印（复刻真实双列排布：左列 PWMA/AIN2/AIN1/STBY/BIN1/BIN2/PWMB/GND、
+    # 右列 VM/VCC/GND/AO1/AO2/BO2/BO1/GND）+ 框内顶行 9 针名（上沿落线入口标注，
+    # 放框内避免压框外 y≈58–62 横带）+ 电池符号 + 电机 M1/M2 示意符号。
+    # 电池形制（左长片=正极、右短片=负极）+ 引线；电机 = 圆 M + 标注（电机极性由 TB6612 内部决定）。
+    "extra_svg": (
+        # 框内顶行：9 针名（与框上沿针一一对应）
+        text(95.0, 64.3, "STBY", 0.75, "#f0fdf4", "middle", "tb-pin-top")
+        + text(98.5, 64.3, "PWMA", 0.75, "#f0fdf4", "middle", "tb-pin-top")
+        + text(102.0, 64.3, "AIN1", 0.75, "#f0fdf4", "middle", "tb-pin-top")
+        + text(105.5, 64.3, "AIN2", 0.75, "#f0fdf4", "middle", "tb-pin-top")
+        + text(109.0, 64.3, "PWMB", 0.75, "#f0fdf4", "middle", "tb-pin-top")
+        + text(112.5, 64.3, "VCC", 0.75, "#f0fdf4", "middle", "tb-pin-top")
+        + text(116.0, 64.3, "BIN1", 0.75, "#f0fdf4", "middle", "tb-pin-top")
+        + text(119.5, 64.3, "BIN2", 0.75, "#f0fdf4", "middle", "tb-pin-top")
+        + text(123.0, 64.3, "GND", 0.75, "#f0fdf4", "middle", "tb-pin-top")
+        # 框内 16 针丝印（左列 x=97 / 右列 x=121，行距 2.0）
+        + "".join(text(97.0, 72.4 + 2.0 * i, nm, 0.8, "#bbf7d0", "middle", "tb-pin-label")
+                  for i, nm in enumerate(("PWMA", "AIN2", "AIN1", "STBY",
+                                          "BIN1", "BIN2", "PWMB", "GND")))
+        + "".join(text(121.0, 72.4 + 2.0 * i, nm, 0.8, "#bbf7d0", "middle", "tb-pin-label")
+                  for i, nm in enumerate(("VM", "VCC", "GND", "AO1", "AO2", "BO2", "BO1", "GND")))
+        # 电池符号（7.4V，板外）：长片=正极、短片=负极、引线接 VM 线起点 (32,73)
+        + line(27.0, 66.0, 27.0, 80.0, "#374151", 0.9, "bat-plate")
+        + line(30.2, 69.0, 30.2, 77.0, "#374151", 0.9, "bat-plate")
+        + line(30.2, 73.0, 32.0, 73.0, COLOR["wire_vcc"], 0.45, "wire")
+        + text(28.6, 64.0, "7.4V", 1.1, "#111827", "middle", "bat-label", bold=True)
+        + text(28.6, 83.6, "电池（板外）", 1.0, "#6b7280", "middle", "bat-label")
+        # 电机示意符号 M1/M2（圆心均在 AO/BO 线落点上）
+        + '<circle cx="150.0" cy="68.0" r="5.0" fill="#e5e7eb" stroke="#374151" stroke-width="0.3" class="mtr-body"/>'
+        + text(150.0, 68.9, "M1", 2.6, "#111827", "middle", "mtr-label", bold=True)
+        + text(150.0, 75.6, "M1 · 左轮", 1.0, "#374151", "middle", "mtr-label")
+        + '<circle cx="150.0" cy="86.0" r="5.0" fill="#e5e7eb" stroke="#374151" stroke-width="0.3" class="mtr-body"/>'
+        + text(150.0, 86.9, "M2", 2.6, "#111827", "middle", "mtr-label", bold=True)
+        + text(150.0, 93.6, "M2 · 右轮", 1.0, "#374151", "middle", "mtr-label")
+    ),
+}
+COMPONENTS = [INMP441, MAX98357A, TB6612FNG]
 
 
 def row_y(prefix, letter):
@@ -509,30 +626,52 @@ def hole_xy(name):
     return col_x(c), row_y(prefix, letter)
 
 
+def pin_ref(pin):
+    """针条目 -> ("rc", 行字母, 列号) 或 ("xy", 世界x, 世界y)。
+    板上元件用旧格式 (行, 列, 丝印)；板外元件（TB6612FNG，comp["off_board"]=True）
+    用 {"xy": (x, y), "lab": 丝印}——针位是模块本体上的世界坐标，不占面包板孔。"""
+    if isinstance(pin, dict):
+        if "xy" in pin:
+            return ("xy", pin["xy"][0], pin["xy"][1])
+        return ("rc", pin["row"], pin["col"])
+    return ("rc", pin[0], pin[1])
+
+
+def pin_label(pin):
+    return pin["lab"] if isinstance(pin, dict) else pin[2]
+
+
 def component_hole_marks():
     """元件针孔 + 跳线落孔 -> ({prefix: set(孔名)}, {prefix: set(本体挡孔)})。
     供 hole_circles 标 occupied / blocked。"""
     occ, blk = {}, {}
     for comp in COMPONENTS:
-        s = occ.setdefault(comp["board"], set())
-        for rw, cl, _lab in comp["pins"]:
-            s.add("%s.%s%d" % (comp["board"], rw, cl))
+        for pin in comp["pins"]:
+            ref = pin_ref(pin)
+            if ref[0] == "rc":               # 板上针：锚板占位
+                occ.setdefault(comp["board"], set()).add(
+                    "%s.%s%d" % (comp["board"], ref[1], ref[2]))
+            # off_board 的 xy 针在板外，无孔可占（模块本体不在面包板上）
         for w in comp["wires"]:
             for end in (w["from"], w["to"]):
-                if end[0] == "hole":
-                    s.add(end[1])
-        b = blk.setdefault(comp["board"], set())
-        for nm in comp.get("blocked", ()):
-            b.add(nm)
+                if end[0] == "hole":         # 跳线落孔：按孔名前缀归板（可跨板）
+                    occ.setdefault(end[1].split(".")[0], set()).add(end[1])
+        if not comp.get("off_board"):        # 板外元件无本体挡孔（不遮任何孔）
+            b = blk.setdefault(comp["board"], set())
+            for nm in comp.get("blocked", ()):
+                b.add(nm)
     return occ, blk
 
 
 def endpoint_xy(comp, end):
     """线端 -> 世界坐标。end = ("pin", 针下标) / ("hole", 孔名) / ("xy", (x,y))。
-    xy 端点用于不落在孔上的连接（如喇叭端子螺丝 -> 喇叭符号）。"""
+    xy 端点用于不落在孔上的连接（如喇叭端子螺丝 -> 喇叭符号）。
+    板外元件的针是模块本体上的世界坐标（pin 条目带 "xy"）。"""
     if end[0] == "pin":
-        rw, cl = comp["pins"][end[1]][0], comp["pins"][end[1]][1]
-        return col_x(cl), row_y(comp["board"], rw)
+        ref = pin_ref(comp["pins"][end[1]])
+        if ref[0] == "xy":
+            return ref[1], ref[2]
+        return col_x(ref[2]), row_y(comp["board"], ref[1])
     if end[0] == "xy":
         return end[1]
     return hole_xy(end[1])
@@ -579,27 +718,41 @@ def component_body_group(comp):
                       COLOR["pcb_text"], "middle", "module-label", bold=True))
         p.append(text(sx, sy, comp["sub"], comp.get("sub_size", 1.05),
                       COLOR["pcb_text"], "middle", "module-label"))
-    for _i, (rw, cl, lab) in enumerate(comp["pins"]):
-        px, py = col_x(cl), row_y(comp["board"], rw)
+    for _i, pin in enumerate(comp["pins"]):
+        ref = pin_ref(pin)
+        if ref[0] == "xy":                  # 板外针：世界坐标直接画，丝印随针
+            px, py = ref[1], ref[2]
+            p.append('<circle cx="%s" cy="%s" r="0.42" fill="%s" stroke="%s" stroke-width="0.08" class="module-pin"/>'
+                     % (fmt(px), fmt(py), COLOR["module_pin"], COLOR["module_pin_edge"]))
+            p.append(text(px, py - 0.85, pin_label(pin), 0.8, COLOR["pcb_text"],
+                          "middle", "module-pin-label"))
+            continue
+        px, py = col_x(ref[2]), row_y(comp["board"], ref[1])
         p.append('<circle cx="%s" cy="%s" r="0.42" fill="%s" stroke="%s" stroke-width="0.08" class="module-pin"/>'
                  % (fmt(px), fmt(py), COLOR["module_pin"], COLOR["module_pin_edge"]))
-        upper = rows.index(rw) < 5
+        upper = rows.index(ref[1]) < 5
         ly = py - 1.55 if upper else py + 1.95
-        p.append(text(px, ly, lab, 0.95, COLOR["pcb_text"], "middle", "module-pin-label"))
+        p.append(text(px, ly, pin_label(pin), 0.95, COLOR["pcb_text"], "middle", "module-pin-label"))
     p.append('</g>')
     return "".join(p)
 
 
 def component_wires_group(comp):
-    """元件跳线层：白底彩线 + 落孔彩环与标签（在本体层之后统一绘制）。"""
+    """元件跳线层：白底彩线 + 落孔彩环与标签（在本体层之后统一绘制）。
+    单根曲线：from/to/ctrl 二次贝塞尔；多段折线：w["pts"] = 完整点列（含首末端，
+    首末端须与 from/to 一致，彩环/标签仍按 from/to 定位）。"""
     p = ['<g class="component-wires" data-component="%s">' % comp["id"]]
     for w in comp["wires"]:
         p0p = endpoint_xy(comp, w["from"])
         p1p = endpoint_xy(comp, w["to"])
-        segs = wire_segments(p0p, w["ctrl"], p1p)
-        for a, b in zip(segs, segs[1:]):              # 白底线：交叠处仍可分辨
+        if "pts" in w:                     # 多段折线（板外元件绕 MAX 本体/图例区）
+            segs = [(w["pts"][k], w["pts"][k + 1]) for k in range(len(w["pts"]) - 1)]
+        else:
+            qs = wire_segments(p0p, w["ctrl"], p1p)
+            segs = list(zip(qs, qs[1:]))
+        for a, b in segs:                       # 白底线：交叠处仍可分辨
             p.append(line(a[0], a[1], b[0], b[1], "#ffffff", 1.0, "wire-under"))
-        for a, b in zip(segs, segs[1:]):
+        for a, b in segs:
             p.append(line(a[0], a[1], b[0], b[1], COLOR[w["cls"]], 0.45, "wire"))
         if w.get("label"):
             if w["to"][0] == "hole":
@@ -625,10 +778,11 @@ def build(include_holes):
     p.append('<svg xmlns="http://www.w3.org/2000/svg" viewBox="%s %s %s %s" width="%d" height="%d" font-family="%s">'
              % (fmt(CANVAS_X0), fmt(CANVAS_Y0), fmt(CANVAS_W), fmt(CANVAS_H), PX_W, PX_H, FONT))
     if include_holes:
-        p.append("<title>面包板 Z · 双 830 点并排拼接（28 行 × 63 列 · 共 1660 插孔 · 中央插 ESP32-S3 · 元件 2/9 INMP441 + MAX98357A）</title>")
+        p.append("<title>面包板 Z · 双 830 点并排拼接（28 行 × 63 列 · 共 1660 插孔 · 中央插 ESP32-S3 · 元件 3/9 INMP441 + MAX98357A + TB6612FNG）</title>")
         p.append("<desc>Two 830-point breadboards joined along their power-rail long edges "
                  "into board Z (28 rows x 63 columns), with an ESP32-S3 board plugged across "
-                 "the seam and components 2/9 (INMP441, MAX98357A) wired in. Units: millimetres. "
+                 "the seam and components 3/9 (INMP441, MAX98357A, TB6612FNG motor driver, "
+                 "body placed off-board) wired in. Units: millimetres. "
                  "Planning drawing, not an electrical verification.</desc>")
     else:
         p.append("<title>面包板 Z · 轮廓 —— 双 830 点并排拼接（28 行 × 63 列）</title>")
@@ -675,62 +829,70 @@ def build(include_holes):
                       3.2, COLOR["title"], "start", "doc-title", bold=True))
         p.append(text(-6, -57.2, "X（上板，行 a–j）+ Y（下板，行 k–t）沿电源轨长边拼接为整板 Z；"
                                   "先轮廓（#z-outline）后插孔（#z-holes），再插 ESP32-S3（#z-devices），"
-                                  "然后逐个接入元件与跳线（#z-components 本体 + #z-wires 跳线，当前 2/9：INMP441 + MAX98357A 功放）。",
+                                  "然后逐个接入元件与跳线（#z-components 本体 + #z-wires 跳线，当前 3/9：INMP441 + MAX98357A 功放 + TB6612FNG 电机驱动）。",
                       1.8, COLOR["note"], "start", "doc-subtitle"))
-        p.append(text(-6, 62, "行序（自上而下，'|' = 隔断）：X = | - + | a b c d e | f g h i j | + - | ；"
+        p.append(text(-6, 98, "行序（自上而下，'|' = 隔断）：X = | - + | a b c d e | f g h i j | + - | ；"
                               "Y = | - + | k l m n o | p q r s t | + - |",
                       2.4, COLOR["title"], "start", "doc-legend", bold=True))
-        p.append(text(-6, 66.4, "每板 830 孔 = 终端 10 行 × 63 列（630）+ 电源轨 4 条 × 50 孔（200）；"
+        p.append(text(-6, 102.4, "每板 830 孔 = 终端 10 行 × 63 列（630）+ 电源轨 4 条 × 50 孔（200）；"
                                 "Z 共 1660 孔。孔距 2.54 mm，单位 mm。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 70.8, "ESP32-S3 N16R8（双 Type-C，44 针）插在拼接缝正中央横跨两板，USB 口朝右："
+        p.append(text(-6, 106.8, "ESP32-S3 N16R8（双 Type-C，44 针）插在拼接缝正中央横跨两板，USB 口朝右："
                                 "上排 22 针 = J3 → X 板 j 行、下排 22 针 = J1 → Y 板 k 行（均为列 32–53，左→右 = 列 32→53）。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 75.2, "J1/J3 按官方 pinout（user guide v1.1）判定：USB 朝右时 J1 在下（k 行）、J3 在上（j 行），"
+        p.append(text(-6, 111.2, "J1/J3 按官方 pinout（user guide v1.1）判定：USB 朝右时 J1 在下（k 行）、J3 在上（j 行），"
                                 "与最初'J1→j、J3→k'的表述互为镜像；两种取向只能取一，本图取 USB 朝右。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 79.6, "元件 1：INMP441 数字麦克风（I2S）圆形小板 Ø15mm，上排针 SCK/WS/L/R 插 o 行 60–62 列、"
+        p.append(text(-6, 115.6, "元件 1：INMP441 数字麦克风（I2S）圆形小板 Ø15mm，上排针 SCK/WS/L/R 插 o 行 60–62 列、"
                                 "下排针 SD/VDD/GND 插 p 行 60–62 列——两排针骑中隔槽分插两个半区（同半区会同列短接）。",
                       1.8, COLOR["pcb"], "start", "doc-legend"))
-        p.append(text(-6, 84, "接线圈 5 根 + 1 根模块内短跳线（线端彩环 = 跳线落孔）：红 VDD→m32（3V3）；"
+        p.append(text(-6, 120, "接线圈 5 根 + 1 根模块内短跳线（线端彩环 = 跳线落孔）：红 VDD→m32（3V3）；"
                               "紫 SCK/WS/SD→m35/m36/m37（GPIO4/5/6，J1 针同列 l–o 同网）；"
                               "黑 GND→下轨外轨 − 第 50 孔；L/R 与 GND 两针短接（选左声道）。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 88.4, "元件 2：MAX98357A I2S 功放（7 针单排 + 顶部 2P 喇叭端子），7 针插 Y 板 q 行（下半区）列 45–51，"
+        p.append(text(-6, 124.4, "元件 2：MAX98357A I2S 功放（7 针单排 + 顶部 2P 喇叭端子），7 针插 Y 板 q 行（下半区）列 45–51，"
                                 "丝印左→右 = LRC/BCLK/DIN/GAIN/SD/GND/VIN；本体下沿距 ESP32 板身 2.5mm。",
                       1.8, COLOR["pcb"], "start", "doc-legend"))
-        p.append(text(-6, 92.8, "接线圈 8 根 + 1 根模块内短跳线（线端彩环 = 跳线落孔）：紫 LRC/BCLK/DIN→m40/m39/m38（GPIO16/15/7）；"
+        p.append(text(-6, 128.8, "接线圈 8 根 + 1 根模块内短跳线（线端彩环 = 跳线落孔）：紫 LRC/BCLK/DIN→m40/m39/m38（GPIO16/15/7）；"
                                 "GAIN→GND、SD→VIN 两针短接（用户决策，替代默认悬空）；黑 GND→下轨外轨 − 第 40 孔；"
                                 "红 VIN→下轨内轨 + 第 41 孔；青 VO+/VO−→喇叭 4Ω 3W 示意符号。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 97.2, "孔三态：深灰 = 空闲 / 被 ESP32 针（44）或跳线与模块针（23）占用；"
+        p.append(text(-6, 133.2, "元件 3：TB6612FNG 双路电机驱动（16 针双列，VM 4.5–10V、1.2A/路）。VM 电源与 1A+ 电机电流"
+                                "绝不上面包板——模块本体（方框）画在板外 y[63,87]，只把 9 根控制/电源线落孔；"
+                                "AO1/AO2、BO1/BO2 接两个电机示意符号（M1/M2），VM 接 7.4V 电池。",
+                      1.8, COLOR["pcb"], "start", "doc-legend"))
+        p.append(text(-6, 137.6, "接线圈 9 根（橙 = 电机线）+ 板外 5 根：紫 STBY/PWMA/AIN1/AIN2/PWMB→l47–l51（GPIO10–14，"
+                                "J1 针同列 l–o 同网；m/n/o 45–51 列被 MAX 本体挡死，l 行是唯一合法行，斜线压 MAX 本体下插）；"
+                                "BIN1/BIN2→X 板 i48/i49（GPIO47/21，同列 f–i 同网）；红 VCC→o32（3V3）；黑 GND→下轨外轨 − 第 44 孔。",
+                      1.8, COLOR["note"], "start", "doc-legend"))
+        p.append(text(-6, 142.0, "孔三态：深灰 = 空闲 / 被 ESP32 针（44）或跳线与模块针（32）占用；"
                                 "浅灰 = 被板身遮挡不可插（blocked 117 孔 = ESP32 靠缝 4 轨 72 孔 + INMP441 本体 10 孔 + MAX98357A 本体 35 孔）。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 101.6, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通；每条电源轨沿长度方向中间断开（图中'断'）。",
+        p.append(text(-6, 146.4, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通；每条电源轨沿长度方向中间断开（图中'断'）。",
                       1.8, COLOR["warn"], "start", "doc-legend"))
-        p.append(text(-6, 106.0, "中隔槽将 a–e 与 f–j（Y 板为 k–o 与 p–t）隔开：同一列、同一半区的 5 孔才互通；"
+        p.append(text(-6, 150.8, "中隔槽将 a–e 与 f–j（Y 板为 k–o 与 p–t）隔开：同一列、同一半区的 5 孔才互通；"
                               "两排针模块必须骑槽插，若两排针插进同一半区，模块自己的两排针就会同列短接。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 110.4, "本图为规划图，几何/电气均为近似，不代表实测结果。",
+        p.append(text(-6, 155.2, "本图为规划图，几何/电气均为近似，不代表实测结果。",
                       1.8, COLOR["note"], "start", "doc-legend"))
     else:
         p.append(text(-6, -61.84, "面包板 Z · 轮廓 —— 双 830 点并排拼接（28 行 × 63 列）",
                       3.2, COLOR["title"], "start", "doc-title", bold=True))
         p.append(text(-6, -57.2, "X（上板）+ Y（下板）沿电源轨长边拼接；本图为第一步：只画 Z 的轮廓，不含插孔。",
                       1.8, COLOR["note"], "start", "doc-subtitle"))
-        p.append(text(-6, 62, "轮廓要素：板体 165.1 × 54.6 × 2 / 中隔槽 / 电源轨标线（外 − 内 +，中间断开）/ "
+        p.append(text(-6, 98, "轮廓要素：板体 165.1 × 54.6 × 2 / 中隔槽 / 电源轨标线（外 − 内 +，中间断开）/ "
                               "拼接缝 / 行列标号（63 列；X 行 a–j，Y 行 k–t）",
                       2.4, COLOR["title"], "start", "doc-legend", bold=True))
-        p.append(text(-6, 66.4, "行序（自上而下，'|' = 隔断）：X = | - + | a b c d e | f g h i j | + - | ；"
+        p.append(text(-6, 102.4, "行序（自上而下，'|' = 隔断）：X = | - + | a b c d e | f g h i j | + - | ；"
                                 "Y = | - + | k l m n o | p q r s t | + - |",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 70.8, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通。",
+        p.append(text(-6, 106.8, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通。",
                       1.8, COLOR["warn"], "start", "doc-legend"))
-        p.append(text(-6, 75.2, "第二步：叠加全部 1660 个插孔；第三步：拼接缝正中央插入 ESP32-S3"
+        p.append(text(-6, 111.2, "第二步：叠加全部 1660 个插孔；第三步：拼接缝正中央插入 ESP32-S3"
                                 "（USB 朝右：上排 J3 → X 板 j 行、下排 J1 → Y 板 k 行）。"
-                                "第四步起逐个接入元件（当前 2/9：INMP441 + MAX98357A 功放）。均见 breadboard-z.svg。",
+                                "第四步起逐个接入元件（当前 3/9：INMP441 + MAX98357A 功放 + TB6612FNG 电机驱动）。均见 breadboard-z.svg。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 79.6, "本图为规划图，几何/电气均为近似，不代表实测结果。",
+        p.append(text(-6, 115.6, "本图为规划图，几何/电气均为近似，不代表实测结果。",
                       1.8, COLOR["note"], "start", "doc-legend"))
     p.append('</svg>')
     return "".join(p)
@@ -863,8 +1025,8 @@ def validate(path, expect_holes):
             for c in range(DEV_COL_FIRST, DEV_COL_LAST + 1):
                 dev_occ.add("%s.%s%d" % (rk, rl, c))
         want = set(dev_occ)
-        for comp in COMPONENTS:                      # 元件针孔与跳线落孔（第四步起）
-            for h in comp_occ.get(comp["board"], ()):
+        for rk in comp_occ:                     # 元件针孔与跳线落孔（第四步起，按板全收）
+            for h in comp_occ.get(rk, ()):
                 want.add(h)
         assert occ_names == want, \
             "%s: occupied 孔 %d 个与针位/落孔 %d 个不匹配（多=%s 缺=%s）" % (
@@ -876,8 +1038,11 @@ def validate(path, expect_holes):
         for comp in COMPONENTS:
             assert has_component.get(comp["id"]), \
                 "%s: 缺少元件分组 data-component=%s" % (path, comp["id"])
-            for rw, cl, _lab in comp["pins"]:
-                name = "%s.%s%d" % (comp["board"], rw, cl)
+            for pin in comp["pins"]:
+                ref = pin_ref(pin)
+                if ref[0] == "xy":
+                    continue                  # 板外针不占孔，无针孔可校验
+                name = "%s.%s%d" % (comp["board"], ref[1], ref[2])
                 assert name in occ_names, "%s: 元件 %s 的针孔 %s 未标占" % (path, comp["id"], name)
                 assert name not in dev_occ, \
                     "%s: 元件 %s 的针孔 %s 与 ESP32 针位重叠" % (path, comp["id"], name)
@@ -888,15 +1053,18 @@ def validate(path, expect_holes):
                     if end[0] == "hole":
                         assert end[1] in occ_names, \
                             "%s: 元件 %s 的跳线落孔 %s 未标占" % (path, comp["id"], end[1])
-                        assert end[1].split(".")[0] == comp["board"], \
+                        assert end[1].split(".")[0] in comp.get("boards", (comp["board"],)), \
                             "%s: 落孔 %s 与元件不在同一板（%s）" % (path, end[1], comp["id"])
             for nm in comp_blk.get(comp["board"], ()):   # 本体挡孔
                 assert nm.split(".")[0] == comp["board"], \
                     "%s: 挡孔 %s 与元件不在同一板（%s）" % (path, nm, comp["id"])
                 assert nm not in occ_names, \
                     "%s: 挡孔 %s 又是占孔（本体遮挡与插针冲突）" % (path, nm)
-            for rw, cl, _lab in comp["pins"]:             # 针孔不得落在本体挡孔里
-                nm = "%s.%s%d" % (comp["board"], rw, cl)
+            for pin in comp["pins"]:                 # 针孔不得落在本体挡孔里
+                ref = pin_ref(pin)
+                if ref[0] == "xy":
+                    continue
+                nm = "%s.%s%d" % (comp["board"], ref[1], ref[2])
                 assert nm not in comp_blk.get(comp["board"], ()), \
                     "%s: 元件 %s 的针孔 %s 又被本体挡（自相矛盾）" % (path, comp["id"], nm)
         # 挡孔：ESP32 靠缝 4 条轨（个数随板身位置动态算）+ 元件本体遮挡孔（INMP441 圆板 10 孔）
@@ -942,6 +1110,10 @@ def main():
     print("OK  元件 2 MAX98357A：7 针单排插 q 行 45–51（丝印 LRC/BCLK/DIN/GAIN/SD/GND/VIN）；"
           "3 信号落 m40/m39/m38（GPIO16/15/7），GND→下轨外轨 − 40、VIN→下轨内轨 + 41，"
           "GAIN→GND / SD→VIN 短接，VO+/VO−→喇叭 4Ω 3W；本体挡孔 35")
+    print("OK  元件 3 TB6612FNG：板外方框（x[92,126] y[63,87]）不占孔不挡孔；"
+          "STBY/PWMA/AIN1/AIN2/PWMB 落 l47–l51（GPIO10–14，斜线压 MAX 本体），BIN1/BIN2 落 "
+          "X i48/i49（GPIO47/21），VCC→o32（3V3），GND→下轨外轨 − 44；"
+          "VM→7.4V 电池、AO1/AO2、BO1/BO2→电机 M1/M2；落孔 9，板外线 5")
 
 
 if __name__ == "__main__":
