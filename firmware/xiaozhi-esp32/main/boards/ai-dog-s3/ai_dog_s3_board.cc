@@ -7,6 +7,8 @@
 #include "config.h"
 #include "led/led.h"
 #include "ai_dog_control.h"
+#include "ai_dog_battery.h"
+#include "ai_dog_diag.h"
 #include "ai_dog_mcp_tool.h"
 #include "ai_dog_motor.h"
 
@@ -17,6 +19,9 @@
 #include <esp_lcd_panel_ops.h>
 #include <esp_lcd_panel_vendor.h>
 #include <esp_lcd_panel_sh1106.h>
+#include <esp_sleep.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <utility>
 
 #define TAG "AiDogS3Board"
@@ -233,12 +238,106 @@ private:
         });
     }
 
+    /**
+     * 电池监测：把读数送进 /api/status，按档位做保护和提示。
+     *
+     * 这套东西是为"电池供电时反复重新初始化"做的：以前电量掉下去没有任何反应，
+     * 一路跑到 5V 轨崩掉、被 brownout 打重启；现在会在崩之前先告警、再限制动作、
+     * 最后主动停机，并且每次都写进设备本地日志，插上串口就能看到当时发生了什么。
+     */
+    void InitializeBattery() {
+        auto& battery = aidog::BatteryMonitor::GetInstance();
+        auto& control = aidog::ControlServer::GetInstance();
+        auto& diag = aidog::DeviceLog::GetInstance();
+
+        battery.SetOnLevelChanged([this, &control, &diag](aidog::BatteryMonitor::Level level,
+                                                          float volts, int percent) {
+            control.SetBatteryPercent(percent);
+            control.SetBatteryVoltage(volts);
+            control.SetBatteryLevelText(aidog::BatteryLevelText(level));
+
+            switch (level) {
+                case aidog::BatteryMonitor::Level::Normal:
+                    control.ClearFault();
+                    break;
+
+                case aidog::BatteryMonitor::Level::Warn:
+                    ESP_LOGW(TAG, "电池电压低：%.2fV（%d%%），该充电了", static_cast<double>(volts), percent);
+                    diag.Warn("电池电压低 %.2fV (%d%%)，建议充电", static_cast<double>(volts), percent);
+                    control.SetFault("电池电压低");
+                    Notify("电池电压低，请充电");
+                    break;
+
+                case aidog::BatteryMonitor::Level::Restrict:
+                    ESP_LOGW(TAG, "电池电压 %.2fV（%d%%）：禁止进入巡逻/看门/遥控",
+                             static_cast<double>(volts), percent);
+                    diag.Warn("电池 %.2fV (%d%%)，已禁止巡逻/看门/遥控", static_cast<double>(volts), percent);
+                    control.SetFault("电池电压低，仅待机/聊天");
+                    // 已经在跑运动模式的话立刻拉回待机，避免带着速度耗电
+                    control.RequestEmergencyStop();
+                    Notify("电量低，已限制运动");
+                    break;
+
+                case aidog::BatteryMonitor::Level::Cutoff:
+                    // 到了这里 5V 轨随时可能崩，继续跑有写坏 flash 的风险。
+                    // 先停、先落盘、再睡，日志才能在下次启动时读出来。
+                    ESP_LOGE(TAG, "电池电压 %.2fV（%d%%）低于截止值 %.2fV，停机",
+                             static_cast<double>(volts), percent,
+                             static_cast<double>(DOG_BATTERY_CUTOFF_V));
+                    diag.Error("电池 %.2fV 低于截止电压 %.2fV，主动停机（避免掉压复位）",
+                               static_cast<double>(volts), static_cast<double>(DOG_BATTERY_CUTOFF_V));
+                    aidog::MotorDriver::GetInstance().Stop();
+                    control.SetFault("电池电压过低，已停机");
+                    diag.Flush();  // 关键：落盘后再睡，否则白记
+                    Notify("电量耗尽，停机", 6000);
+                    vTaskDelay(pdMS_TO_TICKS(6000));
+                    diag.Flush();
+                    esp_deep_sleep_start();
+                    break;
+
+                case aidog::BatteryMonitor::Level::Unknown:
+                default:
+                    control.SetBatteryLevelText("unknown");
+                    break;
+            }
+        });
+
+        // 电量到 Restrict/Cutoff 时，禁止再切进会动电机的模式。
+        // 急停和这里的自停走另一条路，不受闸门影响，别改成走闸门。
+        control.SetModeGuardHandler([](aidog::Mode mode) {
+            auto level = aidog::BatteryMonitor::GetInstance().level();
+            if (level != aidog::BatteryMonitor::Level::Restrict &&
+                level != aidog::BatteryMonitor::Level::Cutoff) {
+                return true;
+            }
+            if (mode == aidog::Mode::Patrol || mode == aidog::Mode::Guard ||
+                mode == aidog::Mode::Remote) {
+                ESP_LOGW(TAG, "电量受限，拒绝切到 %s", aidog::ModeToString(mode));
+                return false;
+            }
+            return true;
+        });
+
+        battery.Init();
+    }
+
+    /** OLED 提示；屏幕还没被 Application 取走（display_ 为空）时就跳过 */
+    void Notify(const char* text, int duration_ms = 4000) {
+        if (display_ != nullptr) {
+            display_->ShowNotification(text, duration_ms);
+        }
+    }
+
 public:
     AiDogS3Board() : boot_button_(BOOT_BUTTON_GPIO) {
+        // 顺序有讲究：DeviceLog 最先起，后面所有人的 ESP_LOG 才进得了本地日志；
+        // 电池监测最后起，起的时候控制服务和电机都已经就位。
+        aidog::DeviceLog::GetInstance().Init();
         InitializeButtons();
         InitializeTools();
         InitializeMotor();
-        ESP_LOGI(TAG, "AI Dog S3 board ready (voice: xiaozhi-esp32, OLED + LAN control + 语音模式切换 + 遥控)");
+        InitializeBattery();
+        ESP_LOGI(TAG, "AI Dog S3 board ready (voice: xiaozhi-esp32, OLED + LAN control + 语音模式切换 + 遥控 + 电池监测)");
     }
 
     virtual Led* GetLed() override {

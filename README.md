@@ -7,25 +7,33 @@
 
 ## 当前状态
 
+> 2026-10-15 首次真机启动通过；2026-10-18 新增**电池监测 + 复位原因 + 设备本地日志**：
+> 掉电前的日志存在板子自己的 `doglog` 分区，下次插串口自动打出来；电量分四档保护，
+> 赶在 5V 轨崩掉之前动作。用法与标定见 `docs/电池监测与设备日志.md`。
+
 | 模块 | 状态 |
 |---|---|
-| 语音聊天（xiaozhi.me 云端） | 固件编译通过，待真机验证 |
-| 自定义板级 `ai-dog-s3` | 引脚、音频、OLED 已完成 |
-| 1.3 寸 OLED 屏（SH1106 / SPI） | 已完成，接线见文档 |
+| 语音聊天（xiaozhi.me 云端） | 固件编译 + 烧录 + 启动已验证，云端会话待联调 |
+| 自定义板级 `ai-dog-s3` | 真机确认 `SKU=ai-dog-s3`，引脚/音频/OLED 已完成 |
+| 1.3 寸 OLED 屏（SH1106 / SPI） | 真机确认 `OledDisplay: Adding OLED display`（128x64 SPI），接线见文档 |
+| 电池监测 / 低电压保护 | 已实现并真机验证（GPIO8 ADC + 分压，四档保护）；**分压比待标定** |
+| 设备本地日志 + 复位原因 | 已实现并真机验证（`doglog` 64K 分区，掉电不丢，启动自动 dump） |
 | 局域网控制服务（HTTP API） | 已完成，待联调 |
 | Android 控制端（Java） | 已编译出 APK，待联调 |
-| 电机 / 巡线 / 避障 / 看门 | 硬件已到齐，按接线方案 v7 逐级上电验证 |
+| 电机 / 巡线 / 避障 / 看门 | TB6612 驱动已在真机初始化（PWM 20kHz，左 GPIO11 / 右 GPIO14），其余按接线方案 v7 逐级上电验证 |
 
 ## 目录结构
 
 ```
-docs/       文档：PRD 索引、固件环境、Android 设计、接线方案 v1–v7、代码架构与改动说明
+docs/       文档：PRD 索引、固件环境、Android 设计、电池监测与设备日志、接线方案 v1–v7、代码架构与改动说明
 android/    Android 控制端（Java + ViewBinding，Gradle 工程，可编译）
 output/     产品需求文档（PRD，15 章）
 firmware/   固件：xiaozhi-esp32 工作副本 + 构建脚本 + 板级定义
 ```
 
-- 固件构建：`firmware/build-ai-dog.ps1`（含 Windows 环境下的 5 项必要修正，见文档）
+- 固件构建：`firmware/build-ai-dog.ps1`（PowerShell）或 `firmware/build-ai-dog.py`（Python，PowerShell
+  不可用时用它；会自动切到 IDF venv、处理 MSYS/PROCESSOR_ARCHITECTURE、关 ccache、带响应文件定义）。
+  含 Windows 环境下的必要修正，见 `docs/固件开发环境.md`。
 - 上游参考版本：xiaozhi-esp32 @ `e076ac4`（vendor/ 目录在本地保留，未入库）
 
 ## 快速开始

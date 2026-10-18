@@ -40,8 +40,28 @@
 #define DOG_I2C_SDA_GPIO GPIO_NUM_41
 #define DOG_I2C_SCL_GPIO GPIO_NUM_42
 
-// 电池电压采样（分压后接 ADC，用于低电压提示/停机）
-#define DOG_BATTERY_ADC_GPIO GPIO_NUM_8
+// ===== 电池电压监测（GPIO8 / ADC1_CH7）=====
+// 硬件接法：电池正 → R_upper → (GPIO8) → R_lower → GND，ADC 量的是 R_lower 上的分压。
+// 分压比 = (R_upper + R_lower) / R_lower。例：100k 上 / 47k 下 → 3.13。
+//
+// 这个值必须和实际电阻对上，否则算出来的电压是错的。标定方法：
+//   ① 万用表量一节电池（2S 整组）的真实电压 Vbat；
+//   ② 看启动日志里 ai_dog_battery 打印的 "adc raw=xxx mV"（Vadc）；
+//   ③ 分压比 = Vbat / Vadc，填回下面的 DOG_BATTERY_DIVIDER。
+#define DOG_BATTERY_ADC_GPIO       GPIO_NUM_8
+#define DOG_BATTERY_DIVIDER        3.0f
+
+// 量程合理性门限。读出来不在这个区间，一律认为"分压没接好/接错了"，
+// 直接放弃低电压保护（battery 上报 -1），避免ADC悬空读数乱跳把狗误关机。
+#define DOG_BATTERY_VALID_MIN_V    5.5f
+#define DOG_BATTERY_VALID_MAX_V    9.6f
+
+// 分档门限（2S 锂电：满电 8.4V，标称 7.4V）。
+// MP1584 要稳定输出 5V，输入至少得 ~6.5V —— 这就是"用到后面就循环重启"的根子，
+// 所以 RESTRICT/CUTOFF 都压在 6.5V 以下，赶在 5V 轨崩之前动作。
+#define DOG_BATTERY_WARN_V         6.9f   // 告警：日志 + OLED 提示
+#define DOG_BATTERY_RESTRICT_V     6.6f   // 限制：拒绝进入巡逻/看门/遥控
+#define DOG_BATTERY_CUTOFF_V       6.3f   // 截止：停电机 + 提示 + 深度睡眠
 
 /* ===== 以下为后续阶段预留，首版固件尚未初始化这些外设 ===== */
 
