@@ -14,12 +14,46 @@
 
 #include <driver/gpio.h>
 #include <esp_log.h>
+#include <esp_system.h>
 #include <arpa/inet.h>
 #include <cJSON.h>
 #include <cstring>
 #include <limits>
 
 #define TAG "Application"
+
+namespace {
+/**
+ * 上次复位原因 → 可读字符串。
+ *
+ * 这是排查"偶发重启"的第一手证据。ESP32-S3 上最常见的几类：
+ *   0x0F brownout —— 供电跌落（VDD 不稳），硬件直接复位
+ *   0x03 软件复位 —— esp_restart()，也可能是 panic 后的收尾
+ *   0x0B/0x11 看门狗
+ * 完整码表见 esp-idf/components/soc/esp32s3/include/soc/reset_reasons.h。
+ * 注意别拿 ESP32（老芯片）的码表对照，S3 的 brownout 是 0x0F 而不是 0x05。
+ */
+const char* ResetReasonToString(esp_reset_reason_t reason) {
+    switch (reason) {
+        case ESP_RST_POWERON:    return "上电复位（冷启动）";
+        case ESP_RST_EXT:        return "外部复位";
+        case ESP_RST_SW:         return "软件复位 esp_restart()";
+        case ESP_RST_PANIC:      return "异常 panic（Guru Meditation）";
+        case ESP_RST_INT_WDT:    return "中断看门狗（关中断太久）";
+        case ESP_RST_TASK_WDT:   return "任务看门狗（任务卡死）";
+        case ESP_RST_WDT:        return "其他看门狗";
+        case ESP_RST_DEEPSLEEP:  return "深度睡眠唤醒";
+        case ESP_RST_BROWNOUT:   return "欠压复位 brownout ← 供电跌落";
+        case ESP_RST_SDIO:       return "SDIO 复位";
+        case ESP_RST_USB:        return "USB 复位";
+        case ESP_RST_JTAG:       return "JTAG 复位";
+        case ESP_RST_EFUSE:      return "eFuse 错误";
+        case ESP_RST_PWR_GLITCH: return "电源毛刺";
+        case ESP_RST_CPU_LOCKUP: return "CPU 死锁（双重异常）";
+        default:                 return "未知";
+    }
+}
+}  // namespace
 
 Application::Application() : notify_player_(audio_service_) {
     event_group_ = xEventGroupCreate();
@@ -59,6 +93,11 @@ Application::~Application() {
 bool Application::SetDeviceState(DeviceState state) { return state_machine_.TransitionTo(state); }
 
 void Application::Initialize() {
+    // 上次复位原因：偶发重启排查的第一手证据，重启后第一屏即可见。
+    // 若这里显示 brownout，说明是供电跌落而非固件崩溃，应查电源链路。
+    esp_reset_reason_t last_reset_reason = esp_reset_reason();
+    ESP_LOGW(TAG, "上次复位原因：%d %s", last_reset_reason, ResetReasonToString(last_reset_reason));
+
     auto& board = Board::GetInstance();
     SetDeviceState(kDeviceStateStarting);
 
