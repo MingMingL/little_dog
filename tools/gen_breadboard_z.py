@@ -146,9 +146,9 @@ OUT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 OUTLINE_SVG = os.path.join(OUT_DIR, "breadboard-z-outline.svg")
 FULL_SVG = os.path.join(OUT_DIR, "breadboard-z.svg")
 
-CANVAS_X0, CANVAS_Y0 = -8.0, -65.34   # 画布原点（与参考图一致，左侧/上侧留边距）
+CANVAS_X0, CANVAS_Y0 = -8.0, -104.0   # 画布原点（上侧扩展 38.7mm：容纳板外 OLED 本体 y[-98.4,-62.9]）
 CANVAS_W = 181.1
-CANVAS_H = 248.0                      # 下缘图例区：全图 18 行，末行基线 y=172.8
+CANVAS_H = 286.66                     # 下缘图例区：末行基线 y=172.8（含侧视小图 y60–96）；上侧到 -104
                                      # （元件 5/9 VL53L0X 入图：图例 +2 行，末行 164.0→172.8）
 PX_W = 1120
 PX_H = int(round(PX_W * CANVAS_H / CANVAS_W))
@@ -694,7 +694,136 @@ VL53L0X = {
         + text(88.6, -51.4, "前倾30°", 0.8, "#a7f3d0", "middle", "vl53-note")
     ),
 }
-COMPONENTS = [INMP441, MAX98357A, TB6612FNG, VL53L0X]
+# 元件 6/9：OLED 1.3 寸 SH1106（7 针 SPI 模块，实为 9 针单排）
+# 实物（docs/source/OLED.svg，Fritzing breadboard，缩放 0.3531 mm/单位）：
+#   板身 35.04×35.54，单排 9 针（针距 2.54 = 7.2 单位）位于板身上缘 y=8.73（相对 viewBox 顶部 3.08mm）：
+#   左→右丝印 = Gnd Vin 3v3 CS Rst SA0 Clk Data DC（左侧编号 5–12，右侧 4 个大焊盘 = 安装孔）。
+#   **Rst 在正中第 5 针，而 config.h 的 GPIO48（Rst）落在 j47、GPIO1/2（Clk/Data）落在 j35/j36
+#   ——首尾跨 12 列 30.5mm，远超模块 9 针 20.3mm 的长度，任何起列/翻转都装不下。**
+# 用户 2026-10-19 决策：本体放**板外（面包板上方）**、屏幕朝上便于查看，9 根飞线直连目标孔。
+# 焊盘 x 对齐 a 行 44–52 的栅格（避开 VL53 的 a35–40 与其掩膜列 26–34），
+#   丝印顺序 = 列号顺序（Gnd=44 … DC=52），与实物朝上放置时的左→右一致，不做转置。
+# 接线（config.h：SCLK=GPIO1=j35、MOSI=GPIO2=j36、DC=GPIO46=k45、RES=GPIO48=j47、CS 接 GND）：
+#   Gnd→top_outer_35、CS→top_outer_38、SA0→top_outer_40（外轨 = GND 网，CS/SA0 接地固定片选与地址）；
+#   Vin→top_inner_36、3v3→top_inner_38（内轨 = 3V3 网，与 VL53 VIN 同轨；若模块 LDO 压差不够，
+#   元件 9 电源区可把 Vin 改接 5V 专用轨）；Rst→j47、Clk→j35、Data→j36、DC→k45（跨拼接缝）。
+def make_oled():
+    """OLED 模块：9 个焊盘在本体下沿（本体悬在板外上方），9 根飞线直连目标孔，屏幕朝上。
+
+    为什么是"飞线直连"而不是"9 针插 a 行"（2026-10-19 重写）：
+      本体在板外，针根本插不进面包板；焊盘 -> 面包板孔之间必须画飞线。
+      首版让飞线先落 a 行 44-52、再从 a 行接出去，结果本体与 a 行之间 19mm **没有任何引线**，
+      图上模块像悬空孤岛；而且 a 行东段的电源线横穿针脚丝印。改成一根线走到底（焊盘 -> 目标孔）。
+
+    为什么每根线都要"换道"（2026-10-19 校验后定案）：
+      本体在板外北面，目标孔全在两条上轨以南 —— 9 根线必须自上而下穿过
+      top_outer(-47.63) / top_inner(-45.09)。轨孔与列孔共用 2.54 栅格（每 5 孔一组、组间空档），
+      Vin/3v3/Rst/Clk/Data/DC 的焊盘正下方都有轨孔，直落会"穿过"轨孔造成误读；
+      故这些线在轨区改走**列间缝**（离两侧轨孔各 1.27mm > 接触阈值 1.05），
+      用一段 1.27mm 短横在外轨以北的空档（y=-49.04）换道。
+      Gnd(113.03) 落在轨孔空档可直落；CS(120.65)/SA0(125.73) 的目标就是正下方的外轨孔
+      （终点即目标，不算穿越），同样直落。
+    丝印顺序 = 列号顺序（Gnd 在西、DC 在东，与实物朝上放置时一致，不做转置），
+      这样 Clk/Data 这两个要跑到最西 j35/j36 的针排在最东，竖带互不错位，全图仅 1 处交叉。
+    """
+    RAIL_Y = dict(RAIL_YS)                    # 本地板内坐标
+    Y_OUTER = RAIL_Y["top_outer"] + X_TY      # -47.63
+    Y_INNER = RAIL_Y["top_inner"] + X_TY      # -45.09
+    Y_RAILGAP = (Y_OUTER + Y_INNER) / 2.0     # -46.36（两轨正中空带，离两条轨孔各 1.27）
+    Y_JOG = Y_OUTER - 1.41                    # -49.04（外轨以北 1.41 的空档，换道横档）
+    SEAM = 1.27                               # 列间缝到孔心的距离
+    Y_J_N = row_y("zx", "j") - 1.27           # -13.34  j 行带北侧空档（离 i/j 孔各 1.27）
+    Y_J_S = row_y("zx", "j") + 1.27           # -10.80  j 行带南侧空档
+    Y_J_S2 = row_y("zx", "j") + 2.57          #  -9.50  j 行与下内轨之间的空档（离孔 2.5+）
+    Y_K_N = row_y("zy", "k") - 1.27           #  12.06  Y 板 k 行带北侧空档
+
+    col0, col1 = 44, 52
+    pin_y = row_y("zx", "a")                  # -40.01（仅用于文档对照，飞线不再落 a 行）
+    body_w, body_h, pin_inset = 35.04, 35.54, 19.0   # 本体在板外：下沿离 a 行 19mm
+    bx0 = (col_x(col0) + col_x(col1)) / 2.0 - body_w / 2.0
+    by1 = pin_y - pin_inset                   # -59.01（本体下沿 = 焊盘排）
+    by0 = by1 - body_h                        # -94.55（整块在板外，不挡任何孔）
+    pin_order = ["Gnd", "Vin", "3v3", "CS", "Rst", "SA0", "Clk", "Data", "DC"]
+    # 焊盘 = 板外世界坐标（模块本体下沿）；丝印顺序与列号同向（针 i ↔ 列 44+i）
+    pins = [{"xy": (col_x(col0 + i), by1), "lab": pin_order[i]} for i in range(len(pin_order))]
+
+    def jog(px, seam_x):
+        """焊盘 -> 换道横档 -> 竖带起点（seam_x 可等于 px：正下方是轨孔空档，直落不换道）。"""
+        if seam_x == px:
+            return [(px, by1)]
+        return [(px, by1), (px, Y_JOG), (seam_x, Y_JOG)]
+
+    def to_rail(px, seam_x, rail_i, y_rail):
+        """焊盘 -> 竖穿上轨 -> 轨间空带 -> 轨孔（终点即目标）。"""
+        hx = rail_hole_x(rail_i)
+        return jog(px, seam_x) + [(seam_x, Y_RAILGAP), (hx, Y_RAILGAP), (hx, y_rail)]
+
+    wires = [
+        # ① Gnd(113.03) -> zx.top_outer_35（110.49）：113.03 是轨孔空档，直落到轨间再西行
+        {"from": ("pin", 0), "to": ("hole", "zx.top_outer_35"), "cls": "wire_gnd",
+         "pts": to_rail(col_x(44), col_x(44), 35, Y_OUTER), "label": None},
+        # ② Vin(115.57) -> zx.top_inner_36（115.57）：正下方是外轨孔 36（非目标），换道东缝 116.84
+        {"from": ("pin", 1), "to": ("hole", "zx.top_inner_36"), "cls": "wire_vcc",
+         "pts": to_rail(col_x(45), col_x(45) + SEAM, 36, Y_INNER), "label": None},
+        # ③ 3v3(118.11) -> zx.top_inner_38（120.65）：换道东缝 119.38（118.11 是外轨孔 37，非目标）
+        {"from": ("pin", 2), "to": ("hole", "zx.top_inner_38"), "cls": "wire_vcc",
+         "pts": to_rail(col_x(46), col_x(46) + SEAM, 38, Y_INNER), "label": None},
+        # ④ CS(120.65) -> zx.top_outer_38（120.65）：正下方即目标外轨孔，直落
+        {"from": ("pin", 3), "to": ("hole", "zx.top_outer_38"), "cls": "wire_gnd",
+         "pts": [(col_x(47), by1), (col_x(47), Y_OUTER)], "label": None},
+        # ⑤ SA0(125.73) -> zx.top_outer_40（125.73）：同上，直落
+        {"from": ("pin", 4), "to": ("hole", "zx.top_outer_40"), "cls": "wire_gnd",
+         "pts": [(col_x(49), by1), (col_x(49), Y_OUTER)], "label": None},
+        # ⑥ Rst(123.19) -> zx.j47（GPIO48）：换道东缝 124.46 竖下，j 行带北侧空档西行一孔
+        {"from": ("pin", 5), "to": ("hole", "zx.j47"), "cls": "wire_sig",
+         "pts": jog(col_x(48), col_x(48) - SEAM)
+                + [(col_x(48) - SEAM, Y_J_N), (col_x(47), Y_J_N),
+                   (col_x(47), row_y("zx", "j"))], "label": None},
+        # ⑦ Clk(128.27) -> zx.j35（GPIO1）：换道东缝 129.54 竖下，j 行带南侧空档一路西行
+        {"from": ("pin", 6), "to": ("hole", "zx.j35"), "cls": "wire_sig",
+         "pts": jog(col_x(50), col_x(50) - SEAM)
+                + [(col_x(50) - SEAM, Y_J_S), (col_x(35) - SEAM, Y_J_S),
+                   (col_x(35) - SEAM, row_y("zx", "j")),
+                   (col_x(35), row_y("zx", "j"))], "label": None},
+        # ⑧ Data(130.81) -> zx.j36（GPIO2）：换道东缝 132.08 竖下，走 j 行与下内轨之间的空档
+        #    （与 Clk 的 -10.80 空档错开一层，避免两条长横档叠在同一 y 上）
+        {"from": ("pin", 7), "to": ("hole", "zx.j36"), "cls": "wire_sig",
+         "pts": jog(col_x(51), col_x(51) - SEAM)
+                + [(col_x(51) - SEAM, Y_J_S2), (col_x(36) + SEAM, Y_J_S2),
+                   (col_x(36) + SEAM, row_y("zx", "j")),
+                   (col_x(36), row_y("zx", "j"))], "label": None},
+        # ⑨ DC(133.35) -> zy.k45（GPIO46，跨拼接缝）：换道东缝 134.62 竖下，穿 X 板下轨、
+        #    拼接缝、Y 板上轨，到 k 行带北侧空档西行到 k45（橙线，与 TB6612 电机线同色系但更靠北）
+        {"from": ("pin", 8), "to": ("hole", "zy.k45"), "cls": "wire_mtr",
+         "pts": jog(col_x(52), col_x(52) - SEAM)
+                + [(col_x(52) - SEAM, Y_K_N), (col_x(45) - SEAM, Y_K_N),
+                   (col_x(45) - SEAM, row_y("zy", "k")),
+                   (col_x(45), row_y("zy", "k"))], "label": None},
+    ]
+
+    return {
+        "id": "oled",
+        "label": "OLED 1.3\"",
+        "sub": "SH1106 · SPI · 屏幕朝上",
+        "board": "zx",
+        "boards": ("zx", "zy"),
+        "off_board": True,                     # 本体在板外：不占针孔、无挡孔
+        "label_pos": (bx0 + body_w / 2.0, by0 + body_h - 5.4),
+        "sub_pos": (bx0 + body_w / 2.0, by0 + body_h - 2.6),
+        "pins": pins,
+        "body": (bx0, by0, body_w, body_h),
+        "blocked_rects": [],                   # 本体整块在板外，不压任何孔
+        "wires": wires,
+        # 屏幕玻璃 + 玻璃上的分辨率丝印（针位圆环与针名由通用渲染器按 xy 焊盘自动画）
+        "extra_svg": (
+            '<rect x="%s" y="%s" width="%s" height="%s" rx="1.0" fill="#0f172a" stroke="#1f2937" stroke-width="0.25"/>'
+            % (fmt(bx0 + 2.4), fmt(by0 + 2.4), fmt(body_w - 4.8), fmt(by1 - by0 - 13.0))
+            + text(bx0 + body_w / 2.0, (by0 + 2.4 + by1 - 13.0) / 2.0 + 0.7,
+                   "128 × 64", 2.2, "#94a3b8", "middle", "oled-screen")
+        ),
+    }
+OLED = make_oled()
+COMPONENTS = [INMP441, MAX98357A, TB6612FNG, VL53L0X, OLED]
 
 def auto_blocked(comp):
     """按 comp["blocked_rects"]（世界坐标矩形 [(x0,y0,x1,y1)]）自动生成挡孔名集合，
@@ -901,11 +1030,11 @@ def build(include_holes):
     p.append('<svg xmlns="http://www.w3.org/2000/svg" viewBox="%s %s %s %s" width="%d" height="%d" font-family="%s">'
              % (fmt(CANVAS_X0), fmt(CANVAS_Y0), fmt(CANVAS_W), fmt(CANVAS_H), PX_W, PX_H, FONT))
     if include_holes:
-        p.append("<title>面包板 Z · 双 830 点并排拼接（28 行 × 63 列 · 共 1660 插孔 · 中央插 ESP32-S3 · 元件 4/9 INMP441 + MAX98357A + TB6612FNG + VL53L0X）</title>")
+        p.append("<title>面包板 Z · 双 830 点并排拼接（28 行 × 63 列 · 共 1660 插孔 · 中央插 ESP32-S3 · 元件 5/9 INMP441 + MAX98357A + TB6612FNG + VL53L0X + OLED）</title>")
         p.append("<desc>Two 830-point breadboards joined along their power-rail long edges "
                  "into board Z (28 rows x 63 columns), with an ESP32-S3 board plugged across "
-                 "the seam and components 4/9 (INMP441, MAX98357A, TB6612FNG motor driver, "
-                 "VL53L0X rangefinder tilted 30 deg down for cliff detection) wired in. "
+                 "the seam and components 5/9 (INMP441, MAX98357A, TB6612FNG motor driver, "
+                 "VL53L0X rangefinder tilted 30 deg down for cliff detection, SH1106 OLED) wired in. "
                  "The TCRT5000 line-sensor array was removed on 10-19. Units: millimetres. "
                  "Planning drawing, not an electrical verification.</desc>")
     else:
@@ -949,12 +1078,10 @@ def build(include_holes):
         p.append('</g>')
     # 标题与图例
     if include_holes:
-        p.append(text(-6, -61.84, "面包板 Z · 双 830 点并排拼接（28 行 × 63 列 · 共 1660 插孔 · 中央插 ESP32-S3）",
-                      3.2, COLOR["title"], "start", "doc-title", bold=True))
-        p.append(text(-6, -57.2, "X（上板，行 a–j）+ Y（下板，行 k–t）沿电源轨长边拼接为整板 Z；"
-                                  "先轮廓（#z-outline）后插孔（#z-holes），再插 ESP32-S3（#z-devices），"
-                                  "然后逐个接入元件与跳线（#z-components 本体 + #z-wires 跳线，当前 4/9：INMP441 + MAX98357A 功放 + TB6612FNG 电机驱动 + VL53L0X 测距；TCRT×5 已于 10-19 撤销）。",
-                      1.8, COLOR["note"], "start", "doc-subtitle"))
+        p.append(text(-6, -61.84, "面包板 Z · 双 830 点并排拼接（28 × 63）",
+                      3.0, COLOR["title"], "start", "doc-title", bold=True))
+        p.append(text(-6, -57.2, "X（a–j）+ Y（k–t）沿电源轨拼接 · 当前 5/9 元件已接入（明细见下方图例）",
+                      1.7, COLOR["note"], "start", "doc-subtitle"))
         p.append(text(-6, 98, "行序（自上而下，'|' = 隔断）：X = | - + | a b c d e | f g h i j | + - | ；"
                               "Y = | - + | k l m n o | p q r s t | + - |",
                       2.4, COLOR["title"], "start", "doc-legend", bold=True))
@@ -1004,17 +1131,28 @@ def build(include_holes):
                                 "与 j37/j38（GPIO42/41）同列同网；VIN/GND 绕本体西南角落 top_inner_25/top_outer_23（轨待电源区接 3V3）；"
                                 "GPIO/XSHUT 悬空（板载上拉，默认使能、I2C 0x29）；本体挡板上缘 2 轨 18 孔。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 159.6, "孔三态：深灰 = 空闲 / 被 ESP32 针（44）或跳线与模块针（42）占用；"
+        p.append(text(-6, 159.6, "元件 6：OLED 1.3 寸 SH1106（2026-10-19 决策：本体放板外、屏幕朝上，9 根飞线直连目标孔）。"
+                                "模块实为 9 针单排 Gnd/Vin/3v3/CS/Rst/SA0/Clk/Data/DC——Rst 在正中第 5 针，"
+                                "而 GPIO48(Rst)→j47、GPIO1/2(Clk/Data)→j35/j36 首尾跨 12 列 30.5mm，远超模块 9 针 20.3mm，"
+                                "**本体任何起列/翻转都插不进面包板**，故本体悬在板外上方、焊盘用飞线接出。",
+                      1.8, COLOR["pcb"], "start", "doc-legend"))
+        p.append(text(-6, 164.0, "飞线必穿上轨：目标孔全在两条上轨以南，9 根线自上而下穿过 top_outer/top_inner；轨孔与列孔共用 2.54 栅格"
+                                "（每 5 孔一组、组间空档），正下方有轨孔的线改走列间缝（离轨孔 1.27mm > 接触阈值 1.05），在外轨以北空档换道。"
+                                "Gnd→top_outer_35、CS→top_outer_38、SA0→top_outer_40（外轨 = GND 网，CS/SA0 接地固定片选与地址）；"
+                                "Vin→top_inner_36、3v3→top_inner_38（内轨 = 3V3 网）。",
+                      1.8, COLOR["note"], "start", "doc-legend"))
+        p.append(text(-6, 168.4, "Rst→j47(GPIO48)、Clk→j35(GPIO1)、Data→j36(GPIO2) 沿列间缝竖下后在 j 行带空档西行进孔，"
+                                "三者分走 y=−13.34 / −10.80 / −9.50 三层互不叠线；DC→k45(GPIO46) 跨拼接缝（橙线）。"
+                                "丝印顺序 = 列号顺序（Gnd 在西、DC 在东），与实物朝上放置时一致。",
+                      1.8, COLOR["note"], "start", "doc-legend"))
+        p.append(text(-6, 172.8, "孔三态：深灰 = 空闲 / 被 ESP32 针（44）或跳线落孔（51）占用，合计 95；"
                                 "浅灰 = 被板身遮挡不可插（blocked 135 孔 = ESP32 靠缝 4 轨 72 孔 + INMP441 本体 10 孔 + "
-                                "MAX98357A 本体 35 孔 + VL53L0X 本体 18 孔）。",
+                                "MAX98357A 本体 35 孔 + VL53L0X 本体 18 孔；OLED 本体整块在板外，不挡孔）。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 164.0, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通；每条电源轨沿长度方向中间断开（图中'断'）。",
+        p.append(text(-6, 177.2, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通；每条电源轨沿长度方向中间断开（图中'断'）。"
+                                "中隔槽将 a–e 与 f–j（Y 板 k–o 与 p–t）隔开：同列同半区 5 孔才互通。飞线交叉处为绝缘跳线互跨、"
+                                "电气互不相通（wire_check 已把'两根不同网络共线重叠'这类假短路查到 0 处）。本图为规划图，几何/电气均为近似。",
                       1.8, COLOR["warn"], "start", "doc-legend"))
-        p.append(text(-6, 168.4, "中隔槽将 a–e 与 f–j（Y 板为 k–o 与 p–t）隔开：同一列、同一半区的 5 孔才互通；"
-                              "两排针模块必须骑槽插，若两排针插进同一半区，模块自己的两排针就会同列短接。",
-                      1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 172.8, "本图为规划图，几何/电气均为近似，不代表实测结果。",
-                      1.8, COLOR["note"], "start", "doc-legend"))
         p.append(vl53_side_view())
     else:
         p.append(text(-6, -61.84, "面包板 Z · 轮廓 —— 双 830 点并排拼接（28 行 × 63 列）",
@@ -1262,6 +1400,10 @@ def main():
           "SCL/SDA 走 38/39、39/40 竖带 pts 汇入 i37/i38（GPIO42/41 同列同网）；VIN → top_inner_25、"
           "GND → top_outer_23（轨待电源区接 3V3）；GPIO/XSHUT 悬空（板载上拉、I2C 0x29）；"
           "本体挡板上缘 2 轨 18 孔")
+    print("OK  元件 6 OLED 1.3\" SH1106：9 针单排本体放板外上方（y[-94.6,-59.0]，屏幕朝上），9 根飞线直连目标孔；"
+          "Gnd→top_outer_35、CS→top_outer_38、SA0→top_outer_40、Vin→top_inner_36、3v3→top_inner_38，"
+          "Rst→j47(GPIO48)、Clk→j35(GPIO1)、Data→j36(GPIO2)、DC→k45(GPIO46)；"
+          "轨区一律走列间缝换道（离轨孔 1.27mm），竖带让开 TB6612 的 124.46/134.62；本体不挡孔、不占孔")
 
 
 if __name__ == "__main__":

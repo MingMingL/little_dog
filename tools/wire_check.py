@@ -26,6 +26,11 @@ WHITELIST = {
     ("tb6612fng", 5, "dev_body"), ("tb6612fng", 6, "dev_body"),
     # VL53L0X 的 VIN/GND 线贴本体西南板身角走 0.3-1mm（针在板身下沿，物理同源）
     ("vl53l0x", 0, "vl53l0x_body"), ("vl53l0x", 1, "vl53l0x_body"),
+    # OLED 4 根控制线（Rst/Clk/Data/DC）沿列间缝从 a 行竖下到 j/k 行：ESP32 板身横跨列 32–53
+    # 全部宽度（80.65–137.8），目标列 35/36/45/47 都在板身正下方，**绕不开**——这是"线必过板身"
+    # 的物理必然（同 TB6612 BIN 竖带先例）。缝中线离两侧孔 1.27mm，不扫孔，仅压裸板区。
+    ("oled", 5, "dev_body"), ("oled", 6, "dev_body"),
+    ("oled", 7, "dev_body"), ("oled", 8, "dev_body"),
 }
 HOLE_R = 0.5          # 孔圆半径
 WIRE_HALF = 0.5       # 线白底半宽
@@ -187,8 +192,93 @@ def main(ids):
                 print("%s w%-2d %s" % (comp["id"], wi, str(sorted(hits))))
                 for k in sorted(bad):
                     print("    !! %s x%d" % (k, hits[k]))
-    print("净空校验完成：%d 根线有问题（白名单外）" % n_issue)
-    return n_issue
+    n_short, n_cross = cross_check()
+    print("净空校验完成：%d 根线有问题（白名单外）；跨线共线重叠（假短路）%d 处；交叉 %d 处"
+          % (n_issue, n_short, n_cross))
+    return n_issue + n_short
+
+
+OVERLAP_MIN = 0.4      # 共线重叠超过 0.4mm 才算"看起来连通"
+
+
+def all_segments():
+    """全部元件的全部线段 -> [(元件id, 线序, 颜色类, (x0,y0), (x1,y1))]。"""
+    out = []
+    for comp in g.COMPONENTS:
+        for wi, w in enumerate(comp["wires"]):
+            pts = w["pts"] if "pts" in w else g.wire_segments(
+                g.endpoint_xy(comp, w["from"]), w["ctrl"], g.endpoint_xy(comp, w["to"]), n=60)
+            for a, b in zip(pts, pts[1:]):
+                out.append((comp["id"], wi, w.get("cls", ""), a, b))
+    return out
+
+
+def cross_check():
+    """跨线几何关系：共线重叠 = 假短路（严重，必须改线）；单点交叉 = 绝缘飞线互跨（可接受，仅统计）。
+
+    为什么要单独做这一项（2026-10-19 OLED 引入时发现）：净空校验只看"线 vs 孔/本体/文字"，
+    看不出两根**不同网络**的线画在同一条竖带上——图上就是一段实打实的短接，比压孔严重得多。
+    """
+    segs = all_segments()
+    n_short, n_cross = 0, 0
+    for i in range(len(segs)):
+        for j in range(i + 1, len(segs)):
+            c1, w1, k1, p, p2 = segs[i]
+            c2, w2, k2, q, q2 = segs[j]
+            if c1 == c2 and w1 == w2:
+                continue                       # 同一根线的相邻段在拐点相接，正常
+            if (c1, w1, c2, w2) in CROSS_OK:
+                continue
+            res = _rel(p, p2, q, q2)
+            if res is None:
+                continue
+            kind, data = res
+            if kind == "overlap":
+                n_short += 1
+                print("!! 假短路：%s w%d(%s) 与 %s w%d(%s) 共线重叠 %.2fmm @ %s"
+                      % (c1, w1, k1, c2, w2, k2, data[0], data[1]))
+            else:
+                n_cross += 1
+                print("   交叉：%s w%d x %s w%d @ (%.2f, %.2f)"
+                      % (c1, w1, c2, w2, data[0], data[1]))
+    return n_short, n_cross
+
+
+# 已知且论证过的交叉（绝缘飞线互跨，电气上互不相通）
+CROSS_OK = set()
+
+
+def _rel(p, p2, q, q2):
+    """两线段关系 -> ("overlap", (长度, 中点串)) / ("cross", (x, y)) / None。"""
+    def d(o, a, b):
+        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    d1, d2, d3, d4 = d(p, p2, q), d(p, p2, q2), d(q, q2, p), d(q, q2, p2)
+    EPS = 1e-6
+    collinear = abs(d1) < EPS and abs(d2) < EPS
+    if collinear:
+        # 投影到较长方向求重叠长度
+        vx, vy = p2[0] - p[0], p2[1] - p[1]
+        L2 = vx * vx + vy * vy
+        if L2 < EPS:
+            return None
+        t = [((a[0] - p[0]) * vx + (a[1] - p[1]) * vy) / L2 for a in (q, q2)]
+        lo, hi = max(0.0, min(t)), min(1.0, max(t))
+        if hi - lo <= 1e-9:
+            return None
+        ov = (hi - lo) * math.sqrt(L2)
+        if ov < OVERLAP_MIN:
+            return None
+        mx = p[0] + (lo + hi) / 2.0 * vx
+        my = p[1] + (lo + hi) / 2.0 * vy
+        return ("overlap", (ov, "(%.2f, %.2f)" % (mx, my)))
+    if d1 * d2 < 0 and d3 * d4 < 0:
+        a1, b1 = p2[1] - p[1], p[0] - p2[0]
+        c1 = a1 * p[0] + b1 * p[1]
+        a2, b2 = q2[1] - q[1], q[0] - q2[0]
+        c2 = a2 * q[0] + b2 * q[1]
+        det = a1 * b2 - a2 * b1
+        return ("cross", ((b2 * c1 - b1 * c2) / det, (a1 * c2 - a2 * c1) / det))
+    return None
 
 
 if __name__ == "__main__":
