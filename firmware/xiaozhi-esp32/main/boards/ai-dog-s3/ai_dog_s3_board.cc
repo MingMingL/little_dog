@@ -29,7 +29,7 @@
 /**
  * AI Dog V1 板级实现
  *
- * - 屏幕：0.96" SSD1306 OLED（7 针 SPI，GPIO1/2/46/48，CS 接 GND）
+ * - 屏幕：1.3" SH1106 OLED（9 针 SPI，GPIO1/2/46/48，CS 接 GND）
  * - 无普通 LED：官方 DevKitC-1 的 GPIO48 是 WS2812（v1.1 改到 GPIO38），先不驱动
  * - BOOT 键（GPIO0）：未配网时进入配网；已配网时切换语音对话（对应 PRD FR-17）
  *
@@ -110,20 +110,20 @@ private:
         });
     }
 
-    // SSD1306 OLED（SPI）：句柄与显示对象在 InitDisplay() 里创建
+    // SH1106 OLED（SPI）：句柄与显示对象在 InitDisplay() 里创建
     esp_lcd_panel_io_handle_t panel_io_ = nullptr;
     esp_lcd_panel_handle_t panel_ = nullptr;
     Display* display_ = nullptr;
     bool display_init_done_ = false;
 
     /**
-     * 初始化 1.3 寸 OLED 屏（128x64，7 针 SPI）。
+     * 初始化 1.3 寸 OLED 屏（128x64，9 针 SPI）。
      *
      * 驱动 IC 是 SH1106（丝印常写 SSD1106）——注意 0.96 寸屏才是 SSD1306，两者命令集不同。
      * ID F v6.1 内置 esp_lcd 只有 SSD1306；SH1106 由组件 tny-robotics/sh1106-esp-idf 提供
      * （main/idf_component.yml 已声明，全项目可用）。
      *
-     * 与官方面包板的区别：官方用 I2C 接口（4 针），我们手上的屏是 SPI 接口（7 针），
+     * 与官方面包板的区别：官方用 I2C 接口（4 针），我们手上的屏是 SPI 接口（9 针），
      * 所以这里自己建 SPI 总线和 panel_io。
      *
      * 引脚见 config.h：SCLK=GPIO1、MOSI=GPIO2、DC=GPIO46、RES=GPIO48、CS 接 GND。
@@ -209,6 +209,9 @@ private:
         switch (event) {
             case NetworkEvent::Connected:
                 control.Start();
+                // 重连成功就清掉断网时挂的故障。以前这行写在回调包装里，
+                // Connected 的处理被拆成两处，加逻辑时容易只改一边。
+                control.ClearFault();
                 break;
             case NetworkEvent::WifiConfigModeEnter:
                 // 进配网热点前先停车：热点模式下 App 连不上，狗不该继续跑
@@ -370,9 +373,6 @@ public:
         user_network_callback_ = std::move(callback);
         WifiBoard::SetNetworkEventCallback([this](NetworkEvent event, const std::string& data) {
             HandleNetworkEvent(event);
-            if (event == NetworkEvent::Connected) {
-                aidog::ControlServer::GetInstance().ClearFault();
-            }
             if (user_network_callback_) {
                 user_network_callback_(event, data);
             }

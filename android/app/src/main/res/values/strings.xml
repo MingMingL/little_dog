@@ -15,6 +15,10 @@
     <string name="status_offline">离线</string>
     <string name="device_unset">设备：未设置（点右上角“设置”填写 IP）</string>
     <string name="device_ip_value">设备：%1$s</string>
+    <!-- 状态值文案以前在 DeviceStatus 里各写一遍中文，和这里是两套；统一走资源，改一处即可 -->
+    <string name="battery_no_sample">无采样</string>
+    <string name="battery_charging">（充电中）</string>
+    <string name="wifi_value">%1$s  %2$ddBm</string>
     <!-- 分区标题：以前写在布局里的硬编码中文，和代码里的提示语是两套，改一处会漏一处 -->
     <string name="section_status">状态</string>
     <string name="section_remote">遥控</string>

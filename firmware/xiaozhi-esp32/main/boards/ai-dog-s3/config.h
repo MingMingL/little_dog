@@ -3,7 +3,7 @@
 
 #include <driver/gpio.h>
 
-/* AI Dog V1 —— 乐鑫原装 ESP32-S3-DevKitC-1（N16R8）+ INMP441 麦克风 + MAX98357A 功放 + SSD1306 OLED
+/* AI Dog V1 —— 乐鑫原装 ESP32-S3-DevKitC-1（N16R8）+ INMP441 麦克风 + MAX98357A 功放 + SH1106 OLED
  *
  * 音频引脚沿用 xiaozhi 官方「面包板精简 WiFi」方案（bread-compact-wifi），
  * 这样可以直接照官方面包板接线图连线，减少自己踩坑。
@@ -36,7 +36,7 @@
 // BOOT 键（GPIO0）：未配网时进入配网，已配网时切换语音对话（对应 FR-17）
 #define BOOT_BUTTON_GPIO GPIO_NUM_0
 
-// 传感器 I2C（VL53L0X；屏幕未使用，故 I2C 独占给传感器）
+// 传感器 I2C（VL53L0X；屏幕走 SPI，I2C 独占给传感器）
 // VL53L0X 支架前倾 30° 安装：测桌面/地板边缘做防跌落（触发距离 = 安装高度 / tan30°），
 // 兼顾探头前方近距离防撞；代价是看不到 300mm 以外的前向障碍（2026-10-19 决策，B 方案）
 #define DOG_I2C_SDA_GPIO GPIO_NUM_41
@@ -79,7 +79,7 @@
 // 模式切换按键（待机/聊天/巡逻/看门）
 #define MODE_BUTTON_GPIO GPIO_NUM_9
 
-/* ===== OLED 屏幕（1.3 寸，128x64，7 针 SPI 版本）=====
+/* ===== OLED 屏幕（1.3 寸，128x64，9 针 SPI 版本）=====
  *
  * 这块屏的驱动 IC 是 SH1106（模块丝印常写作 SSD1106），不要和 0.96 寸的 SSD1306 混：
  * 两者初始化命令不同，用错表现为"屏幕亮但无内容/花屏"。
@@ -93,8 +93,8 @@
  */
 #define DISPLAY_DRIVER_SH1106
 
-#define DISPLAY_SPI_SCLK_PIN GPIO_NUM_1   // 7针屏的 CLK/SCL/D0
-#define DISPLAY_SPI_MOSI_PIN GPIO_NUM_2   // 7针屏的 DIN/MOSI/D1
+#define DISPLAY_SPI_SCLK_PIN GPIO_NUM_1   // 9针屏的 CLK/SCL/D0
+#define DISPLAY_SPI_MOSI_PIN GPIO_NUM_2   // 9针屏的 DIN/MOSI/D1
 #define DISPLAY_DC_PIN       GPIO_NUM_46  // 数据/命令选择（DC）
 #define DISPLAY_RES_PIN      GPIO_NUM_48  // 复位（RES/RST）
 #define DISPLAY_CS_PIN       GPIO_NUM_NC  // CS 接 GND，不占用 GPIO

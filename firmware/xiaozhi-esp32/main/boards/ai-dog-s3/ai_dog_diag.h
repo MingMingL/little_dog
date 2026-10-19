@@ -47,8 +47,9 @@ public:
 
     const ResetInfo& reset_info() const { return reset_info_; }
 
-    /** 记一条自己的诊断日志（同时进内存环，由后台任务落盘） */
-    void Info(const char* fmt, ...) __attribute__((format(printf, 2, 3)));
+    /** 记一条自己的诊断日志（同时进内存环，由后台任务落盘）。
+     *  目前只用到 Warn/Error：ESP_LOGW/ESP_LOGE 已经覆盖 I 级，
+     *  不需要再挂一个没人调的 Info。 */
     void Warn(const char* fmt, ...) __attribute__((format(printf, 2, 3)));
     void Error(const char* fmt, ...) __attribute__((format(printf, 2, 3)));
 
@@ -79,6 +80,7 @@ private:
     static constexpr size_t kSectorSize = 4096;
 
     void OnEspLogLine(const char* fmt, va_list args);
+    void AppendFormatted(uint8_t level, const char* fmt, va_list args);
     void AppendRam(uint8_t level, const char* text);
     void FlushPending();
     bool AppendFlash(uint8_t level, uint32_t uptime_ms, const char* text);

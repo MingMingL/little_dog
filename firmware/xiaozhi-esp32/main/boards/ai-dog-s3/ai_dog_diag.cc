@@ -23,7 +23,6 @@ namespace {
 //   [14..15] 保留
 //   [16..255] 文本，NUL 结尾
 constexpr char kMagic[4] = {'D', 'L', 'O', 'G'};
-constexpr uint32_t kMagicU32 = 0x474F4C44;  // 'DLOG' 小端
 
 uint32_t Le32(const uint8_t* p) {
     return static_cast<uint32_t>(p[0]) | (static_cast<uint32_t>(p[1]) << 8) |
@@ -35,6 +34,30 @@ void PutLe32(uint8_t* p, uint32_t v) {
     p[1] = static_cast<uint8_t>(v >> 8);
     p[2] = static_cast<uint8_t>(v >> 16);
     p[3] = static_cast<uint8_t>(v >> 24);
+}
+
+// 按格式串渲染一行日志。va_list 不能重复消费，内部必须 va_copy
+void FormatLine(char* buffer, size_t size, const char* fmt, va_list args) {
+    va_list copy;
+    va_copy(copy, args);
+    vsnprintf(buffer, size, fmt, copy);
+    va_end(copy);
+}
+
+// 按序号升序（插入排序）。flash 环和内存环打印时都要"按时间顺序看"，
+// 两处各写一遍排序逻辑迟早会写成两个顺序；条目最多几百条、只在打印时跑一次，
+// 插入排序足够。要求 Item 带 seq 字段。
+template <typename Item>
+void SortBySeq(Item* items, size_t count) {
+    for (size_t i = 1; i < count; ++i) {
+        Item key = items[i];
+        size_t j = i;
+        while (j > 0 && items[j - 1].seq > key.seq) {
+            items[j] = items[j - 1];
+            --j;
+        }
+        items[j] = key;
+    }
 }
 
 }  // namespace
@@ -118,10 +141,7 @@ int DeviceLog::LogHook(const char* fmt, va_list args) {
 
 void DeviceLog::OnEspLogLine(const char* fmt, va_list args) {
     char buffer[224]{};
-    va_list copy;
-    va_copy(copy, args);
-    vsnprintf(buffer, sizeof(buffer), fmt, copy);
-    va_end(copy);
+    FormatLine(buffer, sizeof(buffer), fmt, args);
 
     // 级别取行首字母（CONFIG_LOG_COLORS 未开，格式固定是 "E (123) tag: msg"）
     uint8_t level = 0;
@@ -131,31 +151,25 @@ void DeviceLog::OnEspLogLine(const char* fmt, va_list args) {
     AppendRam(level, buffer);
 }
 
-void DeviceLog::Info(const char* fmt, ...) {
+/** 格式化 + 进内存环。Warn/Error 只差级别，别把 vsnprintf 复制两份 */
+void DeviceLog::AppendFormatted(uint8_t level, const char* fmt, va_list args) {
     char buffer[224]{};
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(buffer, sizeof(buffer), fmt, args);
-    va_end(args);
-    AppendRam(0, buffer);
+    FormatLine(buffer, sizeof(buffer), fmt, args);
+    AppendRam(level, buffer);
 }
 
 void DeviceLog::Warn(const char* fmt, ...) {
-    char buffer[224]{};
     va_list args;
     va_start(args, fmt);
-    vsnprintf(buffer, sizeof(buffer), fmt, args);
+    AppendFormatted(1, fmt, args);
     va_end(args);
-    AppendRam(1, buffer);
 }
 
 void DeviceLog::Error(const char* fmt, ...) {
-    char buffer[224]{};
     va_list args;
     va_start(args, fmt);
-    vsnprintf(buffer, sizeof(buffer), fmt, args);
+    AppendFormatted(2, fmt, args);
     va_end(args);
-    AppendRam(2, buffer);
 }
 
 void DeviceLog::AppendRam(uint8_t level, const char* text) {
@@ -284,16 +298,7 @@ void DeviceLog::DumpFlash() {
         count++;
     }
 
-    // 插入排序（count <= 256，只在启动时跑一次）
-    for (size_t i = 1; i < count; ++i) {
-        Item key = items[i];
-        size_t j = i;
-        while (j > 0 && items[j - 1].seq > key.seq) {
-            items[j] = items[j - 1];
-            --j;
-        }
-        items[j] = key;
-    }
+    SortBySeq(items, count);  // 环形覆盖过也要按时间顺序看
 
     printf("===== 设备本地日志（上次掉电前，%u 条） =====\n", static_cast<unsigned>(count));
     for (size_t i = 0; i < count; ++i) {
@@ -327,15 +332,7 @@ const char* DeviceLog::Dump(size_t max_lines) {
         items[count].entry = &entry;
         count++;
     }
-    for (size_t i = 1; i < count; ++i) {
-        Item key = items[i];
-        size_t j = i;
-        while (j > 0 && items[j - 1].seq > key.seq) {
-            items[j] = items[j - 1];
-            --j;
-        }
-        items[j] = key;
-    }
+    SortBySeq(items, count);
 
     size_t begin = 0;
     if (max_lines > 0 && count > max_lines) begin = count - max_lines;

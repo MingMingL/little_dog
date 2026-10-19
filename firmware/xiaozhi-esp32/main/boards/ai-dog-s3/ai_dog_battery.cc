@@ -162,7 +162,6 @@ void BatteryMonitor::Sample() {
     raw_mv_ = static_cast<uint32_t>(mv);
     float voltage = mv / 1000.0f * DOG_BATTERY_DIVIDER;
 
-    bool was_valid = valid_;
     float was_voltage = voltage_;
 
     valid_ = (voltage >= DOG_BATTERY_VALID_MIN_V && voltage <= DOG_BATTERY_VALID_MAX_V);
@@ -219,7 +218,6 @@ void BatteryMonitor::Sample() {
         }
         SetLevel(next);
     }
-    (void)was_valid;
 }
 
 void BatteryMonitor::SetLevel(Level level) {
