@@ -288,7 +288,7 @@ public class MainActivity extends AppCompatActivity {
                     cancelMoveRepeat();
                 }
                 applyMode(mode);
-                Toast.makeText(this, getString(R.string.msg_mode_switched, DeviceStatus.modeLabel(mode)),
+                Toast.makeText(this, getString(R.string.msg_mode_switched, DeviceStatus.modeLabel(this, mode)),
                         Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(this, getString(R.string.msg_mode_failed, message),
@@ -301,10 +301,10 @@ public class MainActivity extends AppCompatActivity {
         binding.textConnection.setText(R.string.status_online);
         binding.textConnection.setTextColor(getColor(R.color.status_online));
 
-        binding.textMode.setText(status.modeLabel());
-        binding.textBattery.setText(status.batteryLabel());
-        binding.textWifi.setText(status.wifiLabel());
-        binding.textFault.setText(status.faultLabel());
+        binding.textMode.setText(status.modeLabel(this));
+        binding.textBattery.setText(status.batteryLabel(this));
+        binding.textWifi.setText(status.wifiLabel(this));
+        binding.textFault.setText(status.faultLabel(this));
 
         applyMode(status.mode);
     }

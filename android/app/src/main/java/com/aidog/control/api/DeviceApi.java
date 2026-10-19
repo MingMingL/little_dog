@@ -79,9 +79,19 @@ public class DeviceApi {
     // 状态获取
     // ------------------------------------------------------------------
 
+    /** 没配 IP 时所有接口都走同一句报错；判空只在 ipReady() 一处 */
+    private boolean ipReady() {
+        return baseUrl != null;
+    }
+
+    /** 读响应体；空体按空串处理，调用方统一当成"设备没说话" */
+    private static String readBody(Response response) throws java.io.IOException {
+        return response.body() != null ? response.body().string() : "";
+    }
+
     /** 单次查询状态。只给降级轮询用（对外只暴露 startStatusPush），收为私有避免两套接法 */
     private void getStatus(StatusCallback callback) {
-        if (baseUrl == null) {
+        if (!ipReady()) {
             callback.onError(MSG_NO_IP);
             return;
         }
@@ -103,8 +113,7 @@ public class DeviceApi {
                         postError(callback, "设备返回 " + response.code());
                         return;
                     }
-                    String body = response.body() != null ? response.body().string() : "";
-                    DeviceStatus status = gson.fromJson(body, DeviceStatus.class);
+                    DeviceStatus status = gson.fromJson(readBody(response), DeviceStatus.class);
                     mainHandler.post(() -> callback.onStatus(status));
                 } catch (Exception e) {
                     postError(callback, "解析失败：" + e.getMessage());
@@ -218,7 +227,7 @@ public class DeviceApi {
      * 停车指令例外：保留一条待发送的 stop，等在途请求结束后优先下发。
      */
     public void move(String dir, int speed, SimpleCallback callback) {
-        if (baseUrl == null) {
+        if (!ipReady()) {
             callback.onResult(false, MSG_NO_IP);
             return;
         }
@@ -285,7 +294,7 @@ public class DeviceApi {
     }
 
     private void post(String path, String body, SimpleCallback callback) {
-        if (baseUrl == null) {
+        if (!ipReady()) {
             callback.onResult(false, MSG_NO_IP);
             return;
         }
@@ -308,7 +317,7 @@ public class DeviceApi {
             @Override
             public void onResponse(okhttp3.Call call, Response response) {
                 try {
-                    String respBody = response.body() != null ? response.body().string() : "";
+                    String respBody = readBody(response);
                     boolean ok = response.isSuccessful() && !respBody.contains("\"ok\":false");
                     String msg = respBody.isEmpty() ? ("HTTP " + response.code()) : respBody;
                     mainHandler.post(() -> callback.onResult(ok, msg));
