@@ -28,7 +28,6 @@
     <string name="mode_remote">遥控</string>
 
     <!-- 遥控 -->
-    <string name="hint_remote">按住方向键控制，松手即停（仅遥控模式可用）</string>
     <string name="dir_forward">↑\n前进</string>
     <string name="dir_backward">↓\n后退</string>
     <string name="dir_turn_left">↖\n左转</string>
@@ -55,6 +54,10 @@
     <string name="msg_mode_failed">切换失败：%1$s</string>
 
     <!-- 设置页 -->
+    <!-- 分区标题与底部说明以前硬编码在布局里，和 java 里的提示语是两套，改一处会漏一处 -->
+    <string name="setup_section_ip">设备 IP</string>
+    <string name="setup_section_provision">给设备配网</string>
+    <string name="setup_provision_tip">提示：配网需要手机当前已连上设备热点，或设备仍在原局域网内。下发后设备会尝试连接新 Wi-Fi，IP 可能变化。</string>
     <string name="hint_device_ip">设备 IP（如 192.168.1.50）</string>
     <string name="hint_ssid">Wi-Fi 名称</string>
     <string name="hint_password">Wi-Fi 密码</string>

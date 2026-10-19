@@ -256,9 +256,7 @@ public class MainActivity extends AppCompatActivity {
                            : getString(R.string.msg_estop_failed, message),
                         Toast.LENGTH_SHORT).show();
                 if (ok) {
-                    currentMode = "idle";
-                    highlightMode(currentMode);
-                    updateRemoteHint();
+                    applyMode("idle");
                 }
             });
         });
@@ -289,9 +287,7 @@ public class MainActivity extends AppCompatActivity {
                 if (!"remote".equals(mode)) {
                     cancelMoveRepeat();
                 }
-                currentMode = mode;
-                highlightMode(mode);
-                updateRemoteHint();
+                applyMode(mode);
                 Toast.makeText(this, getString(R.string.msg_mode_switched, DeviceStatus.modeLabel(mode)),
                         Toast.LENGTH_SHORT).show();
             } else {
@@ -310,9 +306,7 @@ public class MainActivity extends AppCompatActivity {
         binding.textWifi.setText(status.wifiLabel());
         binding.textFault.setText(status.faultLabel());
 
-        currentMode = status.mode;
-        highlightMode(status.mode);
-        updateRemoteHint();
+        applyMode(status.mode);
     }
 
     private void renderOffline(String message) {
@@ -322,6 +316,17 @@ public class MainActivity extends AppCompatActivity {
         binding.textBattery.setText(R.string.value_unknown);
         binding.textWifi.setText(R.string.value_unknown);
         binding.textFault.setText(message);
+    }
+
+    /**
+     * 模式变更的唯一收口：记状态 + 高亮按钮 + 刷新遥控提示。
+     * 切模式、状态推送、急停成功后都要做这三件事，以前三处各写一遍，
+     * 漏掉 updateRemoteHint 就会出现"已经是遥控模式但提示还说不可用"。
+     */
+    private void applyMode(String mode) {
+        currentMode = mode;
+        highlightMode(mode);
+        updateRemoteHint();
     }
 
     /** 高亮当前模式按钮 */

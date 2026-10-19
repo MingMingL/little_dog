@@ -19,8 +19,8 @@
  */
 class AiDogMcpTool {
 public:
-    AiDogMcpTool() = default;
-    ~AiDogMcpTool() = default;
+    // 不写构造/析构：本类只有 Initialize() 一个动作、没有成员要管，
+    // 编译器生成的就够用，显式写 = default 只是噪音。
 
     /** 注册 MCP 工具（构造函数之后、Application 注册内置工具之前调用） */
     void Initialize();

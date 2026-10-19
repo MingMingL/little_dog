@@ -87,13 +87,12 @@ $BuildTmp = Join-Path $PSScriptRoot ".build-tmp"
 New-Item -ItemType Directory -Force -Path $BuildTmp | Out-Null
 $env:TMP = $BuildTmp
 $env:TEMP = $BuildTmp
-# ccache is off: it only adds another out-of-project scratch path and brings no
-# benefit to a single-board build. (Keep CCACHE_DIR out of here too - dead knob.)
+# ccache off: it only adds another out-of-project scratch path (CCACHE_DIR
+# likewise), and buys nothing for a single-board build.
 $env:CCACHE_DISABLE = "1"
 
-# No IDF_PY_BUILD_JOBS: the build calls ninja directly (see Invoke-Ninja), so
-# that env var would be a dead knob. -Jobs goes straight to "ninja -j".
-
+# -Jobs goes straight to "ninja -j"; do NOT re-add IDF_PY_BUILD_JOBS, it is
+# ignored once ninja is called directly.
 # Run ninja directly instead of "idf.py build". idf.py wraps ninja's stdout in a
 # Python pipe; in this environment that pipe makes ninja die mid-build with
 # "CreateProcess failed: The system cannot find the file specified" and
