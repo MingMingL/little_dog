@@ -6,10 +6,9 @@ import android.util.Log;
 
 import com.aidog.control.model.DeviceStatus;
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.google.gson.JsonSyntaxException;
 
 import java.util.concurrent.TimeUnit;
 
@@ -80,8 +79,8 @@ public class DeviceApi {
     // 状态获取
     // ------------------------------------------------------------------
 
-    /** 单次查询状态 */
-    public void getStatus(StatusCallback callback) {
+    /** 单次查询状态。只给降级轮询用（对外只暴露 startStatusPush），收为私有避免两套接法 */
+    private void getStatus(StatusCallback callback) {
         if (baseUrl == null) {
             callback.onError(MSG_NO_IP);
             return;
@@ -257,19 +256,32 @@ public class DeviceApi {
         json.addProperty("password", password);
         post("/api/wifi", json.toString(), (ok, message) -> {
             if (ok) {
-                try {
-                    JSONObject resp = new JSONObject(message);
-                    String newIp = resp.optString("ip", "");
-                    if (!newIp.isEmpty()) {
-                        callback.onResult(true, newIp);
-                        return;
-                    }
-                } catch (JSONException ignored) {
-                    // 设备没回 IP 也当作成功
+                String newIp = parseResponseIp(message);
+                if (!newIp.isEmpty()) {
+                    callback.onResult(true, newIp);
+                    return;
                 }
             }
             callback.onResult(ok, message);
         });
+    }
+
+    /**
+     * 从响应体里取 ip 字段：{"ok":true,"ip":"192.168.1.50"}。
+     * 解析失败或字段缺失都返回空串——设备没回 IP 也算下发成功，由调用方按原样提示。
+     * 用 Gson 而不是再引一个 org.json：整个类只有这一处要取字段，两套 JSON 库并存是纯负担。
+     */
+    private String parseResponseIp(String body) {
+        try {
+            JsonObject resp = gson.fromJson(body, JsonObject.class);
+            if (resp == null) {
+                return "";
+            }
+            JsonElement ip = resp.get("ip");
+            return (ip == null || ip.isJsonNull()) ? "" : ip.getAsString();
+        } catch (JsonSyntaxException e) {
+            return "";
+        }
     }
 
     private void post(String path, String body, SimpleCallback callback) {

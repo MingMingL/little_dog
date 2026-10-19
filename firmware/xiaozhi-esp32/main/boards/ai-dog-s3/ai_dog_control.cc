@@ -21,27 +21,40 @@ constexpr int64_t kMoveTimeoutUs = 1500 * 1000;
 // 看门狗检查周期
 constexpr uint64_t kWatchdogPeriodUs = 200 * 1000;
 
+// 模式名的唯一清单：ModeToString / ModeFromString 都查这张表。
+// 以前两个函数各列一遍字符串，加模式时漏改一处就会出现"能解析进来、
+// 但状态里报成 idle"这种半同步错误。
+constexpr struct { aidog::Mode mode; const char* name; } kModeNames[] = {
+    {aidog::Mode::Idle,   "idle"},
+    {aidog::Mode::Chat,   "chat"},
+    {aidog::Mode::Patrol, "patrol"},
+    {aidog::Mode::Guard,  "guard"},
+    {aidog::Mode::Remote, "remote"},
+};
+
+// 所有 POST 接口解析失败时回同一句话，别在四个 handler 里各写一遍字面量
+constexpr char kErrInvalidJson[] = "invalid json";
+
 }  // namespace
 
 namespace aidog {
 
 const char* ModeToString(Mode mode) {
-    switch (mode) {
-        case Mode::Idle:   return "idle";
-        case Mode::Chat:   return "chat";
-        case Mode::Patrol: return "patrol";
-        case Mode::Guard:  return "guard";
-        case Mode::Remote: return "remote";
-        default:           return "idle";
+    for (const auto& entry : kModeNames) {
+        if (entry.mode == mode) {
+            return entry.name;
+        }
     }
+    return "idle";  // 兜底：未知枚举按待机报，别把空指针写进 JSON
 }
 
 bool ModeFromString(const std::string& text, Mode& out) {
-    if (text == "idle")        { out = Mode::Idle;   return true; }
-    if (text == "chat")        { out = Mode::Chat;   return true; }
-    if (text == "patrol")      { out = Mode::Patrol; return true; }
-    if (text == "guard")       { out = Mode::Guard;  return true; }
-    if (text == "remote")      { out = Mode::Remote; return true; }
+    for (const auto& entry : kModeNames) {
+        if (text == entry.name) {
+            out = entry.mode;
+            return true;
+        }
+    }
     return false;
 }
 
@@ -376,7 +389,7 @@ esp_err_t ControlServer::StatusHandler(httpd_req_t* req) {
 esp_err_t ControlServer::ModeHandler(httpd_req_t* req) {
     cJSON* root = ParseJsonBody(req);
     if (root == nullptr) {
-        SendResult(req, false, "invalid json");
+        SendResult(req, false, kErrInvalidJson);
         return ESP_OK;
     }
     cJSON* mode_item = cJSON_GetObjectItem(root, "mode");
@@ -407,7 +420,7 @@ esp_err_t ControlServer::StopHandler(httpd_req_t* req) {
 esp_err_t ControlServer::MoveHandler(httpd_req_t* req) {
     cJSON* root = ParseJsonBody(req);
     if (root == nullptr) {
-        SendResult(req, false, "invalid json");
+        SendResult(req, false, kErrInvalidJson);
         return ESP_OK;
     }
     cJSON* dir_item = cJSON_GetObjectItem(root, "dir");
@@ -439,7 +452,7 @@ esp_err_t ControlServer::MoveHandler(httpd_req_t* req) {
 esp_err_t ControlServer::WifiHandler(httpd_req_t* req) {
     cJSON* root = ParseJsonBody(req);
     if (root == nullptr) {
-        SendResult(req, false, "invalid json");
+        SendResult(req, false, kErrInvalidJson);
         return ESP_OK;
     }
     cJSON* ssid_item = cJSON_GetObjectItem(root, "ssid");
@@ -469,9 +482,9 @@ esp_err_t ControlServer::WifiHandler(httpd_req_t* req) {
 }
 
 void ControlServer::Start() {
-    bool started = false;
     {
-        // httpd 的启停和 server_ 的读写都在这把锁里，Stop() 同样持锁，不会打架
+        // httpd 的启停和 server_ 的读写都在这把锁里，Stop() 同样持锁，不会打架。
+        // 走到函数末尾就代表启动成功：失败的两条路（已在运行 / httpd_start 失败）都直接 return。
         std::lock_guard<std::mutex> lock(mutex_);
         if (server_ != nullptr) {
             return;
@@ -500,12 +513,8 @@ void ControlServer::Start() {
         for (const httpd_uri_t& route : routes) {
             httpd_register_uri_handler(server_, &route);
         }
-        started = true;
     }
 
-    if (!started) {
-        return;
-    }
     ESP_LOGI(TAG, "局域网控制服务已启动：http://<ip>/api/status");
 
     // 看门狗必须在锁外启动：它内部还要拿同一把 mutex_，std::mutex 不可重入

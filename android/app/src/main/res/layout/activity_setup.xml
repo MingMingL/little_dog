@@ -10,7 +10,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="设备 IP"
+        android:text="@string/setup_section_ip"
         android:textColor="@color/primary"
         android:textStyle="bold" />
 
@@ -39,7 +39,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="给设备配网"
+        android:text="@string/setup_section_provision"
         android:textColor="@color/primary"
         android:textStyle="bold" />
 
@@ -70,7 +70,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:text="提示：配网需要手机当前已连上设备热点，或设备仍在原局域网内。下发后设备会尝试连接新 Wi-Fi，IP 可能变化。"
+        android:text="@string/setup_provision_tip"
         android:textColor="@color/text_secondary"
         android:textSize="12sp" />
 

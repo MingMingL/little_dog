@@ -144,6 +144,10 @@ def text_spots(comp_skip):
     return spots
 
 
+def bump(hits, key):
+    hits[key] = hits.get(key, 0) + 1
+
+
 def main(ids):
     holes = all_holes()
     occ, blk = state_sets()
@@ -157,18 +161,16 @@ def main(ids):
             pts = wire_points(comp, w)
             total = pts[-1][2]
             hits = {}
-            for idx, (x, y, s) in enumerate(pts):
+            for x, y, s in pts:
                 near_end = s < END_OK or (total - s) < END_OK   # 沿程近端放过（落孔连接必然接触）
                 for nm, (hx, hy) in holes.items():
                     if math.hypot(x - hx, y - hy) >= TOUCH:
                         continue
                     if nm in occ:
                         if not near_end:
-                            hits.setdefault("OCC:" + nm, 0)
-                            hits["OCC:" + nm] += 1
+                            bump(hits, "OCC:" + nm)
                     elif nm in blk:
-                        hits.setdefault("BLK:" + nm, 0)
-                        hits["BLK:" + nm] += 1
+                        bump(hits, "BLK:" + nm)
                 for name, kind, data in obs:
                     if (comp["id"], wi, name) in WHITELIST:
                         continue
@@ -176,12 +178,10 @@ def main(ids):
                         continue                  # 针连接必然贴板身角，物理同源
                     if kind == "circle":
                         if math.hypot(x - data[0], y - data[1]) < data[2] + 0.3:
-                            hits.setdefault("BODY:" + name, 0)
-                            hits["BODY:" + name] += 1
+                            bump(hits, "BODY:" + name)
                     else:
                         if data[0] - 0.3 <= x <= data[2] + 0.3 and data[1] - 0.3 <= y <= data[3] + 0.3:
-                            hits.setdefault("BODY:" + name, 0)
-                            hits["BODY:" + name] += 1
+                            bump(hits, "BODY:" + name)
                 for cid, lab, tx, ty in tint:
                     if math.hypot(x - tx, y - ty) < 0.9 and abs(x - tx) < 1.2:
                         hits.setdefault("TXT:%s:%s" % (cid, lab), 0)
@@ -191,8 +191,9 @@ def main(ids):
                          for nm2, k, d in obs if nm2 == name]
             bad = {}
             for k, v in hits.items():
-                if k in WHITELIST:
-                    continue
+                # 注意：这里不能再判 "k in WHITELIST" —— hits 的键是 "OCC:/BODY:" 前缀字符串，
+                # WHITELIST 的键是 (元件, 线序, 障碍名) 三元组，永远不相等，判了也是空转。
+                # 白名单在上面采样循环里按三元组跳过，下面的 wl_bodies 负责连带豁免孔。
                 if k.startswith("BLK:") or k.startswith("OCC:"):
                     nm = k[4:]
                     hx, hy = holes[nm]
