@@ -138,6 +138,7 @@ COLOR = {
     "wire_vcc": "#dc2626", "wire_gnd": "#111827", "wire_sig": "#7c3aed",
     "wire_spk": "#0f766e",                       # 喇叭线（teal，与红/黑/紫区分）
     "wire_mtr": "#ea580c",                       # 电机驱动线（橙，TB6612 控制/电源/电机输出）
+    "wire_5v": "#991b1b",                        # 5V 网（深红，区别于 3V3 的正红 #dc2626）
 }
 FONT = "system-ui, -apple-system, 'PingFang SC', 'Noto Sans CJK SC', sans-serif"
 
@@ -148,10 +149,12 @@ FULL_SVG = os.path.join(OUT_DIR, "breadboard-z.svg")
 
 CANVAS_X0, CANVAS_Y0 = -8.0, -104.0   # 画布原点（上侧扩展 38.7mm：容纳板外 OLED 本体 y[-98.4,-62.9]）
 CANVAS_W = 181.1
-CANVAS_H = 286.66                     # 下缘图例区：末行基线 y=172.8（含侧视小图 y60–96）；上侧到 -104
-                                     # （元件 5/9 VL53L0X 入图：图例 +2 行，末行 164.0→172.8）
+CANVAS_H_MIN = 286.66                 # 画布高度**下限**（轮廓图保持此值）；全图高度由图例末行
+                                      # 回算（CANVAS_H 写死的时代，图例加行就得手改常量，
+                                      # 2026-10-19 元件 7/8/9 入图改为末行基线 + 5.4 自动回算）
+LEGEND_X = -6.0                       # 图例文字左缘
+LEGEND_BOTTOM_PAD = 5.4               # 末行基线到画布下缘的距离
 PX_W = 1120
-PX_H = int(round(PX_W * CANVAS_H / CANVAS_W))
 
 
 def fmt(v):
@@ -395,7 +398,10 @@ INMP441 = {
         {"from": ("pin", 3), "to": ("hole", "zy.m37"), "ctrl": (127.4, 29.0),
          "cls": "wire_sig", "label": "GPIO6", "label_dx": 0.6, "label_anchor": "start"},
         {"from": ("pin", 4), "to": ("hole", "zy.m32"), "ctrl": (121.4, 25.5),
-         "cls": "wire_vcc", "label": "3V3", "label_dx": 0.0, "label_anchor": "middle"},
+         # 标签右上移（2026-10-19）：默认位置 (82.55,18.96) 正好压在电源区 3V3 西段馈线的
+         # 19.68 横档上（标签与线重叠=看不清），移到 (84.75,16.81) 后与所有横档错开。
+         "cls": "wire_vcc", "label": "3V3", "label_dx": 2.2, "label_dy": -1.6,
+         "label_anchor": "middle"},
         {"from": ("pin", 5), "to": ("hole", "zy.bottom_outer_50"), "ctrl": (158.0, 41.0),
          "cls": "wire_gnd", "label": "GND −轨", "label_dx": 0.9, "label_anchor": "start", "label_dy": 0.55},
         {"from": ("pin", 2), "to": ("pin", 5), "ctrl": (158.73, 27.3),
@@ -447,10 +453,17 @@ MAX98357A = {
         {"from": ("pin", 4), "to": ("pin", 6), "ctrl": (128.27, 28.0),
          "cls": "wire_vcc", "label": None},
         # 电源：GND->下轨外轨 - 第 40 孔；VIN->下轨内轨 + 第 41 孔（与 v3/v4 文档一致）
+        # （GND 标签三次搬家，都是被邻居挤的：原在孔东侧 y=49.44 → 压电源区桥接线 40→41；
+        #   改孔西侧 → 压 TB6612 的 BIN1 竖带（x=124.46，离孔心仅 1.27）；最后定为
+        #   **孔东北侧、轨线以北 1.2mm** 的短标签 "GND"——上方是下内轨孔（46.35）与自己的
+        #   贝塞尔线（同元件豁免），下方让开桥接线，长度压到 2mm 避免撞自己的 "5V +轨" 标签。）
         {"from": ("pin", 5), "to": ("hole", "zy.bottom_outer_40"), "ctrl": (126.0, 42.0),
-         "cls": "wire_gnd", "label": "GND −轨", "label_dx": 0.9, "label_anchor": "start", "label_dy": 0.55},
+         "cls": "wire_gnd", "label": "GND", "label_dx": 0.9, "label_anchor": "start", "label_dy": -1.2},
+        # VIN 走 5V 网（2026-10-19 用户决策：3V3 只带小电流，功放峰值电流改由 5V 承担），
+        # 故用深红 wire_5v 而不是 3V3 的正红 wire_vcc——颜色必须和实际电位一致，否则
+        # 看图接线的人会把 5V 插进 3V3 轨（ESP32 LDO 会被喇叭峰值电流拖垮）。
         {"from": ("pin", 6), "to": ("hole", "zy.bottom_inner_41"), "ctrl": (130.81, 40.0),
-         "cls": "wire_vcc", "label": "5V +轨", "label_dx": 0.9, "label_anchor": "start", "label_dy": 0.55},
+         "cls": "wire_5v", "label": "5V +轨", "label_dx": 0.9, "label_anchor": "start", "label_dy": 0.55},
         # 喇叭输出：VO+ 接右螺丝、VO- 接左螺丝（喇叭无极性，仅示意）；teal 色区分
         {"from": ("xy", (124.84, 20.60)), "to": ("xy", (139.60, 18.20)), "ctrl": (133.0, 17.5),
          "cls": "wire_spk", "label": None},
@@ -547,10 +560,12 @@ TB6612FNG = {
         # VCC：o32（3V3）→ 框上沿针。单条贝塞尔，全程 x<114.3 不碰 MAX；穿 p/q 行空闲孔（先例允许）。
         {"from": ("hole", "zy.o32"), "to": ("pin", 5), "ctrl": (98.0, 44.0), "cls": "wire_vcc"},
         # GND：框上沿针 → 下轨外轨 − 第 44 孔。pts 反向书写让 label 渲染在轨孔侧
-        # （标签右移 label_dx=2.6，避开本线 x=139.70 竖带）。
+        # （标签左移 label_dx=-2.6：2026-10-19 电源区加轨组短跳线后，孔 44 东侧 2.54mm 就是
+        #  桥接线 45→46，标签仍放右侧会整段压在桥上；西侧到桥 40→41 的终点（130.81）还有
+        #  7mm 空档，且本线自己的 x=139.70 竖带在 y≥51.5，与标签（y=49.44）不相干。）
         {"from": ("pin", 8), "to": ("hole", "zy.bottom_outer_44"),
          "pts": [(123.0, 63.0), (123.0, 62.8), (139.70, 62.8), (139.70, 51.5), (138.43, 48.89)],
-         "cls": "wire_gnd", "label": "GND −轨", "label_dx": 2.6, "label_anchor": "start", "label_dy": 0.55},
+         "cls": "wire_gnd", "label": "GND −轨", "label_dx": -2.6, "label_anchor": "end", "label_dy": 0.55},
         # VM：电池正极 ⇒ 框左沿针（水平长线，板外净空带）
         {"from": ("xy", (32.0, 73.0)), "to": ("pin", 9), "pts": [(32.0, 73.0), (92.0, 73.0)], "cls": "wire_vcc"},
         # 电机输出：AO1/AO2 → M1（左轮）；BO1/BO2 → M2（右轮）。落点均在电机符号圆弧上。
@@ -580,10 +595,17 @@ TB6612FNG = {
                                           "BIN1", "BIN2", "PWMB", "GND")))
         + "".join(text(121.0, 72.4 + 2.0 * i, nm, 0.8, "#bbf7d0", "middle", "tb-pin-label")
                   for i, nm in enumerate(("VM", "VCC", "GND", "AO1", "AO2", "BO2", "BO1", "GND")))
-        # 电池符号（7.4V，板外）：长片=正极、短片=负极、引线接 VM 线起点 (32,73)
+        # 电池符号（7.4V，板外）：长片=正极、短片=负极。
+        # 2026-10-19 极性修正：原引线从**短片（负极）**接到 VM，接反了。
+        # 改从长片（正极 x=27）上端绕到 (32,63) 再下行到 VM 线起点 (32,73)（不穿过负极片）；
+        # 负极引线由元件 8 的 IN− 线从短片下端 (30.2,77) 接出（黑色）。
         + line(27.0, 66.0, 27.0, 80.0, "#374151", 0.9, "bat-plate")
         + line(30.2, 69.0, 30.2, 77.0, "#374151", 0.9, "bat-plate")
-        + line(30.2, 73.0, 32.0, 73.0, COLOR["wire_vcc"], 0.45, "wire")
+        + line(27.0, 66.0, 27.0, 63.0, COLOR["wire_vcc"], 0.45, "wire")
+        + line(27.0, 63.0, 32.0, 63.0, COLOR["wire_vcc"], 0.45, "wire")
+        + line(32.0, 63.0, 32.0, 73.0, COLOR["wire_vcc"], 0.45, "wire")
+        + text(25.2, 66.5, "+", 1.4, "#b91c1c", "middle", "bat-label", bold=True)
+        + text(32.4, 77.6, "−", 1.4, "#111827", "middle", "bat-label", bold=True)
         + text(28.6, 64.0, "7.4V", 1.1, "#111827", "middle", "bat-label", bold=True)
         + text(28.6, 83.6, "电池（板外）", 1.0, "#6b7280", "middle", "bat-label")
         # 电机示意符号 M1/M2（圆心均在 AO/BO 线落点上）
@@ -759,9 +781,14 @@ def make_oled():
         return jog(px, seam_x) + [(seam_x, Y_RAILGAP), (hx, Y_RAILGAP), (hx, y_rail)]
 
     wires = [
-        # ① Gnd(113.03) -> zx.top_outer_35（110.49）：113.03 是轨孔空档，直落到轨间再西行
+        # ① Gnd(113.03) -> zx.top_outer_35（110.49）：走**外轨以北空档 Y_JOG** 换道。
+        #    2026-10-19 改道原因：原来走轨间空档 Y_RAILGAP(-46.36) 西行占掉 x[110.49,113.03]，
+        #    而电源区要把 3V3 送进上内轨东段，只能从 111.76 竖廊下来再沿轨间空档西行落 top_inner_35
+        #    ——两条线会在 -46.36 上共线重叠（一 GND 一 3V3 = 图上短接）。改走北侧 -49.04 后
+        #    轨间空档整段让给 3V3，两条线只在 110.49 处上下错开，互不重叠。
         {"from": ("pin", 0), "to": ("hole", "zx.top_outer_35"), "cls": "wire_gnd",
-         "pts": to_rail(col_x(44), col_x(44), 35, Y_OUTER), "label": None},
+         "pts": [(col_x(44), by1), (col_x(44), Y_JOG),
+                 (rail_hole_x(35), Y_JOG), (rail_hole_x(35), Y_OUTER)], "label": None},
         # ② Vin(115.57) -> zx.top_inner_36（115.57）：正下方是外轨孔 36（非目标），换道东缝 116.84
         {"from": ("pin", 1), "to": ("hole", "zx.top_inner_36"), "cls": "wire_vcc",
          "pts": to_rail(col_x(45), col_x(45) + SEAM, 36, Y_INNER), "label": None},
@@ -823,7 +850,337 @@ def make_oled():
         ),
     }
 OLED = make_oled()
-COMPONENTS = [INMP441, MAX98357A, TB6612FNG, VL53L0X, OLED]
+
+# 元件 7/9：模式按键 + 10k 上拉（GPIO9）
+# **位置是被迫重排了三次才定下来的**（2026-10-19）：
+#   ① GPIO9 的网 = Y 板列 46 上半区（k–o 同列一条），但 k46 是 ESP32 针脚本身、
+#      m46/n46/o46 全被 MAX98357A 本体（x 114.30–132.08、y 17.10–36.19）挡死——
+#      整条网只剩 **l46** 一个孔能用，按键和上拉都要接 GPIO9，一个孔不够。
+#      → 解法：用元件 9 的 GPIO9-EXT 跳线把该网"搬"到西边的空列。
+#   ② 第一次搬到列 41–43：被 INMP441 的三根信号弧线压住（它们自东向西横扫 n/o 行，
+#      最西只到 m32 = x 82.55，列 41–43 正好在弧线走廊里）。
+#   ③ 第二次搬到列 29–31：又被电源区的横档压住——针脚丝印画在孔上方 1.55mm，
+#      正好落在行间空档里（n 行丝印 y=19.40 卡在 19.68 横档旁 0.28mm），
+#      而 3V3 西段馈线的横档必须从列 32（x 82.55）西行，绕不开 x=80.01。
+#   → 最终：**列 27–29**（按键在列 29、上拉电阻跨列 27←29）。这样所有电源横档的
+#      x 区间（≥76.20）都与按键/电阻的丝印（≤74.93）隔开 ≥1.27mm，互不遮挡。
+#   插法（列 27/29 上半区，中隔槽以北）：
+#     按键 一脚 o29（GPIO9 扩展）— 另一脚 p29（列 29 **下半区**，独立网，由 GND-EXT 定义为 GND）
+#           ——脚距 7.62mm：正好跨中隔槽上下插，这是唯一能凑出按键脚距又不同网的插法。
+#     上拉 一脚 n29（GPIO9 扩展）— 另一脚 n27（列 27，由 3V3-EXT 定义为 3V3），
+#           ——跨 2 列 5.08mm，同在 n 行横插，正合轴向电阻。
+# 电气：平时 GPIO9 被 10k 拉到 3V3（高），按下接地（低）→ 固件取低电平 / 下降沿。
+# 本体：按键 6×6 卡在 o/p 行之间的空档（y 24.30–30.30）**一个孔都不挡**；电阻压 n 行（挡 n28 一孔）。
+KEY_BODY = (71.93, 24.30, 6.0, 6.0)           # 轻触开关本体（跨中隔槽，中心 x=列 29 = 74.93）
+RES_BODY = (68.32, 19.95, 8.20, 2.00)         # 轴向电阻本体（n 行，跨列 27 → 29）
+# 注意：body 用 (x0,y0,w,h)，而 blocked_rects 用 **(x0,y0,x1,y1)**（auto_blocked 按后者判定），
+# 两种格式别混——混了要么整块不挡孔、要么挡错一整片。
+KEY_BLOCK = (71.93, 24.30, 77.93, 30.30)
+RES_BLOCK = (68.32, 19.95, 76.52, 21.95)
+BUTTON = {
+    "id": "button",
+    "label": "模式按键",
+    "sub": "GPIO9 · 10k 上拉",
+    "board": "zy",
+    "boards": ("zy",),
+    "body": KEY_BODY,
+    "label_pos": (69.2, 25.6),                # 标签放本体西侧空区（东侧是 INMP441 的弧线走廊）
+    "sub_pos": (69.2, 27.6),
+    "label_anchor": "end", "sub_anchor": "end",
+    "label_size": 1.25, "sub_size": 0.95,
+    "pins": [("o", 29, "GPIO9"), ("p", 29, "GND"),
+             ("n", 29, "GPIO9"), ("n", 27, "3V3")],
+    "blocked_rects": [KEY_BLOCK, RES_BLOCK],
+    "wires": [],                              # 无跳线：网关系由元件 9 的三根扩展线定义
+    "extra_svg": (
+        # 电阻：米色本体 + 4 道色环（棕1 / 黑0 / 橙×1k / 金±5% = 10kΩ）
+        rect(RES_BODY[0], RES_BODY[1], RES_BODY[2], RES_BODY[3], 1.0,
+             "#e7e5e4", "#78716c", 0.2, "res-body")
+        + "".join(line(RES_BODY[0] + 1.6 + 1.3 * i, RES_BODY[1] + 0.35,
+                       RES_BODY[0] + 1.6 + 1.3 * i, RES_BODY[1] + RES_BODY[3] - 0.35,
+                       c, 0.5, "res-band")
+                  for i, c in enumerate(("#7c2d12", "#111827", "#ea580c", "#b45309")))
+        # 键帽/丝印一律由 KEY_BODY 中心推出来，**不要再写死 x**（2026-10-19 教训：
+        # 第二次搬位时只改了 KEY_BODY、忘了改这里的 103.4/105.41，结果图形停在旧列 41，
+        # 与列 31 的针环分家——本体矩形和图形必须同源，否则错位看不出来。）
+        + text(RES_BODY[0] - 1.4, 21.15, "10k", 0.9, "#374151", "end", "res-label")
+        # 按键：深色底座 + 圆形按钮帽（画在本体之上，中心 = 按键所在列）
+        + rect(KEY_BODY[0] + 1.0, 24.9, 4.0, 4.0, 1.2, "#1f2937", "#111827", 0.2, "key-cap")
+        + '<circle cx="%s" cy="26.9" r="1.1" fill="#4b5563" stroke="#111827" '
+          'stroke-width="0.15" class="key-btn"/>' % fmt(KEY_BODY[0] + 3.0)
+        + text(KEY_BODY[0] + 3.0, 29.6, "模式", 0.85, "#f3f4f6", "middle", "key-label")
+    ),
+}
+
+# 元件 8/9：MP1584EN 降压模块（7.4V → 5V，3A）
+# 用户 2026-10-19 决策：系统电源 = 7.4V 电池 → MP1584EN 降压 → ESP32 5V 脚（k52）与 5V 轨；
+#   电机 VM 直取 7.4V（不经降压，见 TB6612 的 VM 线）。模块 22.2×17.5 且带大电感、
+#   走 1–3A 电流 → 本体放板外，只把 4 根线落孔：IN+/IN− 接电池，OUT+ → 5V 轨
+#   （Y bottom_inner，即 MAX98357A 的 VIN）、OUT− → GND 轨（Y bottom_outer）。
+# 位置：南面板外 x[70,92] y[76,93.5]——西邻 VL53 侧视图（本轮已移到北面）、
+#   东邻 TB6612 框（x≥92）、下方是图例文字（y≥98），是唯一放得下 22mm 宽模块、
+#   又同时靠近电池（x≈30）与两条下轨的位置。
+# IN− 与 OUT− 在模块内部直通（共地），所以电池负极经模块自动并入系统地，无需额外跳线。
+MP_BODY = (70.0, 76.0, 22.0, 17.5)
+MP1584 = {
+    "id": "mp1584en",
+    "label": "MP1584EN",
+    "sub": "7.4V → 5V · 3A",
+    "board": "zy",
+    "boards": ("zy",),
+    "off_board": True,                        # 本体板外：不占孔、不挡孔
+    "body": MP_BODY,
+    "label_pos": (81.0, 89.0),
+    "sub_pos": (81.0, 91.0),
+    "label_size": 1.5, "sub_size": 1.0,
+    "pins": [
+        {"xy": (76.0, 76.0), "lab": "OUT+"},  # 0 上沿（北上入 5V 轨）
+        {"xy": (86.0, 76.0), "lab": "OUT−"},  # 1 上沿（北上入 GND 轨）
+        {"xy": (70.0, 84.0), "lab": "IN+"},   # 2 左沿（西接电池正极）
+        {"xy": (70.0, 90.0), "lab": "IN−"},   # 3 左沿（西接电池负极）
+    ],
+    "blocked_rects": [],
+    "wires": [
+        # OUT+：北上走列 29/30 缝（76.20）→ **t 行与下内轨之间的空档 43.81** 东行
+        #    → 落 bottom_inner_38（x=120.65）。
+        #    为什么必须落在东段（2026-10-19 定的硬约束）：每条导轨在 x=82.55 处断开、左右两段
+        #    电气不互通；5V 的负载（MAX98357A 的 VIN@41、ESP32 5V 脚@42）全在东段，
+        #    OUT+ 若落西段（如最早的 hole 25，x=80.01）等于 5V 根本没接上。
+        # （落点两次调整，都是 wire_check 逼出来的：31 → TB6612 的 VCC 贝塞尔线擦过（TB 的
+        #    VCC 是 3V3 不是 5V，贴在一起会读成 3V3/5V 碰线）；28 → 与 TB VCC 不再相碰，
+        #    但引出下面第 4 条硬约束——**轨金属 5 孔一小组**：28 在第 1 组、负载在第 4 组，
+        #    中间要搭 3 根桥，而桥 30→31 正好压住 TB VCC 线的必经之路。
+        #    改落 38（第 3 组）后只需 1 根桥（40→41）就接到负载所在的第 4 组，桥也全部
+        #    避开 TB VCC 线——少画两根线，还更稳。）
+        {"from": ("pin", 0), "to": ("hole", "zy.bottom_inner_38"),
+         "pts": [(76.0, 76.0), (76.20, 76.0), (76.20, 43.81),
+                 (120.65, 43.81), (120.65, 46.35)], "cls": "wire_5v", "label": "5V + 轨"},
+        # OUT−：北上走列 33/34 缝（86.36）→ **两下轨之间的空档 47.62** 东行
+        #    → 落 bottom_outer_34（x=107.95）。与 OUT+ 分层走（43.81 / 47.62）避免
+        #    两根不同网络的线在同一条横档上共线；与按键地线的 47.62 段（x 78.74–85.09）
+        #    也留出 1.27mm 间隔不重叠。
+        # （落点从 hole 34 移到 hole 35：TB6612 的 PWMB 斜线从 hole 34 上擦过，
+        #   电机线压在 GND 轨孔上会误读；35 与按键地线的 47.62 横档（x 71.12–85.09）
+        #   还隔着 1.27mm，不重叠。）
+        {"from": ("pin", 1), "to": ("hole", "zy.bottom_outer_35"),
+         "pts": [(86.0, 76.0), (86.36, 76.0), (86.36, 47.62),
+                 (110.49, 47.62), (110.49, 48.89)], "cls": "wire_gnd", "label": None},
+        # IN+：从电池正极引线上的分接点 (32,73) 南下 → 西行 → 入左沿针（与 TB VM 同源并联）
+        {"from": ("xy", (32.0, 73.0)), "to": ("pin", 2),
+         "pts": [(32.0, 73.0), (32.0, 84.0), (70.0, 84.0)], "cls": "wire_vcc", "label": None},
+        # IN−：电池负极短片下端 (30.2,77) 南下 → 西行 → 入左沿针
+        {"from": ("xy", (30.2, 77.0)), "to": ("pin", 3),
+         "pts": [(30.2, 77.0), (30.2, 90.0), (70.0, 90.0)], "cls": "wire_gnd", "label": None},
+    ],
+    "extra_svg": (
+        # 板载电感（黑色方块）+ 可调电位器（圆），实物形制
+        rect(73.5, 79.5, 6.5, 4.2, 0.4, "#0f172a", "#334155", 0.2, "mp-inductor")
+        + text(76.75, 82.4, "L1", 0.9, "#94a3b8", "middle", "mp-label")
+        + '<circle cx="84.5" cy="81.6" r="1.9" fill="#e5e7eb" stroke="#374151" '
+          'stroke-width="0.2" class="mp-pot"/>'
+        + text(84.5, 85.2, "ADJ", 0.75, "#bbf7d0", "middle", "mp-label")
+        + text(81.0, 78.2, "IN ← 电池 7.4V", 0.85, "#bbf7d0", "middle", "mp-label")
+        + text(81.0, 93.0, "OUT → 5V 轨", 0.85, "#bbf7d0", "middle", "mp-label")
+    ),
+}
+
+
+def rail_bridge(prefix, rname, i, j, cls):
+    """轨组短跳线（2026-10-19 新增）：把同一条轨上**相邻两个 5 孔小组**搭通的 5.08mm 跳线。
+
+    为什么必须画（血的教训）：轨印线是连续的，看着一条轨全通；实际上金属条 5 孔一断，
+    组间 5.1mm 空隙。元件 9 的 9 根馈线各落各的小组，若不搭桥就会出现"图画了、电不通"：
+    降压输出接不到功放、5 个"地"互不相通。面包板上这就是标准操作——用短跳线桥接轨组。
+    画法：从孔 i 中心直线到孔 j 中心（i、j 必须相邻，即 j = i+1 且跨组界），两端都画落孔
+    彩环（both_rings），白底彩线与其它跳线同规格。因为只连通同网，落在同组邻居孔上也不报假短路。
+    """
+    def xy(i):
+        return (rail_hole_x(i), dict(RAIL_YS)[rname] + (X_TY if prefix == "zx" else Y_TY))
+    return {"from": ("hole", "%s.%s_%d" % (prefix, rname, i)),
+            "to": ("hole", "%s.%s_%d" % (prefix, rname, j)),
+            "pts": [xy(i), xy(j)],
+            "cls": cls, "label": None, "both_rings": True}
+
+
+def make_power():
+    """元件 9：电源区——把 4 条电源轨真正接成 3V3 / 5V / GND 网（2026-10-19 定案）。
+
+    三条硬约束（决定了下面每一根线的走向）：
+
+    1. **每条导轨沿长度方向在 x=82.55 处断开，左右两段电气不互通**。X 板上轨的负载分布在
+       两侧——VL53 的 VIN/GND 在西段（top_*_23/25）、OLED 的 Gnd/Vin/3v3/CS/SA0 在东段
+       （_35/_36/_38/_40），只接一段另一侧就没电。故 3V3 与 GND 各画两根（西段、东段各一），
+       而不是"接一孔全轨通电"。Y 板下轨同理：所有 5V/GND 负载都在东段，OUT+ 必须落东段。
+    2. **只有 x < 80.35 的竖廊是干净的**：ESP32 板身占 x[80.65,137.80]，VL53 模块本体占
+       x[82.90,110.14]（还把上轨整段盖住）。所以从 Y 板去 X 板上轨，一律先西行到板身以西
+       （71.12 / 76.20 / 78.74 三条列间缝），再沿 X 板的**行间空档**东行、在目标列北上。
+       这样整条线不压板身、不压 VL53 本体——比"竖穿板身"干净得多，也不必再开白名单。
+       行间空档离上下两行孔心各 1.27mm > 接触阈值 1.05mm，横档走这里一个孔都不碰。
+    3. **不同网络的线不能共线**：两根线画在同一条横档/竖带上 = 图上短接。所以 9 根线各自
+       占用不同的 y 或不同的 x 区间（见每根线的注释），交叉（单点互跨）可以，重叠不行。
+
+    第 4 条硬约束（2026-10-19 补，前面 9 根线全部接完才发现，属于电气正确性 bug）：
+    **面包板电源轨印成连续红线/蓝线，但金属条实际是"5 孔一小组"**（RAIL_HOLES_PER_SIDE=25、
+    RAIL_GROUP_STEP=15.24=6×2.54，组与组之间 5.1mm 空隙）。也就是说：往一个轨孔里插线，
+    只通电同组另外 4 个孔，左右邻居全部不通。上面 9 根馈线各自落进自己的小组后，逐个查账发现
+    4 处"看着接了、实际没接"：
+      · zx.top_inner 东段：3V3 馈线落 35 号（第 2 组），OLED 的 Vin/3v3 落 36/38（第 3 组）→ 不通
+      · zx.top_outer 东段：GND 馈线落 36（第 3 组），OLED 的 Gnd 落 35（第 2 组）→ 不通
+      · zy.bottom_inner：MP1584 的 OUT+ 落 28（第 1 组），MAX 的 VIN + ESP32 5V 脚落 41/42（第 4 组）
+        → 降压输出根本没接到功放和板子，**整机不会上电**
+      · zy.bottom_outer：按键地(26)、MP1584 OUT−(35)、功放地(40)、电机地/板子地(44)、麦克风地(50)
+        各自落在 5 个不同小组 → 5 个"地"互不相通，**等于没有共地**
+    修法：加 9 根"轨组短跳线"（W[9:] 起，见 rail_bridge()）把同一条轨上的相邻小组两两搭通，
+    这正是实物面包板上的标准做法（跳线桥接轨组）。它们只有 5.08mm 长、就躺在轨孔连线上，
+    没有白底也能看清（轨印线在轨孔外 1.6mm，不打架），也不需要新开白名单。
+
+    轨功能（用户决策）：X top_inner = 3V3（只带小电流：VL53 ~20mA + OLED ~20mA）；
+      X top_outer = GND；Y bottom_inner = 5V（MAX98357A 功放，峰值 0.4–1A 不压
+      ESP32 板载 LDO）；Y bottom_outer = GND。Y 板上轨与 X 板下轨被 ESP32 板身遮住，不可用。
+
+    另外三根是"网定义扩展线"，给元件 7 的按键与上拉就近造出 GPIO9 / 3V3 / GND 三个网。
+
+    本元件没有本体（不是实物，是一组网定义跳线），只在图例里说明。
+    """
+    SEAM = 1.27
+    # 行间空档（离上下两行孔心各 1.27 > 接触阈值 1.05，横档走这里不压任何孔）
+    Y_KL = (row_y("zy", "k") + row_y("zy", "l")) / 2.0      # 14.60（= ESP32 板身南边界）
+    Y_LM = (row_y("zy", "l") + row_y("zy", "m")) / 2.0      # 17.14
+    Y_MN = (row_y("zy", "m") + row_y("zy", "n")) / 2.0      # 19.68
+    Y_NO = (row_y("zy", "n") + row_y("zy", "o")) / 2.0      # 22.22
+    Y_TGAP2 = (row_y("zy", "t") + RAIL_YS[2][1] + Y_TY) / 2.0   # 43.81 t 行与下内轨之间
+    Y_HI = (row_y("zx", "h") + row_y("zx", "i")) / 2.0      # -15.88（X 板 h/i 行间）
+    Y_HG = (row_y("zx", "g") + row_y("zx", "h")) / 2.0      # -18.42（X 板 g/h 行间）
+    Y_GF = (row_y("zx", "f") + row_y("zx", "g")) / 2.0      # -20.96（X 板 f/g 行间）
+    Y_BGAP = (RAIL_YS[2][1] + RAIL_YS[3][1]) / 2.0 + Y_TY   # 47.62（Y 板两下轨之间）
+    Y_TGAP = (RAIL_YS[0][1] + RAIL_YS[1][1]) / 2.0 + X_TY   # -46.36（X 板两上轨之间）
+    Y_NORTH = -49.04                                        # 上外轨以北空档（OLED 换道用）
+
+    def rc(prefix, letter, c):
+        return (col_x(c), row_y(prefix, letter))
+
+    def rail(prefix, rname, i):
+        return (rail_hole_x(i), dict(RAIL_YS)[rname] + (X_TY if prefix == "zx" else Y_TY))
+
+    # 板身以西的四条干净竖廊（列间缝，x < 80.35 才不压 ESP32 板身；互相错开一整列，
+    # 保证任意两根不同网络的线都不会共用同一条竖带）
+    CL_W1 = col_x(30) + SEAM    # 78.74  3V3 西段用
+    CL_W2 = col_x(29) + SEAM    # 76.20  3V3 东段用
+    CL_W3 = col_x(28) + SEAM    # 73.66  GND 西段用
+    CL_W4 = col_x(27) + SEAM    # 71.12  按键地线用（南段，y 31.11→47.62）
+    # 板身以东、VL53 本体以东的两条竖廊（111.76 / 114.30：都在 VL53 右缘 110.14 之外，
+    # 又避开了 OLED 已占用的 113.03 / 115.57 / 116.84 / 118.11 / 119.38）
+    CL_E1 = col_x(43) + SEAM    # 111.76  3V3 东段北上用
+    CL_E2 = col_x(44) + SEAM    # 114.30  GND 东段北上用
+
+    W = []
+    # ① 3V3 → X 板上内轨**西段**：n32（3V3_1 网）→ 19.68 横档西行 → 78.74 竖廊北上
+    #    → 轨间空档 -46.36 西行 → 落 top_inner_21（69.85）。西段负责 VL53 的 VIN。
+    #    为什么不落更靠东的 top_inner_24（77.47）：VL53L0X 的 GND 贝塞尔线正好从
+    #    top_inner_24 边上擦过（wire_check 报 OCC x12），3V3 孔贴着 GND 线画会误读成短接；
+    #    退到 69.85 就完全避开那条曲线。
+    W.append({"from": ("hole", "zy.n32"), "to": ("hole", "zx.top_inner_21"),
+              "pts": [rc("zy", "n", 32), (col_x(32), Y_MN), (CL_W1, Y_MN),
+                      (CL_W1, Y_TGAP), (rail_hole_x(21), Y_TGAP),
+                      rail("zx", "top_inner", 21)],
+              "cls": "wire_vcc", "label": None})
+    # ② 3V3 → X 板上内轨**东段**：o32（同一 3V3_1 网，换个孔出线避免与 ① 共线）
+    #    → 22.22 横档西行到 76.20 → 北上到 -20.96（f/g 行间空档）→ 一路东行到 111.76
+    #    → 北上穿两上轨之间的 -46.36 → 西行 1.27 → 落 top_inner_35（110.49）。
+    #    为什么走这么大一个 C 形：东段唯一没被 OLED 占的竖廊是 111.76，而它只能从 X 板
+    #    行间空档横着过去；-20.96 这一层只有本线用（GND 东段走 -18.42），互不重叠。
+    W.append({"from": ("hole", "zy.o32"), "to": ("hole", "zx.top_inner_35"),
+              "pts": [rc("zy", "o", 32), (col_x(32), Y_NO), (CL_W2, Y_NO),
+                      (CL_W2, Y_GF), (CL_E1, Y_GF),
+                      (CL_E1, Y_TGAP), (rail_hole_x(35), Y_TGAP),
+                      rail("zx", "top_inner", 35)],
+              "cls": "wire_vcc", "label": None})
+    # ③ GND → X 板上外轨**西段**：i32（X 板列 32 下半区 = j32 GND_3 同网）
+    #    → -15.88 横档西行 → 73.66 竖廊北上 → **外轨以北空档 -49.04** 东行
+    #    → 落 top_outer_24（77.47）。
+    #    走北侧而不是轨间 -46.36：内/外轨孔 x 相同，从上往下落外轨必须先绕到轨北，
+    #    否则会穿过同列的内轨孔（= 把 GND 插进 3V3 轨）。-46.36 那条走廊让给 ①②。
+    W.append({"from": ("hole", "zx.i32"), "to": ("hole", "zx.top_outer_24"),
+              "pts": [rc("zx", "i", 32), (col_x(32), Y_HI), (CL_W3, Y_HI),
+                      (CL_W3, Y_NORTH), (rail_hole_x(24), Y_NORTH),
+                      rail("zx", "top_outer", 24)],
+              "cls": "wire_gnd", "label": None})
+    # ④ GND → X 板上外轨**东段**：h32（同列 32 下半区，换个孔出线）
+    #    → -18.42 横档东行 → 114.30 竖廊北上到 -49.04（外轨以北空档）→ 东行 1.27
+    #    → 落 top_outer_36（115.57）。
+    #    为什么落外轨要走**北侧** -49.04 而不是轨间 -46.36：内轨孔和外轨孔 x 相同，
+    #    从上往下落内轨必然穿过外轨孔（等于把 3V3 插进 GND 轨）；而走北侧从上往下落外轨
+    #    只经过空档。OLED 的 Vin/3v3 也是这个道理（它们的 -49.04 横档在 x≥115.57，
+    #    本线只占 114.30–115.57，正好错开）。
+    W.append({"from": ("hole", "zx.h32"), "to": ("hole", "zx.top_outer_36"),
+              "pts": [rc("zx", "h", 32), (col_x(32), Y_HG), (CL_E2, Y_HG),
+                      (CL_E2, Y_NORTH), (rail_hole_x(36), Y_NORTH),
+                      rail("zx", "top_outer", 36)],
+              "cls": "wire_gnd", "label": None})
+    # ⑤ 5V：bottom_inner_42（5V 轨东段）→ l52（ESP32 5V 脚）**同一列直连**。
+    #    x=133.35 在 MAX98357A 本体右缘（132.08）之外，也不碰喇叭符号，中间经过的
+    #    m52–t52 都是空孔——真实跳线本来就这么躺在板面上（绝缘皮不接触），比绕远干净。
+    W.append({"from": ("hole", "zy.bottom_inner_42"), "to": ("hole", "zy.l52"),
+              "pts": [rail("zy", "bottom_inner", 42), rc("zy", "l", 52)],
+              "cls": "wire_5v", "label": None})
+    # ⑥ GND（Y 板下轨）：l53（GND_4 网）南下到 43.81 空档 → 东行到 137.16（列 53/54 缝）
+    #    → 南下穿两下轨之间 → 东行 1.27 → 落 bottom_outer_44（138.43，与 TB6612 的地同孔同网）。
+    #    先下到 43.81 再换列是必须的：l53 正下方 x=135.89 有下内轨孔 43（5V 轨），
+    #    直接南下会画成"GND 插进 5V 轨"。137.16 离两侧轨孔各 1.27mm。
+    W.append({"from": ("hole", "zy.l53"), "to": ("hole", "zy.bottom_outer_44"),
+              "pts": [rc("zy", "l", 53), (col_x(53), Y_TGAP2), (col_x(53) + SEAM, Y_TGAP2),
+                      (col_x(53) + SEAM, Y_BGAP), (rail_hole_x(44), Y_BGAP),
+                      rail("zy", "bottom_outer", 44)],
+              "cls": "wire_gnd", "label": None})
+    # ⑦ GPIO9 扩展：l46（列 46 上半区唯一没被 MAX 挡住的孔）→ 沿 **y=14.60 板身南边界**
+    #    西行 → l29。把 GPIO9 网"搬"到空列 29，按键与上拉才各有孔可插（详见 BUTTON 注释）。
+    #    唯一一根要压板身的线：l46 南北都被堵死（北上撞 ESP32 针脚 k46、南下撞 MAX 本体
+    #    挡住的 m46），只剩沿板身南缘横穿这一条路——物理上就是"从板子底下穿过去"，
+    #    与 TB6612 BIN 竖带、OLED 四根控制线压板身是同一类先例（见 wire_check WHITELIST）。
+    W.append({"from": ("hole", "zy.l46"), "to": ("hole", "zy.l29"),
+              "pts": [rc("zy", "l", 46), (col_x(46), Y_KL), (col_x(29), Y_KL),
+                      rc("zy", "l", 29)],
+              "cls": "wire_sig", "label": None})
+    # ⑧ 3V3 扩展：l32（3V3_1 网）→ 17.14 横档西行 → l27。列 27 上半区从此 = 3V3，
+    #    上拉电阻的另一端（n27）就近取电，不必飞线到 13 列外的 3V3 源。
+    W.append({"from": ("hole", "zy.l32"), "to": ("hole", "zy.l27"),
+              "pts": [rc("zy", "l", 32), (col_x(32), Y_LM), (col_x(27), Y_LM),
+                      rc("zy", "l", 27)],
+              "cls": "wire_vcc", "label": None})
+    # ⑨ GND 扩展：p29（列 29 **下半区**，与上半区隔中隔槽，独立网）→ 西行到 71.12
+    #    → 南下到 47.62（两下轨之间）→ 东行 → 落 bottom_outer_26（85.09，东段）。
+    #    71.12 这条竖廊只有本线用（北段的三条竖廊是 73.66/76.20/78.74）。
+    W.append({"from": ("hole", "zy.p29"), "to": ("hole", "zy.bottom_outer_26"),
+              "pts": [rc("zy", "p", 29), (CL_W4, row_y("zy", "p")),
+                      (CL_W4, Y_BGAP), (rail_hole_x(26), Y_BGAP),
+                      rail("zy", "bottom_outer", 26)],
+              "cls": "wire_gnd", "label": None})
+    # ---- 轨组短跳线（W[9:] 起）------------------------------------------------------
+    # 把"5 孔一小组"的断点搭通。逐组对照（括号内为落孔来源）：
+    #   zx.top_inner 东段：35(3V3 馈线②) → 36/38(OLED Vin/3v3)      —— 3V3 进 OLED
+    #   zx.top_outer 东段：35(OLED Gnd) → 36(GND 馈线④)/38/40(CS/SA0) —— GND 上 OLED
+    #   zy.bottom_inner 东段：38(MP1584 OUT+) → 41(MAX VIN)/42(ESP32 5V 脚)
+    #        只跨 1 个组界（40|41）。OUT+ 落点从 28 改到 38 就是为了少跨两组——少两根桥，
+    #        也避开 TB6612 VCC 线的必经之路（详见 mp1584en w0 注释）。
+    #   zy.bottom_outer 东段：26(按键地) → 35(MP1584 OUT−) → 40(功放地)
+    #        → 44(电机地 + ESP32 GND 脚) → 46/50(麦克风地) —— 五个"地"并成一个地
+    W.append(rail_bridge("zx", "top_inner", 35, 36, "wire_vcc"))
+    W.append(rail_bridge("zx", "top_outer", 35, 36, "wire_gnd"))
+    W.append(rail_bridge("zy", "bottom_inner", 40, 41, "wire_5v"))
+    W.append(rail_bridge("zy", "bottom_outer", 30, 31, "wire_gnd"))
+    W.append(rail_bridge("zy", "bottom_outer", 35, 36, "wire_gnd"))
+    W.append(rail_bridge("zy", "bottom_outer", 40, 41, "wire_gnd"))
+    W.append(rail_bridge("zy", "bottom_outer", 45, 46, "wire_gnd"))
+    return {
+        "id": "power", "label": "", "sub": "",          # 无本体，仅在图例说明
+        "board": "zy", "boards": ("zy", "zx"),
+        "body": (0.0, 0.0, 0.0, 0.0),
+        "pins": [], "blocked_rects": [], "wires": W, "extra_svg": "",
+    }
+
+
+POWER = make_power()
+COMPONENTS = [INMP441, MAX98357A, TB6612FNG, VL53L0X, OLED, BUTTON, MP1584, POWER]
 
 def auto_blocked(comp):
     """按 comp["blocked_rects"]（世界坐标矩形 [(x0,y0,x1,y1)]）自动生成挡孔名集合，
@@ -993,6 +1350,14 @@ def component_wires_group(comp):
                 px, py2 = endpoint_xy(comp, w["to"])
                 p.append('<circle cx="%s" cy="%s" r="0.85" fill="none" stroke="%s" stroke-width="0.3" class="wire-land"/>'
                          % (fmt(px), fmt(py2), COLOR[w["cls"]]))
+        # 轨组短跳线：两端孔都插了 jumper，两端都画落孔彩环（普通跳线的彩环跟 label 绑定，
+        # 桥线没有文字标签，所以单独画，否则图上完全看不出这两个孔被占用）
+        if w.get("both_rings"):
+            for end in (w["from"], w["to"]):
+                if end[0] == "hole":
+                    hx, hy = hole_xy(end[1])
+                    p.append('<circle cx="%s" cy="%s" r="0.85" fill="none" stroke="%s" stroke-width="0.3" class="wire-land"/>'
+                             % (fmt(hx), fmt(hy), COLOR[w["cls"]]))
     p.append('</g>')
     return "".join(p)
 
@@ -1001,7 +1366,11 @@ def vl53_side_view():
     """图例区侧视小图（占 y=60..96 空带，避开 TB 板外方框 x≥92 与 Y 板下缘 55.23）：
     VL53L0X 支架前倾 30°，光束打到狗身前方的桌面/地板——悬空时距离读数突增（防跌落），
     并保留 140mm 内近距防撞。触发距离 d = h ÷ tan30° ≈ 1.7h。"""
-    p = ['<g id="vl53-side" class="doc-inset">']
+    # 2026-10-19 挪位：原在南面 x[0,70] y[60,96]，画在图例层会**盖住 TB6612 的 7.4V 电池符号**
+    # （电池在 x 27–32 / y 64–84，与它重叠）；且南面要让给元件 8 MP1584EN（x[70,92] y[76,93.5]）
+    # 和电池→模块的引线。北面 x[2,72] y[-100,-64] 是空区（东邻 VL53 本体 x0=82.9、
+    # 南邻标题文字基线 y=-61.84），故整体平移到那里（内部坐标不动，只加 transform）。
+    p = ['<g id="vl53-side" class="doc-inset" transform="translate(2 -160)">']
     p.append('<rect x="0" y="60" width="70" height="36" rx="4" fill="#f9fafb" stroke="#b4b2a9" stroke-width="0.25"/>')
     p.append(text(35, 65.5, "侧视 · VL53 支架前倾 30°", 1.4, "#085041", "middle", "doc-legend", bold=True))
     p.append('<rect x="4" y="88" width="62" height="2.5" fill="#B4B2A9" stroke="#888780" stroke-width="0.25"/>')
@@ -1025,16 +1394,248 @@ def vl53_side_view():
     return "".join(p)
 
 
+# ---------------------------------------------------------------- 图例（数据驱动 + 自动换行）
+# 2026-10-19 元件 7/8/9 入图时改写。原来每条图例手写 y 坐标、不换行，实测最长一行
+# 右缘 x=330.4mm，而画布右缘只有 173.1mm —— <img> 内嵌时行尾直接被裁掉，
+# 预览 PNG 右缘那道纯色切边就是它（文字结尾一直看不到）。现在：文本进列表
+#   → 按可用宽度折行 → 行高累加 → 末行基线回算画布高度。
+# 图例加减行、改文案都不用再动任何坐标常量。
+LEGEND_STYLES = {                  # 样式 -> (字号, 颜色键, 行高, 加粗)
+    "title": (2.4, "title", 4.4, True),
+    "pcb":   (1.8, "pcb",   4.4, False),
+    "note":  (1.8, "note",  4.4, False),
+    "warn":  (1.8, "warn",  4.4, False),
+}
+_BREAKS = "，、；：）」』》" + " "   # 折行优先断点（断点标点留在上行末，避免行首孤字）
+
+_MSFONT = None
+
+
+def _measure_font():
+    """PIL + 微软雅黑（100px 模板字号）；PIL 不可用返回 None（调用方走 em 估算）。"""
+    global _MSFONT
+    if _MSFONT is None:
+        _MSFONT = False
+        try:
+            from PIL import ImageFont
+            for pth in (r"C:\Windows\Fonts\msyh.ttc",
+                        r"C:\Windows\Fonts\NotoSansSC-VF.ttf",
+                        r"C:\Windows\Fonts\simhei.ttf"):
+                try:
+                    _MSFONT = ImageFont.truetype(pth, 100)
+                    break
+                except Exception:
+                    continue
+        except Exception:
+            pass
+    return _MSFONT or None
+
+
+def text_w(s, size):
+    """字符串在给定字号（mm）下的近似渲染宽度（mm）。
+    优先 PIL + 雅黑度量（浏览器 sans-serif 的合理近似，量出的宽度略小于 Noto，偏保守）；
+    不可用时按 em 宽估（CJK/全角 ≈ 1.0em，窄字母 ≈ 0.3em，数字 ≈ 0.56em）。"""
+    f = _measure_font()
+    if f:
+        return f.getlength(s) * size / 100.0
+    w = 0.0
+    for ch in s:
+        o = ord(ch)
+        if o > 0x2E7F:                      # CJK / 全角标点
+            w += 1.0
+        elif ch in "iljtf.,:;'\"|!()[]{}":
+            w += 0.30
+        elif ch in "mwMW":
+            w += 0.85
+        elif ch == " ":
+            w += 0.28
+        elif ch.isdigit():
+            w += 0.56
+        else:
+            w += 0.55
+    return w * size
+
+
+def wrap_text(s, size, max_w):
+    """按可用宽度折行。优先在标点/空格处断（标点留上行末），找不到就近断点才硬断。"""
+    lines, cur = [], ""
+    for ch in s:
+        if not cur or text_w(cur + ch, size) <= max_w:
+            cur += ch
+            continue
+        cut = max(cur.rfind(b) for b in _BREAKS)
+        if cut >= max(1, len(cur) - 8):     # 断点离行尾不远才回退，否则硬断
+            lines.append(cur[:cut + 1])
+            cur = cur[cut + 1:] + ch
+        else:
+            lines.append(cur)
+            cur = ch
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+def legend_items(include_holes):
+    """图例内容：每条 = (样式, 文本)；样式见 LEGEND_STYLES。孔三态数字动态算，不写死。"""
+    comp_occ, comp_blk = component_hole_marks()
+    n_mod_occ = sum(len(v) for v in comp_occ.values())      # 元件针孔 + 跳线落孔
+    n_mod_blk = sum(len(v) for v in comp_blk.values())      # 元件本体挡孔
+    n_dev_blk = len(dev_blocked_rail_names())               # ESP32 靠缝 4 轨挡孔
+    n_occ = 2 * DEV_PINS_PER_ROW + n_mod_occ
+    n_blk = n_dev_blk + n_mod_blk
+    blk_parts = ["ESP32 靠缝 4 轨 %d 孔" % n_dev_blk]
+    for comp in COMPONENTS:
+        n = len(comp_blk.get(comp["board"], ()))
+        if n:
+            blk_parts.append("%s 本体 %d 孔" % (comp["label"], n))
+    if not include_holes:
+        return [
+            ("title", "轮廓要素：板体 165.1 × 54.6 × 2 / 中隔槽 / 电源轨标线（外 − 内 +，"
+                      "中间断开）/ 拼接缝 / 行列标号（63 列；X 行 a–j，Y 行 k–t）"),
+            ("note", "行序（自上而下，'|' = 隔断）：X = | - + | a b c d e | f g h i j | + - | ；"
+                     "Y = | - + | k l m n o | p q r s t | + - |"),
+            ("warn", "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通。"),
+            ("note", "第二步：叠加全部 1660 个插孔；第三步：拼接缝正中央插入 ESP32-S3"
+                     "（USB 朝右：上排 J3 → X 板 j 行、下排 J1 → Y 板 k 行）。"
+                     "第四步起逐个接入元件（当前 9/9，明细见 breadboard-z.svg 图例）。"),
+            ("note", "本图为规划图，几何/电气均为近似，不代表实测结果。"),
+        ]
+    return [
+        ("title", "行序（自上而下，'|' = 隔断）：X = | - + | a b c d e | f g h i j | + - | ；"
+                  "Y = | - + | k l m n o | p q r s t | + - |"),
+        ("note", "每板 830 孔 = 终端 10 行 × 63 列（630）+ 电源轨 4 条 × 50 孔（200）；"
+                 "Z 共 1660 孔。孔距 2.54 mm，单位 mm。"),
+        ("note", "ESP32-S3 N16R8（双 Type-C，44 针）插在拼接缝正中央横跨两板，USB 口朝右："
+                 "上排 22 针 = J3 → X 板 j 行、下排 22 针 = J1 → Y 板 k 行"
+                 "（均为列 32–53，左→右 = 列 32→53）。"),
+        ("note", "J1/J3 按官方 pinout（user guide v1.1）判定：USB 朝右时 J1 在下（k 行）、"
+                 "J3 在上（j 行），与最初'J1→j、J3→k'的表述互为镜像；两种取向只能取一，"
+                 "本图取 USB 朝右。"),
+        ("pcb", "元件 1：INMP441 数字麦克风（I2S）圆形小板 Ø15mm，上排针 SCK/WS/L/R 插 o 行"
+                "60–62 列、下排针 SD/VDD/GND 插 p 行 60–62 列——两排针骑中隔槽分插两个半区"
+                "（同半区会同列短接）。"),
+        ("note", "接线圈 5 根 + 1 根模块内短跳线（线端彩环 = 跳线落孔）：红 VDD→m32（3V3）；"
+                 "紫 SCK/WS/SD→m35/m36/m37（GPIO4/5/6，J1 针同列 l–o 同网）；"
+                 "黑 GND→下轨外轨 − 第 50 孔；L/R 与 GND 两针短接（选左声道）。"),
+        ("pcb", "元件 2：MAX98357A I2S 功放（7 针单排 + 顶部 2P 喇叭端子），7 针插 Y 板 q 行"
+                "（下半区）列 45–51，丝印左→右 = LRC/BCLK/DIN/GAIN/SD/GND/VIN；"
+                "本体下沿距 ESP32 板身 2.5mm。"),
+        ("note", "接线圈 8 根 + 1 根模块内短跳线（线端彩环 = 跳线落孔）："
+                 "紫 LRC/BCLK/DIN→m40/m39/m38（GPIO16/15/7）；GAIN→GND、SD→VIN 两针短接"
+                 "（用户决策，替代默认悬空）；黑 GND→下轨外轨 − 第 40 孔；"
+                 "深红 VIN→下轨内轨 + 第 41 孔（5V 网——2026-10-19 用户决策：3V3 只带小电流，"
+                 "功放峰值 0.4–1A 改由 5V 承担，颜色必须和实际电位一致，否则会把 5V 插进 3V3 轨、"
+                 "ESP32 LDO 被喇叭峰值电流拖垮）；青 VO+/VO−→喇叭 4Ω 3W 示意符号。"),
+        ("pcb", "元件 3：TB6612FNG 双路电机驱动（16 针双列，VM 4.5–10V、1.2A/路）。"
+                "VM 电源与 1A+ 电机电流绝不上面包板——模块本体（方框）画在板外 y[63,87]，"
+                "只把 9 根控制/电源线落孔；AO1/AO2、BO1/BO2 接两个电机示意符号（M1/M2），"
+                "VM 接 7.4V 电池。"),
+        ("note", "接线圈 9 根（橙 = 电机线）+ 板外 5 根：紫 STBY/PWMA/AIN1/AIN2/PWMB→l47–l51"
+                 "（GPIO10–14，J1 针同列 l–o 同网；m/n/o 45–51 列被 MAX 本体挡死，l 行是唯一"
+                 "合法行，斜线压 MAX 本体下插）；BIN1/BIN2→X 板 i48/i49（GPIO47/21，同列 f–i 同网）；"
+                 "红 VCC→o32（3V3）；黑 GND→下轨外轨 − 第 44 孔。"),
+        ("pcb", "元件 4 撤销（2026-10-19 用户决策 B）：TCRT5000×5 巡线阵列整体移除——TCRT 模块"
+                "镜头在 PCB 正面，插上面包板后朝上照不到地板；量程仅 0.2–15mm，底盘一离地即超程。"
+                "防跌落改由 VL53L0X 前倾 30° 承担，GPIO17/18/38/39/40 与对应孔位释放、转为预留"
+                "（config.h 中 LINE_SENSOR 宏同轮删除，零代码引用）。"),
+        ("note", "前倾几何（见下方侧视小图）：触发距离 d = 安装高度 h ÷ tan30° ≈ 1.7h——h=80mm 时"
+                 "桌沿进约 140mm 内即停，并保留 140mm 内近距防撞；代价是 300mm 外的墙/人照不到"
+                 "（光束已扎进地面），远距前向避障放弃。"),
+        ("pcb", "元件 5：VL53L0X 激光测距（2026-10-19 改决策 B：支架前倾 30°，防跌落 + 近距防撞；"
+                "XSHUT/GPIO 悬空）。Adafruit 板 27.24×17.78 单排 6 针 VIN/GND/SCL/SDA/GPIO/XSHUT；"
+                "板高 17.78 超过任一半区行带（10.16）→ 本体悬板外上方，安装时整体支架前倾"
+                "（见下方侧视小图）。"),
+        ("note", "6 针横躺落 a 行列 35–40：SCL/SDA 走东竖带折线（中段贴 38/39 缝、39/40 缝，"
+                 "避开 b–h 行同列孔）汇入 i37/i38，与 j37/j38（GPIO42/41）同列同网；"
+                 "VIN/GND 绕本体西南角落 top_inner_25/top_outer_23（已由元件 9 接入 3V3/GND 网）；"
+                 "GPIO/XSHUT 悬空（板载上拉，默认使能、I2C 0x29）；本体挡板上缘 2 轨 18 孔。"),
+        ("pcb", "元件 6：OLED 1.3 寸 SH1106（2026-10-19 决策：本体放板外、屏幕朝上，9 根飞线直连"
+                "目标孔）。模块实为 9 针单排 Gnd/Vin/3v3/CS/Rst/SA0/Clk/Data/DC——Rst 在正中第 5 针，"
+                "而 GPIO48(Rst)→j47、GPIO1/2(Clk/Data)→j35/j36 首尾跨 12 列 30.5mm，远超模块 9 针"
+                " 20.3mm，本体任何起列/翻转都插不进面包板，故本体悬在板外上方、焊盘用飞线接出。"),
+        ("note", "飞线必穿上轨：目标孔全在两条上轨以南，9 根线自上而下穿过 top_outer/top_inner；"
+                 "轨孔与列孔共用 2.54 栅格（每 5 孔一组、组间空档），正下方有轨孔的线改走列间缝"
+                 "（离轨孔 1.27mm > 接触阈值 1.05），在外轨以北空档换道。"
+                 "Gnd→top_outer_35、CS→top_outer_38、SA0→top_outer_40（外轨 = GND 网，"
+                 "CS/SA0 接地固定片选与地址）；Vin→top_inner_36、3v3→top_inner_38（内轨 = 3V3 网）。"),
+        ("note", "Rst→j47(GPIO48)、Clk→j35(GPIO1)、Data→j36(GPIO2) 沿列间缝竖下后在 j 行带空档"
+                 "西行进孔，三者分走 y=−13.34 / −10.80 / −9.50 三层互不叠线；DC→k45(GPIO46) 跨拼接缝"
+                 "（橙线）。丝印顺序 = 列号顺序（Gnd 在西、DC 在东），与实物朝上放置时一致。"),
+        ("pcb", "元件 7：模式按键 + 10kΩ 上拉（GPIO9）。按键 6×6mm 跨中隔槽插 o29/p29"
+                "（脚距 7.62mm 上下跨槽，两脚才分属不同网）；上拉电阻横跨 n29←n27（轴向 5.08mm）。"
+                "平时 GPIO9 被 10k 拉到 3V3（高），按下接地（低）→ 固件取低电平 / 下降沿。"),
+        ("note", "GPIO9 网原本只剩 l46 一个孔可用（k46 是 ESP32 针脚、m46/n46/o46 被 MAX98357A 本体"
+                 "挡死），按键 + 上拉要占两个孔，插不下 → 用元件 9 的 GPIO9 扩展跳线把该网搬到列 29；"
+                 "按键位置为此重排三次（列 41–43 撞麦克风弧线 → 列 31 撞电源横档丝印 → 定案列 27–29，"
+                 "与所有电源横档隔开 ≥1.27mm）。"),
+        ("pcb", "元件 8：MP1584EN 降压模块（7.4V → 5V · 3A）。用户 2026-10-19 决策：系统供电 = "
+                "7.4V 电池 → 降压 → ESP32 5V 脚（k52）与 5V 轨；电机 VM 直取 7.4V 不经降压。"
+                "模块 22.2×17.5 带大电感、走 1–3A → 本体放板外 x[70,92] y[76,93.5]，只把 4 根线落孔。"),
+        ("note", "IN+/IN− 接电池（板外，与 TB6612 的 VM 并联取电）；OUT+→下轨内轨 + 第 38 孔"
+                 "（5V 轨，给 MAX98357A 的 VIN 与 ESP32 5V 脚供电）；OUT−→下轨外轨 − 第 35 孔"
+                 "（GND 轨，IN− 与 OUT− 在模块内部直通，电池负极自动并入系统地）。"
+                 "OUT+ 落点三次调整（31 撞 TB6612 的 VCC 贝塞尔线 → 28 与 5V 负载不同轨组 → "
+                 "38 只跨 1 个组界，还少两根桥接线）。"),
+        ("pcb", "元件 9：电源区（无本体，一组网定义跳线）。轨功能：X 上内轨 = 3V3（只带小电流："
+                "VL53 ~20mA + OLED ~20mA）、X 上外轨 = GND、Y 下内轨 = 5V（功放专用）、"
+                "Y 下外轨 = GND；Y 板上轨与 X 板下轨被 ESP32 板身遮住，不可用。"),
+        ("note", "每条导轨沿长度方向在 x=82.55 处断开、左右两段不互通，而 3V3/GND 的负载分布在两侧"
+                 "（VL53 在西、OLED 在东）→ 3V3 与 GND 各画两根馈线（西段、东段各一）。从 Y 板去 X 板"
+                 "上轨一律先西行到板身以西的列间缝（78.74/76.20/73.66/71.12），再沿 X 板行间空档东行"
+                 "北上——整条线不压板身、不压 VL53 本体。另 3 根是网定义扩展线（GPIO9 / 3V3 / GND "
+                 "各一，给元件 7 造网）。"),
+        ("warn", "⚠ 血的教训（2026-10-19，wire_check 全绿也查不出）：面包板电源轨印成连续红线/蓝线，"
+                 "金属条却是 5 孔一小组（组间 5.1mm 空隙）——轨孔只通电同组另外 4 个孔，左右邻居全不通。"
+                 "9 根馈线画完仍 4 处'看着接了、实际没接'：3V3 馈线落 35 而 OLED 的 Vin/3v3 落 36/38；"
+                 "GND 馈线落 36 而 OLED Gnd 落 35；MP1584 的 OUT+ 落 28 而 5V 负载落 41/42"
+                 "（降压输出没接到功放和板子，整机不上电）；五个'地'分落 5 组（等于没有共地）。"
+                 "修法 = 图中 7 根轨组短跳线（both_rings 两端彩环）把相邻小组两两搭通——实物面包板上"
+                 "的标准操作。这类错误已固化为 tools/net_check.py 的连通性断言（当前 0 处断网/短接）。"),
+        ("note", "地网走向（有意设计）：X 板地经 j32(GND_3)、Y 板地经 k53(GND_4)，仅靠 ESP32 板载"
+                 "地平面（4 个 GND 针内部共地）合并，没有跨板地线；电机回流在 Y 板内闭环（电池− → "
+                 "MP1584 IN− → 模块内地 → OUT− → 轨 → TB GND），不经过 ESP32；X 板只挂 VL53/OLED "
+                 "两个小电流传感器。"),
+        ("note", "孔三态：深灰 = 空闲，被 ESP32 针（44）或元件针孔/跳线落孔（%d）占用，合计 %d；"
+                 "浅灰 = 被板身遮挡不可插（blocked %d 孔 = %s；OLED 本体整块在板外，不挡孔）。"
+                 "空闲 %d 孔。" % (n_mod_occ, n_occ, n_blk, " + ".join(blk_parts),
+                                   1660 - n_occ - n_blk)),
+        ("warn", "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通；每条电源轨沿长度方向中间断开（图中'断'）。"
+                 "中隔槽将 a–e 与 f–j（Y 板 k–o 与 p–t）隔开：同列同半区 5 孔才互通。"
+                 "飞线交叉处为绝缘跳线互跨、电气互不相通（wire_check 已把'两根不同网络共线重叠'这类"
+                 "假短路查到 0 处）。本图为规划图，几何/电气均为近似。"),
+    ]
+
+
+def legend_layout(include_holes):
+    """图例排版。返回 (svg 片段 list, 末行基线 y)。行高累加，末行回算画布高度。"""
+    max_w = (CANVAS_X0 + CANVAS_W) - LEGEND_X - 2.0      # 右留 2mm
+    out, y = [], 98.0
+    for style, s in legend_items(include_holes):
+        size, ckey, lh, bold = LEGEND_STYLES[style]
+        for ln in (wrap_text(s, size, max_w) if s else [None]):
+            if ln:
+                out.append(text(LEGEND_X, y, ln, size, COLOR[ckey], "start", "doc-legend", bold))
+            y += lh
+    return out, y - 4.4                                    # 4.4 = 统一行高，回退一行即末行基线
+
+
 def build(include_holes):
+    legend_frags, legend_bottom = legend_layout(include_holes)   # 先排版：末行基线 → 画布高度
+    canvas_h = max(CANVAS_H_MIN, legend_bottom + LEGEND_BOTTOM_PAD - CANVAS_Y0)
     p = ['<?xml version="1.0" encoding="UTF-8"?>']
     p.append('<svg xmlns="http://www.w3.org/2000/svg" viewBox="%s %s %s %s" width="%d" height="%d" font-family="%s">'
-             % (fmt(CANVAS_X0), fmt(CANVAS_Y0), fmt(CANVAS_W), fmt(CANVAS_H), PX_W, PX_H, FONT))
+             % (fmt(CANVAS_X0), fmt(CANVAS_Y0), fmt(CANVAS_W), fmt(canvas_h),
+                PX_W, int(round(PX_W * canvas_h / CANVAS_W)), FONT))
     if include_holes:
-        p.append("<title>面包板 Z · 双 830 点并排拼接（28 行 × 63 列 · 共 1660 插孔 · 中央插 ESP32-S3 · 元件 5/9 INMP441 + MAX98357A + TB6612FNG + VL53L0X + OLED）</title>")
+        p.append("<title>面包板 Z · 双 830 点并排拼接（28 行 × 63 列 · 共 1660 插孔 · 中央插 ESP32-S3 · "
+                 "元件 9/9 全部接入：INMP441 + MAX98357A + TB6612FNG + VL53L0X + SH1106 OLED + "
+                 "模式按键 + MP1584EN 降压 + 电源区）</title>")
         p.append("<desc>Two 830-point breadboards joined along their power-rail long edges "
                  "into board Z (28 rows x 63 columns), with an ESP32-S3 board plugged across "
-                 "the seam and components 5/9 (INMP441, MAX98357A, TB6612FNG motor driver, "
-                 "VL53L0X rangefinder tilted 30 deg down for cliff detection, SH1106 OLED) wired in. "
+                 "the seam and all 9 planned items wired in: INMP441 mic, MAX98357A amp, "
+                 "TB6612FNG motor driver, VL53L0X rangefinder tilted 30 deg down for cliff "
+                 "detection, SH1106 OLED, mode button with 10k pull-up, MP1584EN buck "
+                 "(7.4V to 5V) and the power-net section (rail group bridge jumpers). "
                  "The TCRT5000 line-sensor array was removed on 10-19. Units: millimetres. "
                  "Planning drawing, not an electrical verification.</desc>")
     else:
@@ -1042,7 +1643,7 @@ def build(include_holes):
         p.append("<desc>Board Z outline only (bodies, rails, gaps, labels, seam). "
                  "Units: millimetres. Planning drawing, not an electrical verification.</desc>")
     p.append('<rect x="%s" y="%s" width="%s" height="%s" fill="#ffffff"/>'
-             % (fmt(CANVAS_X0), fmt(CANVAS_Y0), fmt(CANVAS_W), fmt(CANVAS_H)))
+             % (fmt(CANVAS_X0), fmt(CANVAS_Y0), fmt(CANVAS_W), fmt(canvas_h)))
     # 第一步：Z 的轮廓（两块板体 + 拼接缝）
     p.append('<g id="z-outline">')
     p.append(board_group("zx", X_TY, X_ROWS, "X · 830 孔面包板（上板 · 终端行 a–j）"))
@@ -1076,103 +1677,21 @@ def build(include_holes):
         for comp in COMPONENTS:
             p.append(component_wires_group(comp))
         p.append('</g>')
-    # 标题与图例
+    # 标题与图例（图例内容/换行/坐标全部由 legend_layout() 数据驱动，此处只贴片段）
     if include_holes:
-        p.append(text(-6, -61.84, "面包板 Z · 双 830 点并排拼接（28 × 63）",
+        p.append(text(LEGEND_X, -61.84, "面包板 Z · 双 830 点并排拼接（28 × 63）",
                       3.0, COLOR["title"], "start", "doc-title", bold=True))
-        p.append(text(-6, -57.2, "X（a–j）+ Y（k–t）沿电源轨拼接 · 当前 5/9 元件已接入（明细见下方图例）",
+        p.append(text(LEGEND_X, -57.2, "X（a–j）+ Y（k–t）沿电源轨拼接 · 当前 9/9 元件已接入"
+                                       "（含元件 9 电源区与 7 根轨组短跳线，明细见下方图例）",
                       1.7, COLOR["note"], "start", "doc-subtitle"))
-        p.append(text(-6, 98, "行序（自上而下，'|' = 隔断）：X = | - + | a b c d e | f g h i j | + - | ；"
-                              "Y = | - + | k l m n o | p q r s t | + - |",
-                      2.4, COLOR["title"], "start", "doc-legend", bold=True))
-        p.append(text(-6, 102.4, "每板 830 孔 = 终端 10 行 × 63 列（630）+ 电源轨 4 条 × 50 孔（200）；"
-                                "Z 共 1660 孔。孔距 2.54 mm，单位 mm。",
-                      1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 106.8, "ESP32-S3 N16R8（双 Type-C，44 针）插在拼接缝正中央横跨两板，USB 口朝右："
-                                "上排 22 针 = J3 → X 板 j 行、下排 22 针 = J1 → Y 板 k 行（均为列 32–53，左→右 = 列 32→53）。",
-                      1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 111.2, "J1/J3 按官方 pinout（user guide v1.1）判定：USB 朝右时 J1 在下（k 行）、J3 在上（j 行），"
-                                "与最初'J1→j、J3→k'的表述互为镜像；两种取向只能取一，本图取 USB 朝右。",
-                      1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 115.6, "元件 1：INMP441 数字麦克风（I2S）圆形小板 Ø15mm，上排针 SCK/WS/L/R 插 o 行 60–62 列、"
-                                "下排针 SD/VDD/GND 插 p 行 60–62 列——两排针骑中隔槽分插两个半区（同半区会同列短接）。",
-                      1.8, COLOR["pcb"], "start", "doc-legend"))
-        p.append(text(-6, 120, "接线圈 5 根 + 1 根模块内短跳线（线端彩环 = 跳线落孔）：红 VDD→m32（3V3）；"
-                              "紫 SCK/WS/SD→m35/m36/m37（GPIO4/5/6，J1 针同列 l–o 同网）；"
-                              "黑 GND→下轨外轨 − 第 50 孔；L/R 与 GND 两针短接（选左声道）。",
-                      1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 124.4, "元件 2：MAX98357A I2S 功放（7 针单排 + 顶部 2P 喇叭端子），7 针插 Y 板 q 行（下半区）列 45–51，"
-                                "丝印左→右 = LRC/BCLK/DIN/GAIN/SD/GND/VIN；本体下沿距 ESP32 板身 2.5mm。",
-                      1.8, COLOR["pcb"], "start", "doc-legend"))
-        p.append(text(-6, 128.8, "接线圈 8 根 + 1 根模块内短跳线（线端彩环 = 跳线落孔）：紫 LRC/BCLK/DIN→m40/m39/m38（GPIO16/15/7）；"
-                                "GAIN→GND、SD→VIN 两针短接（用户决策，替代默认悬空）；黑 GND→下轨外轨 − 第 40 孔；"
-                                "红 VIN→下轨内轨 + 第 41 孔；青 VO+/VO−→喇叭 4Ω 3W 示意符号。",
-                      1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 133.2, "元件 3：TB6612FNG 双路电机驱动（16 针双列，VM 4.5–10V、1.2A/路）。VM 电源与 1A+ 电机电流"
-                                "绝不上面包板——模块本体（方框）画在板外 y[63,87]，只把 9 根控制/电源线落孔；"
-                                "AO1/AO2、BO1/BO2 接两个电机示意符号（M1/M2），VM 接 7.4V 电池。",
-                      1.8, COLOR["pcb"], "start", "doc-legend"))
-        p.append(text(-6, 137.6, "接线圈 9 根（橙 = 电机线）+ 板外 5 根：紫 STBY/PWMA/AIN1/AIN2/PWMB→l47–l51（GPIO10–14，"
-                                "J1 针同列 l–o 同网；m/n/o 45–51 列被 MAX 本体挡死，l 行是唯一合法行，斜线压 MAX 本体下插）；"
-                                "BIN1/BIN2→X 板 i48/i49（GPIO47/21，同列 f–i 同网）；红 VCC→o32（3V3）；黑 GND→下轨外轨 − 第 44 孔。",
-                      1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 142.0, "元件 4 撤销（2026-10-19 用户决策 B）：TCRT5000×5 巡线阵列整体移除——TCRT 模块镜头在 PCB 正面，"
-                                "插上面包板后朝上照不到地板；量程仅 0.2–15mm，底盘一离地即超程。防跌落改由 VL53L0X 前倾 30° 承担，"
-                                "GPIO17/18/38/39/40 与对应孔位释放、转为预留（config.h 中 LINE_SENSOR 宏同轮删除，零代码引用）。",
-                      1.8, COLOR["pcb"], "start", "doc-legend"))
-        p.append(text(-6, 146.4, "前倾几何（见下方侧视小图）：触发距离 d = 安装高度 h ÷ tan30° ≈ 1.7h——h=80mm 时桌沿进约 140mm 内即停，"
-                                "并保留 140mm 内近距防撞；代价是 300mm 外的墙/人照不到（光束已扎进地面），远距前向避障放弃。"
-                                "供电走 VIN/GND 轨孔（待元件 9 电源区接 3V3/GND 网）。",
-                      1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 150.8, "元件 5：VL53L0X 激光测距（2026-10-19 改决策 B：支架前倾 30°，防跌落 + 近距防撞；XSHUT/GPIO 悬空）。"
-                                "Adafruit 板 27.24×17.78 单排 6 针 VIN/GND/SCL/SDA/GPIO/XSHUT；板高 17.78 超过任一半区行带（10.16）→ 本体悬板外上方，安装时整体支架前倾（见下方侧视小图）。",
-                      1.8, COLOR["pcb"], "start", "doc-legend"))
-        p.append(text(-6, 155.2, "6 针横躺落 a 行列 35–40：SCL/SDA 走东竖带折线（中段贴 38/39 缝、39/40 缝，避开 b–h 行同列孔）汇入 i37/i38，"
-                                "与 j37/j38（GPIO42/41）同列同网；VIN/GND 绕本体西南角落 top_inner_25/top_outer_23（轨待电源区接 3V3）；"
-                                "GPIO/XSHUT 悬空（板载上拉，默认使能、I2C 0x29）；本体挡板上缘 2 轨 18 孔。",
-                      1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 159.6, "元件 6：OLED 1.3 寸 SH1106（2026-10-19 决策：本体放板外、屏幕朝上，9 根飞线直连目标孔）。"
-                                "模块实为 9 针单排 Gnd/Vin/3v3/CS/Rst/SA0/Clk/Data/DC——Rst 在正中第 5 针，"
-                                "而 GPIO48(Rst)→j47、GPIO1/2(Clk/Data)→j35/j36 首尾跨 12 列 30.5mm，远超模块 9 针 20.3mm，"
-                                "**本体任何起列/翻转都插不进面包板**，故本体悬在板外上方、焊盘用飞线接出。",
-                      1.8, COLOR["pcb"], "start", "doc-legend"))
-        p.append(text(-6, 164.0, "飞线必穿上轨：目标孔全在两条上轨以南，9 根线自上而下穿过 top_outer/top_inner；轨孔与列孔共用 2.54 栅格"
-                                "（每 5 孔一组、组间空档），正下方有轨孔的线改走列间缝（离轨孔 1.27mm > 接触阈值 1.05），在外轨以北空档换道。"
-                                "Gnd→top_outer_35、CS→top_outer_38、SA0→top_outer_40（外轨 = GND 网，CS/SA0 接地固定片选与地址）；"
-                                "Vin→top_inner_36、3v3→top_inner_38（内轨 = 3V3 网）。",
-                      1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 168.4, "Rst→j47(GPIO48)、Clk→j35(GPIO1)、Data→j36(GPIO2) 沿列间缝竖下后在 j 行带空档西行进孔，"
-                                "三者分走 y=−13.34 / −10.80 / −9.50 三层互不叠线；DC→k45(GPIO46) 跨拼接缝（橙线）。"
-                                "丝印顺序 = 列号顺序（Gnd 在西、DC 在东），与实物朝上放置时一致。",
-                      1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 172.8, "孔三态：深灰 = 空闲 / 被 ESP32 针（44）或跳线落孔（51）占用，合计 95；"
-                                "浅灰 = 被板身遮挡不可插（blocked 135 孔 = ESP32 靠缝 4 轨 72 孔 + INMP441 本体 10 孔 + "
-                                "MAX98357A 本体 35 孔 + VL53L0X 本体 18 孔；OLED 本体整块在板外，不挡孔）。",
-                      1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 177.2, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通；每条电源轨沿长度方向中间断开（图中'断'）。"
-                                "中隔槽将 a–e 与 f–j（Y 板 k–o 与 p–t）隔开：同列同半区 5 孔才互通。飞线交叉处为绝缘跳线互跨、"
-                                "电气互不相通（wire_check 已把'两根不同网络共线重叠'这类假短路查到 0 处）。本图为规划图，几何/电气均为近似。",
-                      1.8, COLOR["warn"], "start", "doc-legend"))
+        p.extend(legend_frags)
         p.append(vl53_side_view())
     else:
-        p.append(text(-6, -61.84, "面包板 Z · 轮廓 —— 双 830 点并排拼接（28 行 × 63 列）",
+        p.append(text(LEGEND_X, -61.84, "面包板 Z · 轮廓 —— 双 830 点并排拼接（28 行 × 63 列）",
                       3.2, COLOR["title"], "start", "doc-title", bold=True))
-        p.append(text(-6, -57.2, "X（上板）+ Y（下板）沿电源轨长边拼接；本图为第一步：只画 Z 的轮廓，不含插孔。",
+        p.append(text(LEGEND_X, -57.2, "X（上板）+ Y（下板）沿电源轨长边拼接；本图为第一步：只画 Z 的轮廓，不含插孔。",
                       1.8, COLOR["note"], "start", "doc-subtitle"))
-        p.append(text(-6, 98, "轮廓要素：板体 165.1 × 54.6 × 2 / 中隔槽 / 电源轨标线（外 − 内 +，中间断开）/ "
-                              "拼接缝 / 行列标号（63 列；X 行 a–j，Y 行 k–t）",
-                      2.4, COLOR["title"], "start", "doc-legend", bold=True))
-        p.append(text(-6, 102.4, "行序（自上而下，'|' = 隔断）：X = | - + | a b c d e | f g h i j | + - | ；"
-                                "Y = | - + | k l m n o | p q r s t | + - |",
-                      1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 106.8, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通。",
-                      1.8, COLOR["warn"], "start", "doc-legend"))
-        p.append(text(-6, 111.2, "第二步：叠加全部 1660 个插孔；第三步：拼接缝正中央插入 ESP32-S3"
-                                "（USB 朝右：上排 J3 → X 板 j 行、下排 J1 → Y 板 k 行）。"
-                                "第四步起逐个接入元件（当前 3/9：INMP441 + MAX98357A 功放 + TB6612FNG 电机驱动）。均见 breadboard-z.svg。",
-                      1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 115.6, "本图为规划图，几何/电气均为近似，不代表实测结果。",
-                      1.8, COLOR["note"], "start", "doc-legend"))
+        p.extend(legend_frags)
     p.append('</svg>')
     return "".join(p)
 
@@ -1398,12 +1917,23 @@ def main():
     print("OK  元件 5 VL53L0X：板外上方单排 6 针横躺落 a 行 35-40（板高 17.78 超半区行带），"
           "支架前倾 30° 防跌落 + 近距防撞（d = h/tan30° ≈ 1.7h）；"
           "SCL/SDA 走 38/39、39/40 竖带 pts 汇入 i37/i38（GPIO42/41 同列同网）；VIN → top_inner_25、"
-          "GND → top_outer_23（轨待电源区接 3V3）；GPIO/XSHUT 悬空（板载上拉、I2C 0x29）；"
+          "GND → top_outer_23（已由元件 9 接入 3V3/GND 网）；GPIO/XSHUT 悬空（板载上拉、I2C 0x29）；"
           "本体挡板上缘 2 轨 18 孔")
     print("OK  元件 6 OLED 1.3\" SH1106：9 针单排本体放板外上方（y[-94.6,-59.0]，屏幕朝上），9 根飞线直连目标孔；"
           "Gnd→top_outer_35、CS→top_outer_38、SA0→top_outer_40、Vin→top_inner_36、3v3→top_inner_38，"
           "Rst→j47(GPIO48)、Clk→j35(GPIO1)、Data→j36(GPIO2)、DC→k45(GPIO46)；"
           "轨区一律走列间缝换道（离轨孔 1.27mm），竖带让开 TB6612 的 124.46/134.62；本体不挡孔、不占孔")
+    print("OK  元件 7 模式按键：跨中隔槽插 o29(GPIO9 扩展网)/p29(GND 扩展网)，10k 上拉横跨 n29←n27(3V3 扩展网)；"
+          "GPIO9 网由元件 9 的扩展跳线从 l46 搬到列 29（k46 是 ESP32 针、m/n/o46 被 MAX 本体挡死）；"
+          "按键挡 0 孔（6×6 本体卡在 o/p 行间空档），电阻挡 n28 一孔")
+    print("OK  元件 8 MP1584EN 降压：本体板外 x[70,92] y[76,93.5]（22.2×17.5，不占孔不挡孔）；"
+          "IN+/IN− 接 7.4V 电池（与 TB6612 VM 并联），OUT+→bottom_inner_38（5V 轨）、"
+          "OUT−→bottom_outer_35（GND 轨，IN−/OUT− 模块内直通）；系统供电 = 电池 → 5V → "
+          "ESP32 5V 脚 k52 + MAX98357A VIN，电机 VM 直取 7.4V")
+    print("OK  元件 9 电源区（无本体，16 根网线 = 9 根馈线 + 7 根轨组短跳线）："
+          "X 上内轨=3V3 / X 上外轨=GND / Y 下内轨=5V / Y 下外轨=GND，"
+          "每条轨 x=82.55 断开左右两段故 3V3/GND 各两根馈线；"
+          "轨金属 5 孔一小组 → 7 根短跳线搭通相邻组（wire_check 查不出，net_check.py 固化为 0 处断网/短接）")
 
 
 if __name__ == "__main__":
