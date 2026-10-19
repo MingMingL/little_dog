@@ -36,7 +36,9 @@
 // BOOT 键（GPIO0）：未配网时进入配网，已配网时切换语音对话（对应 FR-17）
 #define BOOT_BUTTON_GPIO GPIO_NUM_0
 
-// 传感器 I2C（VL53L0X 前向测距；屏幕未使用，故 I2C 独占给传感器）
+// 传感器 I2C（VL53L0X；屏幕未使用，故 I2C 独占给传感器）
+// VL53L0X 支架前倾 30° 安装：测桌面/地板边缘做防跌落（触发距离 = 安装高度 / tan30°），
+// 兼顾探头前方近距离防撞；代价是看不到 300mm 以外的前向障碍（2026-10-19 决策，B 方案）
 #define DOG_I2C_SDA_GPIO GPIO_NUM_41
 #define DOG_I2C_SCL_GPIO GPIO_NUM_42
 
@@ -73,13 +75,6 @@
 #define MOTOR_RIGHT_IN1_GPIO  GPIO_NUM_21
 #define MOTOR_RIGHT_IN2_GPIO  GPIO_NUM_47
 #define MOTOR_STANDBY_GPIO    GPIO_NUM_10
-
-// 五路巡线传感器（TCRT5000，数字量输入）
-#define LINE_SENSOR_1_GPIO GPIO_NUM_17
-#define LINE_SENSOR_2_GPIO GPIO_NUM_18
-#define LINE_SENSOR_3_GPIO GPIO_NUM_38
-#define LINE_SENSOR_4_GPIO GPIO_NUM_39
-#define LINE_SENSOR_5_GPIO GPIO_NUM_40
 
 // 模式切换按键（待机/聊天/巡逻/看门）
 #define MODE_BUTTON_GPIO GPIO_NUM_9

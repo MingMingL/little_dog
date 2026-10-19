@@ -24,24 +24,8 @@ WHITELIST = {
     ("tb6612fng", 6, "max_body"),
     # BIN 竖带上段压 ESP32 板身 USB 座/按钮之间的裸板区（无丝印，深色底橙线可读）
     ("tb6612fng", 5, "dev_body"), ("tb6612fng", 6, "dev_body"),
-    # TCRT 各探头 GND/DO 线从板身内针孔出发，压自身本体一小段（针焊盘在板内，物理同源）
-    ("tcrt1", 1, "tcrt1_body"), ("tcrt1", 2, "tcrt1_body"),
-    ("tcrt2", 1, "tcrt2_body"), ("tcrt2", 2, "tcrt2_body"),
-    ("tcrt3", 1, "tcrt3_body"), ("tcrt3", 2, "tcrt3_body"),
-    ("tcrt4", 1, "tcrt4_body"),
-    ("tcrt5", 1, "tcrt5_body"),
-    # TCRT4 的 DO 长跳线斜穿 TCRT5 本体 6mm（TCRT5 本体该段无丝印）
-    ("tcrt4", 2, "tcrt4_body"), ("tcrt4", 2, "tcrt5_body"),
-    # TCRT2 的 VCC 弧线末端擦 TCRT1 本体右上角 0.6mm（物理贴板角走线）
-    ("tcrt2", 0, "tcrt1_body"),
     # VL53L0X 的 VIN/GND 线贴本体西南板身角走 0.3-1mm（针在板身下沿，物理同源）
     ("vl53l0x", 0, "vl53l0x_body"), ("vl53l0x", 1, "vl53l0x_body"),
-    # TCRT5 的 VCC 弧线微穿自身本体左缘 0.35mm（出体绕向轨孔）
-    ("tcrt5", 0, "tcrt5_body"),
-    # TCRT3（翻转）VCC/GND 弧线从板身内针孔出发，贴 VL53 本体右缘上轨、微擦 TCRT5 左缘
-    ("tcrt3", 0, "tcrt3_body"), ("tcrt3", 0, "vl53l0x_body"),
-    ("tcrt3", 1, "tcrt3_body"), ("tcrt3", 1, "vl53l0x_body"),
-    ("tcrt3", 1, "tcrt5_body"),
 }
 HOLE_R = 0.5          # 孔圆半径
 WIRE_HALF = 0.5       # 线白底半宽
@@ -86,9 +70,6 @@ def obstacles():
         ("spk_text", "rect", (143.90, 20.50, 153.00, 21.50)),
     ]
     for comp in g.COMPONENTS:
-        if comp["id"].startswith("tcrt"):
-            x0, y0, w, h = comp["body"]
-            obs.append(("%s_body" % comp["id"], "rect", (x0, y0, x0 + w, y0 + h)))
         if comp["id"] == "vl53l0x":
             x0, y0, w, h = comp["body"]
             obs.append(("vl53l0x_body", "rect", (x0, y0, x0 + w, y0 + h)))

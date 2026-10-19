@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>机器狗 V1 · 代码架构与改动说明 v7（撤销巡线阵列与 VL53 前倾决策）</title>
+<style>
+:root{--primary:#3F51B5;--primary-light:#E8EAF6;--bg:#fff;--surface:#F7F8FA;--border:#E0E0E0;--text:#212121;--text2:#616161;--new:#2E7D32;--new-bg:#E8F5E9;--todo:#EF6C00;--todo-bg:#FFF3E0;--old:#9E9E9E;--old-bg:#F0F0F0;--warn:#E65100}
+*{box-sizing:border-box}body{margin:0;padding:0 24px 80px;font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;background:var(--bg);color:var(--text);line-height:1.7}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:27px;margin:0 0 6px}h2{font-size:20px;margin:42px 0 14px;padding-left:12px;border-left:4px solid var(--primary)}
+h3{font-size:16px;margin:24px 0 10px;color:var(--primary)}p,li{font-size:14.5px}
+code{background:var(--surface);padding:1px 5px;border-radius:3px;font-size:13px;font-family:Consolas,Monaco,monospace}
+header{padding:36px 0 22px;border-bottom:2px solid var(--primary);margin-bottom:28px}
+.sub{color:var(--text2);font-size:13.5px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{border:1px solid var(--border);padding:8px 11px;text-align:left;vertical-align:top}
+th{background:var(--primary-light);font-weight:600}tr:nth-child(even) td{background:#FAFAFA}
+figure{margin:22px 0;text-align:center}figcaption{font-size:13px;color:var(--text2);margin-top:8px}
+svg{max-width:100%;height:auto}
+.legend{display:flex;gap:18px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 16px;font-size:13px;margin:16px 0}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.sw{width:26px;height:14px;border-radius:3px;display:inline-block}
+.sw-new{background:#fff;border:2px solid var(--new)}.sw-todo{background:#fff;border:2px dashed var(--todo)}.sw-old{background:var(--old-bg);border:2px solid var(--old)}
+.note{background:var(--todo-bg);border-left:4px solid var(--warn);padding:10px 14px;margin:14px 0;font-size:13.5px}
+footer{margin-top:56px;padding-top:18px;border-top:1px solid var(--border);color:var(--text2);font-size:13px}
+</style></head><body><div class="wrap">
+<header>
+<h1>机器狗 V1 · 代码架构与改动说明（v6）</h1>
+<div class="sub">V5（2026-10-16）· 在 V4 基础上做代码去冗余与脚本/配置精简：删除无调用方的死代码、合并重复的 HTTP 与提示文案逻辑、移除已失效的 ccache 配置 · 行为不变，Android APK 与固件均重新编译通过。以下旧图为历史快照，以本版增量章节为准。</div>
+</header>
+
+<h2>〇、图例规范与标注约定</h2>
+<div class="legend">
+<span><i class="sw sw-new"></i>本次新增（改动）</span>
+<span><i class="sw sw-todo"></i>待实现 / 预留</span>
+<span><i class="sw sw-old"></i>原有（上游 xiaozhi 或本项目基线）</span>
+<span><i class="sw sw-todo"></i>带二次确认的入口（patrol/guard）</span>
+</div>
+<p>本文所有图中，<b>凡与本项目改动相关的部分，一律用绿色实线框圈出并标注"新增/改动"</b>；橙色虚线框表示尚未实现但已预留接口；灰色表示上游原有逻辑，不在本次改动范围。此约定在后续版本中延续。</p>
+
+<h2>一、修改历史</h2>
+<table>
+<tr><th style="width:9%">版本</th><th style="width:13%">日期</th><th style="width:22%">变更</th><th>细节</th></tr>
+<tr><td>v1.0</td><td>2026-10-14</td><td>初版</td><td>项目总览、固件/Android 架构、改动清单（A~E）、4 组前后对比图、改动流程 SOP。文件：<code>代码架构与改动说明.html</code></td></tr>
+<tr><td>v1.1</td><td>2026-10-14</td><td>修正</td><td>修正未闭合的 <code>&lt;code&gt;</code> 标签、"router" 换行错误（v1 文件原地修补）</td></tr>
+<tr><td>v2.0</td><td>2026-10-14</td><td>新增三张图 + 标注规范</td><td>新增时序图、模式状态图与全系统数据流图；确立版本化规则</td></tr>
+<tr><td>v3.0</td><td>2026-10-14</td><td>语音模式切换</td><td>新增 MCP 工具 self.dog.set_mode 链路与二次确认约定；文件：<code>代码架构与改动说明-v3.html</code></td></tr>
+<tr><td><b>v4.0</b></td><td>2026-10-15</td><td><b>遥控安全与冗余清理</b></td><td>增加停车排队与状态监听代数保护；移除无效状态/逻辑；脚本逐次检查退出码及关闭 ccache；同步遥控链路图。文件：<code>代码架构与改动说明-v4.html</code></td></tr>
+<tr><td><b>v5.0</b></td><td>2026-10-16</td><td><b>代码去冗余与配置精简</b></td><td>Android：常量/模式文案/POST 逻辑三处重复合并，硬编码文案资源化；固件：删除 2 个无调用方接口，抽出 JSON 解析与成功响应 helper；脚本：移除已失效的 ccache 配置与 .gitignore 条目，构建改为直接调 ninja 并支持 -Jobs；模拟器清理只写不读的字段。文件：<code>代码架构与改动说明-v5.html</code></td></tr>
+<tr><td><b>v6.0</b></td><td>2026-10-17</td><td><b>文案资源化、路由表收口与工具死代码清理</b></td><td>Android：布局硬编码中文与"设备：%s"拼接收进 strings.xml，默认速度改为单点定义，删除未使用的 color 与重复的文本着色；固件：5 个 httpd 路由由逐条结构体改为路由表循环注册，构建脚本移除已失效的 IDF_PY_BUILD_JOBS；tools：删除 make_tcrt 重复定义与 wire_check.py 中的空循环、未使用集合。文件：<code>代码架构与改动说明-v6.html</code></td></tr>
+<tr style="background:#E8F5E9"><td><b>v7.0</b></td><td>2026-10-19</td><td><b>撤销 TCRT 巡线阵列 + VL53L0X 改前倾 30°</b></td><td>决策：TCRT 插面包板后镜头朝上、量程 0.2–15mm 超程，物理上照不到地板 → 整体撤销（元件 4/9）。防跌落改由 VL53L0X 支架前倾 30° 承担（d = h/tan30° ≈ 1.7h）。<code>config.h</code> 删除 <code>LINE_SENSOR_1..5</code> 五行宏（grep 确认零代码引用），GPIO17/18/38/39/40 释放；DOG_I2C 注释改述新用途。生成器删除 TCRT1–5 与 <code>make_tcrt()</code>、新增侧视小图、<code>wire_check.py</code> 清空 TCRT 白名单。文件：<code>代码架构与改动说明-v7.html</code></td></tr>
+</table>
+<div class="note"><b>本文档规则（v2 起生效）：</b>代码或架构发生改动后，<b>复制上一版 HTML 新建一个版本文件</b>（如 <code>-v3.html</code>），在新版中增量更新并登记修改历史；旧版本保留，便于回溯对比。</div>
+
+<h2>二、项目总览</h2>
+<p>项目分三条线：<b>固件（ESP32-S3）</b>、<b>Android 控制端</b>、<b>文档</b>。固件基于开源 xiaozhi-esp32 改造，Android 为自建最小控制 App。</p>
+<pre style="background:#263238;color:#ECEFF1;padding:14px 16px;border-radius:6px;overflow-x:auto;font-size:12.5px;line-height:1.7">
+AI-Dog/
+├── docs/          文档（含本文件的 v1 / v2 版本管理）
+│   ├── 固件开发环境.md          环境、引脚、构建命令、5 个坑
+│   ├── Android控制端设计.md      通信协议 + 双端设计
+│   ├── 代码架构与改动说明.html     v1
+│   └── 代码架构与改动说明-v2.html  本文件
+├── output/        机器狗V1产品需求文档.md（PRD 15 章）
+├── vendor/xiaozhi-esp32/   上游只读参考（不改）
+├── android/       Android 控制端（新增）
+│   └── app/src/main/java/com/aidog/control/
+│       ├── MainActivity.java     状态面板+模式切换+急停
+│       ├── SetupActivity.java     设备 IP + 配网
+│       ├── api/DeviceApi.java     OkHttp（HTTP + WS + 降级轮询）
+│       └── model/DeviceStatus.java 状态模型
+├── firmware/
+│   ├── xiaozhi-esp32/  工作副本（git 管理，提交 deab432）
+│   │   └── main/boards/ai-dog-s3/   我们的板级代码（唯一改动区）
+│   ├── config/ai-dog-s3.defaults
+│   └── build-ai-dog.ps1   构建脚本（含 5 项环境修正）
+└── .workbuddy-ai/memory/   项目记忆与流程约定</pre>
+<h2>三、固件代码架构</h2>
+<p>我们的代码<b>只加在板级这一层</b>，不侵入上游逻辑——方便以后跟进上游升级。</p>
+<figure>
+<svg viewBox="0 0 680 340" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#616161"/></marker></defs>
+<rect width="680" height="340" fill="#FFFFFF"/>
+<rect x="30" y="10" width="620" height="28" rx="4" fill="#F0F0F0" stroke="#9E9E9E"/>
+<text x="340" y="29" text-anchor="middle" font-size="12.5" font-weight="700" fill="#616161">上游 xiaozhi-esp32（不改动）</text>
+<rect x="30" y="50" width="300" height="54" rx="5" fill="#FAFAFA" stroke="#BDBDBD"/>
+<text x="180" y="70" text-anchor="middle" font-size="12" font-weight="600">Application / Protocol</text>
+<text x="180" y="88" text-anchor="middle" font-size="10.5" fill="#616161">语音会话状态机 · WebSocket/MQTT</text>
+<text x="180" y="100" text-anchor="middle" font-size="10.5" fill="#616161">ASR→LLM→TTS 编排</text>
+<rect x="350" y="50" width="300" height="54" rx="5" fill="#FAFAFA" stroke="#BDBDBD"/>
+<text x="500" y="70" text-anchor="middle" font-size="12" font-weight="600">Audio / Display / LED</text>
+<text x="500" y="88" text-anchor="middle" font-size="10.5" fill="#616161">I²S 编解码（Opus）</text>
+<text x="500" y="100" text-anchor="middle" font-size="10.5" fill="#616161">屏幕/指示灯抽象</text>
+<line x1="180" y1="104" x2="180" y2="132" stroke="#616161" marker-end="url(#ar)"/>
+<line x1="500" y1="104" x2="500" y2="132" stroke="#616161" marker-end="url(#ar)"/>
+<rect x="30" y="134" width="620" height="30" rx="4" fill="#FFF3E0" stroke="#EF6C00"/>
+<text x="340" y="154" text-anchor="middle" font-size="12" font-weight="700" fill="#E65100">Board 抽象层（GetAudioCodec / GetDisplay / GetLed / StartNetwork）</text>
+<line x1="340" y1="164" x2="340" y2="192" stroke="#616161" marker-end="url(#ar)"/>
+<rect x="26" y="196" width="628" height="132" rx="6" fill="none" stroke="#2E7D32" stroke-width="2.5"/>
+<text x="40" y="216" font-size="11.5" font-weight="700" fill="#2E7D32">■ 本次新增 / 改动区（ai-dog-s3 板级目录）</text>
+<rect x="30" y="226" width="300" height="94" rx="5" fill="#FFFFFF" stroke="#2E7D32" stroke-width="1.8"/>
+<text x="180" y="246" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2E7D32">ai_dog_s3_board.cc</text>
+<text x="180" y="264" text-anchor="middle" font-size="10.5" fill="#616161">WifiBoard 子类：无屏 / 无 LED</text>
+<text x="180" y="278" text-anchor="middle" font-size="10.5" fill="#616161">BOOT 键 → 配网 / 切换对话</text>
+<text x="180" y="292" text-anchor="middle" font-size="10.5" fill="#616161">包装网络事件 → 控制服务启停</text>
+<text x="180" y="308" text-anchor="middle" font-size="10.5" fill="#616161">（含本次改动 +40 行）</text>
+<rect x="350" y="226" width="300" height="94" rx="5" fill="#FFFFFF" stroke="#2E7D32" stroke-width="1.8"/>
+<text x="500" y="246" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2E7D32">ai_dog_control.{h,cc}</text>
+<text x="500" y="264" text-anchor="middle" font-size="10.5" fill="#616161">局域网 HTTP 控制服务（80 端口）</text>
+<text x="500" y="278" text-anchor="middle" font-size="10.5" fill="#616161">status / mode / stop / wifi 四接口</text>
+<text x="500" y="292" text-anchor="middle" font-size="10.5" fill="#616161">回调留给运动模块（未接线）</text>
+<text x="500" y="308" text-anchor="middle" font-size="10.5" fill="#616161">（本次新增 423 行）</text>
+</svg>
+<figcaption>图 1 · 固件分层：绿框内为本次改动区，全部集中在 <code>boards/ai-dog-s3/</code></figcaption>
+</figure>
+
+<h3>板级目录如何被编译</h3>
+<p><code>main/CMakeLists.txt</code> 用 glob 收录板级目录所有源码，<b>新模块放进 <code>boards/ai-dog-s3/</code> 就自动参与编译</b>，无需改 SOURCES 列表：</p>
+<pre style="background:#263238;color:#ECEFF1;padding:12px 16px;border-radius:6px;font-size:12.5px;overflow-x:auto"><span style="color:#78909C"># main/CMakeLists.txt:936</span>
+file(GLOB BOARD_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_DIR}/*.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/boards/${BOARD_DIR}/*.c
+)</pre>
+<p>板级选择由 Kconfig 驱动：<code>firmware/config/ai-dog-s3.defaults</code> 中一行 <code>CONFIG_BOARD_TYPE_AI_DOG_S3=y</code>，经 <code>SDKCONFIG_DEFAULTS</code> 注入构建。</p>
+
+<h3>Android 端架构</h3>
+<table>
+<tr><th style="width:22%">组件</th><th>职责</th></tr>
+<tr><td><code>MainActivity</code></td><td>状态面板（在线/模式/电量/Wi-Fi/故障）、四模式切换、红色急停按钮</td></tr>
+<tr><td><code>SetupActivity</code></td><td>设备 IP 设置（SharedPreferences）、Wi-Fi 凭据下发</td></tr>
+<tr><td><code>DeviceApi</code></td><td>OkHttp 封装 4 个 HTTP 接口 + WebSocket 推送，<b>WS 失败自动降级 2 秒轮询</b></td></tr>
+<tr><td><code>DeviceStatus</code></td><td>Gson 模型，字段与设备端 JSON 一一对应</td></tr>
+</table>
+<p>技术栈 <b>Java + XML/ViewBinding</b>（不用 Kotlin/Compose），AGP 8.7.3 + Gradle 8.13 + JDK 21，compileSdk 36 / minSdk 26。</p>
+<h2>四、改动清单（全部）</h2>
+
+<h3>A. 固件：新增板级支持 <span class="tag tag-new">新增</span></h3>
+<table>
+<tr><th style="width:30%">文件</th><th style="width:11%">类型</th><th>说明</th></tr>
+<tr><td><code>boards/ai-dog-s3/config.h</code></td><td>新增</td><td>引脚分配：INMP441(4/5/6)、MAX98357A(7/15/16)、BOOT(0)、I²C(41/42)、电池 ADC(8)、电机(11-14/21/47/10)、模式键(9)。避开 PSRAM(33-37)/Flash(26-32)/USB(19/20)/strapping 脚。<span class="tag tag-new">v7 改动</span>删除巡线 <code>LINE_SENSOR_1..5</code>（17/18/38/39/40，零代码引用，随 TCRT 撤销释放）</td></tr>
+<tr><td><code>boards/ai-dog-s3/config.json</code></td><td>新增</td><td><code>{"type":"ai-dog-s3","target":"esp32s3"}</code></td></tr>
+<tr><td><code>boards/ai-dog-s3/ai_dog_s3_board.cc</code></td><td>新增</td><td><code>WifiBoard</code> 子类：<code>GetDisplay()</code> 返回 <code>NoDisplay</code>、<code>GetLed()</code> 返回 <code>NoLed</code>、BOOT 键逻辑。<b>原因</b>：默认板级 bread-compact-wifi 假设接了 SSD1306 OLED，我们没买屏，直接用会初始化报错</td></tr>
+<tr><td><code>main/CMakeLists.txt</code></td><td>改造 +8 行</td><td><code>BOARD_TYPE_AI_DOG_S3</code> 分支；依赖 <code>esp_http_server</code> / <code>esp_wifi</code> / <code>espressif__cjson</code></td></tr>
+<tr><td><code>main/Kconfig.projbuild</code></td><td>改造</td><td>新增 <code>config BOARD_TYPE_AI_DOG_S3</code>，depends on <code>IDF_TARGET_ESP32S3</code></td></tr>
+<tr><td><code>boards/ai-dog-s3/ai_dog_control.{h,cc}</code></td><td>新增 423 行</td><td>局域网控制服务（提交 <code>deab432</code>）：4 个 HTTP 接口 + 模式状态 + 回调机制</td></tr>
+</table>
+
+<h3>B. 构建系统 <span class="tag tag-new">新增</span></h3>
+<table>
+<tr><th style="width:34%">文件</th><th>说明</th></tr>
+<tr><td><code>firmware/config/ai-dog-s3.defaults</code></td><td>一行 <code>CONFIG_BOARD_TYPE_AI_DOG_S3=y</code></td></tr>
+<tr><td><code>firmware/build-ai-dog.ps1</code></td><td>构建/烧录/监视脚本，内含 5 项环境修正（见第五节）</td></tr>
+</table>
+
+<h3>C. Android 控制端 <span class="tag tag-new">新增</span></h3>
+<p>共 16 个文件（2 个 Activity + API + Model + 布局/资源/Gradle），已编译产出 <code>app-debug.apk</code> 6.5 MB。</p>
+
+<h3>D. 文档 <span class="tag tag-chg">修改</span></h3>
+<table>
+<tr><th style="width:34%">文件</th><th>改动</th></tr>
+<tr><td><code>output/机器狗V1产品需求文档.md</code></td><td>§8「软件架构建议」→「软件架构（已确定）」：xiaozhi-esp32 + ESP-IDF v6.1 + xiaozhi.me；看门狗叫为纯本地逻辑</td></tr>
+<tr><td><code>docs/固件开发环境.md</code></td><td>状态更新为"首次编译已通过"；新增环境修正清单与产物表</td></tr>
+<tr><td><code>docs/Android控制端设计.md</code></td><td>新增协议定稿（4 接口 + WS）、App 结构、设备端实现说明</td></tr>
+<tr><td><code>docs/代码架构与改动说明*.html</code></td><td>架构梳理 + 版本化管理（本文档）</td></tr>
+</table>
+
+<h3>E. 环境清理 <span class="tag tag-del">删除</span></h3>
+<p>释放约 952 MB：损坏组件缓存 550 MB、不完整工具链 334 MB、<code>.ccache</code> 68 MB。保留 <code>.idf-component-cache</code>（760 MB，74 个组件）。另：装 JDK 21 到 <code>F:\software\jdk21</code> 供 Android 构建。</p>
+<h2>五、新增图 1 · 时序图（App ↔ 设备）</h2>
+<figure>
+<svg viewBox="0 0 680 430" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="s1" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#3F51B5"/></marker></defs>
+<rect width="680" height="430" fill="#FFFFFF"/>
+<!-- 新增区标注 -->
+<rect x="272" y="8" width="380" height="414" rx="6" fill="none" stroke="#2E7D32" stroke-width="2" stroke-dasharray="7 4"/>
+<text x="462" y="26" text-anchor="middle" font-size="12" font-weight="700" fill="#2E7D32">■ 本次新增：设备端控制服务（esp_http_server + ControlServer）</text>
+<!-- 参与者 -->
+<rect x="16" y="38" width="96" height="26" rx="4" fill="#E8EAF6" stroke="#3F51B5"/>
+<text x="64" y="56" text-anchor="middle" font-size="11.5" font-weight="700" fill="#3F51B5">Android App</text>
+<rect x="152" y="38" width="96" height="26" rx="4" fill="#E8EAF6" stroke="#3F51B5"/>
+<text x="200" y="56" text-anchor="middle" font-size="11.5" font-weight="700" fill="#3F51B5">DeviceApi</text>
+<rect x="286" y="38" width="104" height="26" rx="4" fill="#E8F5E9" stroke="#2E7D32" stroke-width="1.8"/>
+<text x="338" y="56" text-anchor="middle" font-size="11" font-weight="700" fill="#2E7D32">esp_http_server</text>
+<rect x="430" y="38" width="96" height="26" rx="4" fill="#E8F5E9" stroke="#2E7D32" stroke-width="1.8"/>
+<text x="478" y="56" text-anchor="middle" font-size="11" font-weight="700" fill="#2E7D32">ControlServer</text>
+<rect x="556" y="38" width="92" height="26" rx="4" fill="#FFF3E0" stroke="#EF6C00" stroke-dasharray="4 3"/>
+<text x="602" y="56" text-anchor="middle" font-size="11" font-weight="700" fill="#E65100">运动模块(预留)</text>
+<!-- 生命线 -->
+<line x1="64" y1="64" x2="64" y2="404" stroke="#BDBDBD" stroke-dasharray="4 3"/>
+<line x1="200" y1="64" x2="200" y2="404" stroke="#BDBDBD" stroke-dasharray="4 3"/>
+<line x1="338" y1="64" x2="338" y2="404" stroke="#BDBDBD" stroke-dasharray="4 3"/>
+<line x1="478" y1="64" x2="478" y2="404" stroke="#BDBDBD" stroke-dasharray="4 3"/>
+<line x1="602" y1="64" x2="602" y2="404" stroke="#EF6C00" stroke-dasharray="4 3"/>
+<!-- 流程1：状态轮询 -->
+<text x="14" y="84" font-size="11" font-weight="700" fill="#3F51B5">① 查询状态（WS 失败则每 2s 轮询）</text>
+<line x1="200" y1="96" x2="286" y2="96" stroke="#3F51B5" marker-end="url(#s1)"/>
+<text x="243" y="90" text-anchor="middle" font-size="10" fill="#3F51B5">GET /api/status</text>
+<line x1="338" y1="116" x2="336" y2="116" stroke="none"/>
+<line x1="286" y1="116" x2="200" y2="116" stroke="#3F51B5" stroke-dasharray="5 3"/>
+<text x="243" y="110" text-anchor="middle" font-size="10" fill="#3F51B5">200 JSON{mode,battery,fault}</text>
+<line x1="478" y1="112" x2="486" y2="112" stroke="#2E7D32" stroke-dasharray="5 3"/>
+<text x="530" y="108" text-anchor="middle" font-size="10" fill="#2E7D32">拼状态 JSON</text>
+<line x1="200" y1="140" x2="64" y2="140" stroke="#3F51B5" stroke-dasharray="5 3"/>
+<text x="132" y="134" text-anchor="middle" font-size="10" fill="#3F51B5">onStatus → 刷新 UI</text>
+<!-- 流程2：模式切换 -->
+<text x="14" y="172" font-size="11" font-weight="700" fill="#3F51B5">② 切换模式</text>
+<line x1="64" y1="186" x2="286" y2="186" stroke="#3F51B5" marker-end="url(#s1)"/>
+<text x="150" y="180" text-anchor="middle" font-size="10" fill="#3F51B5">点「巡逻」→ POST /api/mode {"mode":"patrol"}</text>
+<line x1="286" y1="206" x2="478" y2="206" stroke="#3F51B5" marker-end="url(#s1)"/>
+<text x="382" y="200" text-anchor="middle" font-size="10" fill="#3F51B5">cJSON 解析+校验</text>
+<line x1="478" y1="226" x2="286" y2="226" stroke="#3F51B5" stroke-dasharray="5 3"/>
+<text x="382" y="220" text-anchor="middle" font-size="10" fill="#3F51B5">{"ok":true,"mode":"patrol"}</text>
+<line x1="478" y1="246" x2="602" y2="246" stroke="#EF6C00" stroke-dasharray="5 3"/>
+<text x="540" y="240" text-anchor="middle" font-size="10" fill="#E65100">onModeChanged 回调</text>
+<text x="602" y="262" text-anchor="middle" font-size="9.5" fill="#E65100">待硬件实现：驱动电机</text>
+<!-- 流程3：急停 -->
+<text x="14" y="292" font-size="11" font-weight="700" fill="#C62828">③ 急停（最高优先级）</text>
+<line x1="64" y1="306" x2="286" y2="306" stroke="#C62828" marker-end="url(#s1)"/>
+<text x="140" y="300" text-anchor="middle" font-size="10" fill="#C62828">点「急停」→ POST /api/stop</text>
+<line x1="286" y1="326" x2="478" y2="326" stroke="#C62828" marker-end="url(#s1)"/>
+<text x="382" y="320" text-anchor="middle" font-size="10" fill="#C62828">RequestEmergencyStop()</text>
+<text x="382" y="342" text-anchor="middle" font-size="10" fill="#C62828">置 mode=Idle + 停 moving + 触发停止回调</text>
+<line x1="478" y1="362" x2="602" y2="362" stroke="#EF6C00" stroke-dasharray="5 3"/>
+<text x="540" y="356" text-anchor="middle" font-size="10" fill="#E65100">stop 回调</text>
+<line x1="478" y1="380" x2="286" y2="380" stroke="#3F51B5" stroke-dasharray="5 3"/>
+<text x="382" y="374" text-anchor="middle" font-size="10" fill="#3F51B5">{"ok":true}</text>
+<text x="64" y="404" text-anchor="middle" font-size="10" fill="#616161">提示：</text>
+<text x="64" y="418" text-anchor="middle" font-size="10" fill="#616161">绿框=新增</text>
+<text x="430" y="418" text-anchor="middle" font-size="10" fill="#616161">橙色虚线=待实现</text>
+</svg>
+<figcaption>图 4 · 时序图：三类交互（轮询 / 模式切换 / 急停）。绿框内全部为本次新增的设备端代码</figcaption>
+</figure>
+<h2>六、新增图 2 · 状态图（设备模式状态机）</h2>
+<p>四个模式 + 一条最高优先级的急停转移。灰色箭头为上游原有行为，<b>绿/橙箭头为本次新增或预留</b>。</p>
+<figure>
+<svg viewBox="0 0 680 330" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<marker id="sa" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#2E7D32"/></marker>
+<marker id="sb" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#EF6C00"/></marker>
+<marker id="sc" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#9E9E9E"/></marker>
+<marker id="sr" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#C62828"/></marker>
+</defs>
+<rect width="680" height="330" fill="#FFFFFF"/>
+<!-- 初始 -->
+<circle cx="52" cy="60" r="8" fill="none" stroke="#2E7D32" stroke-width="2"/>
+<text x="52" y="92" text-anchor="middle" font-size="10" fill="#2E7D32">开机</text>
+<!-- 命令源 -->
+<rect x="16" y="130" width="96" height="60" rx="6" fill="#E8EAF6" stroke="#3F51B5" stroke-width="1.8"/>
+<text x="64" y="154" text-anchor="middle" font-size="11" font-weight="700" fill="#3F51B5">App 指令</text>
+<text x="64" y="170" text-anchor="middle" font-size="10" fill="#616161">POST /api/mode</text>
+<text x="64" y="182" text-anchor="middle" font-size="10" fill="#616161">POST /api/stop</text>
+<!-- 新增指令源标注 -->
+<rect x="10" y="126" width="108" height="68" rx="7" fill="none" stroke="#2E7D32" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="64" y="122" text-anchor="middle" font-size="10.5" font-weight="700" fill="#2E7D32">■ 新增入口</text>
+<!-- BOOT键（原有） -->
+<rect x="16" y="244" width="96" height="30" rx="5" fill="#F0F0F0" stroke="#9E9E9E"/>
+<text x="64" y="264" text-anchor="middle" font-size="10.5" font-weight="600" fill="#616161">BOOT 键（原有）</text>
+<!-- 状态节点 -->
+<rect x="230" y="40" width="130" height="46" rx="23" fill="#FFFFFF" stroke="#2E7D32" stroke-width="2"/>
+<text x="295" y="61" text-anchor="middle" font-size="12.5" font-weight="700">Idle 待机</text>
+<text x="295" y="77" text-anchor="middle" font-size="10" fill="#616161">电机停止 · 常驻默认</text>
+<rect x="230" y="132" width="130" height="46" rx="23" fill="#FFFFFF" stroke="#2E7D32" stroke-width="2"/>
+<text x="295" y="153" text-anchor="middle" font-size="12.5" font-weight="700">Chat 聊天</text>
+<text x="295" y="169" text-anchor="middle" font-size="10" fill="#616161">语音对话（上游能力）</text>
+<rect x="230" y="224" width="130" height="46" rx="23" fill="#FFFFFF" stroke="#2E7D32" stroke-width="2"/>
+<text x="295" y="245" text-anchor="middle" font-size="12.5" font-weight="700">Patrol 巡逻</text>
+<text x="295" y="261" text-anchor="middle" font-size="10" fill="#E65100">动作待运动模块实现</text>
+<rect x="230" y="290" width="130" height="36" rx="18" fill="#FFF3E0" stroke="#EF6C00" stroke-width="1.8" stroke-dasharray="5 3"/>
+<text x="295" y="313" text-anchor="middle" font-size="12" font-weight="700" fill="#E65100">Guard 看门(预留)</text>
+<!-- 急停汇聚 -->
+<circle cx="470" cy="63" r="26" fill="#FFEBEE" stroke="#C62828" stroke-width="2"/>
+<text x="470" y="60" text-anchor="middle" font-size="11" font-weight="700" fill="#C62828">急停</text>
+<text x="470" y="74" text-anchor="middle" font-size="9" fill="#C62828">最高优</text>
+<!-- 转移线 -->
+<line x1="60" y1="60" x2="222" y2="58" stroke="#2E7D32" marker-end="url(#sa)"/>
+<text x="150" y="50" text-anchor="middle" font-size="10" fill="#2E7D32">开机默认进入</text>
+<!-- App → 各状态（新增） -->
+<path d="M112 150 C170 150 190 155 222 155" stroke="#2E7D32" fill="none" marker-end="url(#sa)"/>
+<text x="168" y="140" text-anchor="middle" font-size="9.5" fill="#2E7D32">mode=chat</text>
+<path d="M112 168 C170 200 190 240 222 245" stroke="#2E7D32" fill="none" marker-end="url(#sa)"/>
+<text x="150" y="222" text-anchor="middle" font-size="9.5" fill="#2E7D32">mode=patrol</text>
+<path d="M112 186 C160 260 190 292 222 305" stroke="#EF6C00" fill="none" stroke-dasharray="5 3" marker-end="url(#sb)"/>
+<text x="140" y="290" text-anchor="middle" font-size="9.5" fill="#E65100">mode=guard(预留)</text>
+<line x1="112" y1="200" x2="222" y2="64" stroke="#2E7D32" marker-end="url(#sa)"/>
+<text x="150" y="96" text-anchor="middle" font-size="9.5" fill="#2E7D32">mode=idle</text>
+<!-- BOOT 键 → Chat（原有） -->
+<line x1="64" y1="244" x2="222" y2="164" stroke="#9E9E9E" stroke-dasharray="5 3" marker-end="url(#sc)"/>
+<text x="120" y="212" text-anchor="middle" font-size="9.5" fill="#9E9E9E">原有：点击切换对话</text>
+<!-- 急停：各状态 → Idle -->
+<path d="M360 63 C420 30 440 30 470 40" stroke="#C62828" fill="none" marker-end="url(#sr)"/>
+<path d="M360 155 C400 130 430 100 452 80" stroke="#C62828" fill="none" marker-end="url(#sr)"/>
+<path d="M360 247 C400 190 430 120 456 86" stroke="#C62828" fill="none" marker-end="url(#sr)"/>
+<text x="404" y="40" font-size="10" fill="#C62828">急停（新增）：任何模式 → Idle</text>
+<!-- 注记 -->
+<rect x="540" y="196" width="124" height="112" rx="6" fill="#F7F8FA" stroke="#E0E0E0"/>
+<text x="602" y="216" text-anchor="middle" font-size="10.5" font-weight="700">状态存储</text>
+<text x="602" y="234" text-anchor="middle" font-size="9.5" fill="#616161">ControlServer 单例</text>
+<text x="602" y="248" text-anchor="middle" font-size="9.5" fill="#616161">std::mutex 保护</text>
+<text x="602" y="262" text-anchor="middle" font-size="9.5" fill="#616161">切换时清 moving</text>
+<text x="602" y="276" text-anchor="middle" font-size="9.5" fill="#616161">HTTP 层不直接</text>
+<text x="602" y="290" text-anchor="middle" font-size="9.5" fill="#616161">驱动 GPIO</text>
+</svg>
+<figcaption>图 5 · 模式状态图：绿=新增指令入口与转移，橙虚线=预留，灰=上游原有；急停（红）从所有模式汇聚到 Idle</figcaption>
+</figure>
+<h2>七、新增图 3 · 数据流图（全系统）</h2>
+<p>灰色路径为上游语音链路（本次未改），<b>绿色路径/节点为本次新增</b>，橙色虚线为预留。</p>
+<figure>
+<svg viewBox="0 0 680 400" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<marker id="d1" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#9E9E9E"/></marker>
+<marker id="d2" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#2E7D32"/></marker>
+<marker id="d3" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#EF6C00"/></marker>
+</defs>
+<rect width="680" height="400" fill="#FFFFFF"/>
+<!-- 输入列 -->
+<text x="86" y="26" text-anchor="middle" font-size="11" font-weight="700" fill="#616161">输入</text>
+<rect x="20" y="40" width="132" height="34" rx="5" fill="#FAFAFA" stroke="#BDBDBD"/>
+<text x="86" y="55" text-anchor="middle" font-size="11" font-weight="600">INMP441 麦克风</text>
+<text x="86" y="69" text-anchor="middle" font-size="9.5" fill="#616161">I²S 16kHz</text>
+<rect x="20" y="150" width="132" height="34" rx="5" fill="#E8EAF6" stroke="#3F51B5" stroke-width="1.8"/>
+<text x="86" y="165" text-anchor="middle" font-size="11" font-weight="700" fill="#3F51B5">Android App</text>
+<text x="86" y="179" text-anchor="middle" font-size="9.5" fill="#616161">控制指令来源</text>
+<rect x="20" y="250" width="132" height="34" rx="5" fill="#FFF3E0" stroke="#EF6C00" stroke-dasharray="4 3"/>
+<text x="86" y="265" text-anchor="middle" font-size="11" font-weight="700" fill="#E65100">巡线/测距传感器</text>
+<text x="86" y="279" text-anchor="middle" font-size="9.5" fill="#616161">预留：巡逻与避障</text>
+<rect x="20" y="330" width="132" height="34" rx="5" fill="#FFF3E0" stroke="#EF6C00" stroke-dasharray="4 3"/>
+<text x="86" y="345" text-anchor="middle" font-size="11" font-weight="700" fill="#E65100">键盘/模式键</text>
+<text x="86" y="359" text-anchor="middle" font-size="9.5" fill="#616161">BOOT(0) / 模式键(9)</text>
+
+<!-- 处理列 -->
+<text x="340" y="26" text-anchor="middle" font-size="11" font-weight="700" fill="#616161">处理（ESP32-S3 · ai-dog-s3）</text>
+<rect x="190" y="40" width="300" height="34" rx="5" fill="#FAFAFA" stroke="#BDBDBD"/>
+<text x="340" y="55" text-anchor="middle" font-size="11" font-weight="600">音频采集 → Opus 编码</text>
+<text x="340" y="69" text-anchor="middle" font-size="9.5" fill="#616161">（上游 audio_service）</text>
+<rect x="190" y="86" width="300" height="34" rx="5" fill="#FAFAFA" stroke="#BDBDBD"/>
+<text x="340" y="101" text-anchor="middle" font-size="11" font-weight="600">WebSocket / MQTT 协议栈</text>
+<text x="340" y="115" text-anchor="middle" font-size="9.5" fill="#616161">（上游 protocols/）</text>
+<rect x="190" y="146" width="300" height="44" rx="5" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2"/>
+<text x="340" y="164" text-anchor="middle" font-size="11.5" font-weight="700" fill="#2E7D32">局域网 HTTP 控制服务（80 端口）</text>
+<text x="340" y="180" text-anchor="middle" font-size="10" fill="#616161">esp_http_server + ControlServer（本次新增）</text>
+<rect x="190" y="200" width="300" height="40" rx="5" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2"/>
+<text x="340" y="217" text-anchor="middle" font-size="11" font-weight="700" fill="#2E7D32">模式状态（Idle/Chat/Patrol/Guard）</text>
+<text x="340" y="232" text-anchor="middle" font-size="10" fill="#616161">互斥 + 急停最高优先级</text>
+<rect x="190" y="252" width="300" height="40" rx="5" fill="#FFF3E0" stroke="#EF6C00" stroke-dasharray="5 3"/>
+<text x="340" y="269" text-anchor="middle" font-size="11" font-weight="700" fill="#E65100">运动控制（电机 PWM / 巡线）</text>
+<text x="340" y="284" text-anchor="middle" font-size="10" fill="#616161">待硬件实现，经回调接入</text>
+<rect x="190" y="306" width="300" height="34" rx="5" fill="#FFF3E0" stroke="#EF6C00" stroke-dasharray="5 3"/>
+<text x="340" y="322" text-anchor="middle" font-size="11" font-weight="700" fill="#E65100">看门声检测（能量阈值）</text>
+<text x="340" y="336" text-anchor="middle" font-size="10" fill="#616161">预留：纯本地，断网可用</text>
+
+<!-- 输出列 -->
+<text x="596" y="26" text-anchor="middle" font-size="11" font-weight="700" fill="#616161">输出</text>
+<rect x="516" y="40" width="144" height="34" rx="5" fill="#FAFAFA" stroke="#BDBDBD"/>
+<text x="588" y="55" text-anchor="middle" font-size="11" font-weight="600">xiaozhi.me 云端</text>
+<text x="588" y="69" text-anchor="middle" font-size="9.5" fill="#616161">ASR → LLM → TTS</text>
+<rect x="516" y="146" width="144" height="44" rx="5" fill="#E8EAF6" stroke="#3F51B5" stroke-width="1.8"/>
+<text x="588" y="164" text-anchor="middle" font-size="11" font-weight="700" fill="#3F51B5">Android App</text>
+<text x="588" y="180" text-anchor="middle" font-size="9.5" fill="#616161">状态 JSON（2s 轮询）</text>
+<rect x="516" y="252" width="144" height="40" rx="5" fill="#FFF3E0" stroke="#EF6C00" stroke-dasharray="5 3"/>
+<text x="588" y="269" text-anchor="middle" font-size="11" font-weight="700" fill="#E65100">TB6612 → 电机</text>
+<text x="588" y="284" text-anchor="middle" font-size="9.5" fill="#616161">左 GPIO11-13 右 14/21/47</text>
+<rect x="516" y="330" width="144" height="34" rx="5" fill="#FFF3E0" stroke="#EF6C00" stroke-dasharray="5 3"/>
+<text x="588" y="345" text-anchor="middle" font-size="11" font-weight="700" fill="#E65100">MAX98357 狗叫</text>
+<text x="588" y="359" text-anchor="middle" font-size="9.5" fill="#616161">I²S 功放（7/15/16）</text>
+
+<!-- 连线：原有 -->
+<line x1="152" y1="57" x2="190" y2="57" stroke="#9E9E9E" marker-end="url(#d1)"/>
+<line x1="490" y1="57" x2="516" y2="57" stroke="#9E9E9E" marker-end="url(#d1)"/>
+<text x="503" y="50" text-anchor="middle" font-size="9" fill="#9E9E9E">音频上行</text>
+<line x1="516" y1="69" x2="490" y2="103" stroke="#9E9E9E" marker-end="url(#d1)"/>
+<text x="512" y="94" text-anchor="middle" font-size="9" fill="#9E9E9E">TTS 下行</text>
+<line x1="86" y1="330" x2="190" y2="57" stroke="#EF6C00" stroke-dasharray="4 3" marker-end="url(#d3)"/>
+<text x="140" y="300" font-size="9" fill="#E65100">按键（原有→聊天）</text>
+<!-- 连线：新增 -->
+<line x1="152" y1="167" x2="190" y2="167" stroke="#2E7D32" marker-end="url(#d2)"/>
+<text x="171" y="160" text-anchor="middle" font-size="9" fill="#2E7D32">HTTP</text>
+<line x1="340" y1="190" x2="340" y2="200" stroke="#2E7D32" marker-end="url(#d2)"/>
+<line x1="490" y1="167" x2="516" y2="167" stroke="#2E7D32" marker-end="url(#d2)"/>
+<text x="503" y="160" text-anchor="middle" font-size="9" fill="#2E7D32">状态</text>
+<line x1="190" y1="220" x2="20" y2="220" stroke="#2E7D32" stroke-dasharray="5 3" marker-end="url(#d2)"/>
+<text x="105" y="212" text-anchor="middle" font-size="9" fill="#2E7D32">无传感器（占位）</text>
+<line x1="190" y1="267" x2="516" y2="267" stroke="#EF6C00" stroke-dasharray="5 3" marker-end="url(#d3)"/>
+<line x1="340" y1="323" x2="588" y2="347" stroke="#EF6C00" stroke-dasharray="5 3" marker-end="url(#d3)"/>
+<text x="470" y="316" font-size="9" fill="#E65100">狗叫（本地）</text>
+</svg>
+<figcaption>图 6 · 全系统数据流：绿=本次新增链路（App → HTTP → 控制服务 → 状态机），橙虚线=预留，灰=上游原有语音链路</figcaption>
+</figure>
+<h2>八、本版（v2）的改动说明</h2>
+<h3>8.1 相比 v1 新增什么</h3>
+<table>
+<tr><th style="width:22%">新增内容</th><th>说明</th></tr>
+<tr><td>时序图（图 4）</td><td>三类交互：状态轮询（WS 失败降级 2s）、模式切换、急停。新增链路用绿框整体标出</td></tr>
+<tr><td>状态图（图 5）</td><td>四模式状态机 + 最高优先级急停。新增指令入口（App）与转移用绿色，预留（Guard/运动）用橙色虚线，上游原有（BOOT 键）用灰色</td></tr>
+<tr><td>数据流图（图 6）</td><td>全系统数据流：麦克风/传感器/App → 处理 → 云端/App/电机/功放。新增控制链路绿色，预留橙色虚线，上游灰色</td></tr>
+<tr><td>图例规范</td><td>确立三色标注约定：绿实线=本次新增/改动、橙虚线=待实现/预留、灰=原有</td></tr>
+<tr><td>修改历史</td><td>新增版本登记表 + 文档版本化规则</td></tr>
+</table>
+<h3>8.2 图中"改动部分"是如何标注的</h3>
+<ul>
+<li><b>图 1（架构分层）</b>：整块绿框圈出 <code>ai-dog-s3</code> 板级目录，框内两个模块分别标注行数（<code>ai_dog_control</code> 423 行新增、<code>ai_dog_s3_board.cc</code> +40 行）。</li>
+<li><b>图 4（时序）</b>：绿虚线框圈住 <code>esp_http_server</code> / <code>ControlServer</code> / 运动模块三列，注明"本次新增：设备端控制服务"。</li>
+<li><b>图 5（状态）</b>：绿框标注"新增入口"（App 指令），急停转移用红色汇聚到 Idle，预留节点橙色虚线。</li>
+<li><b>图 6（数据流）</b>：处理列中绿色实线框的两个节点为新增（HTTP 控制服务、模式状态），其余按灰/橙区分。</li>
+</ul>
+
+<h2>九、前后对比（要点回顾）</h2>
+<div class="ba" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+<div style="border:1px solid #E0E0E0;border-radius:8px;overflow:hidden">
+<div style="padding:8px 14px;background:#F0F0F0;color:#9E9E9E;font-weight:600">改动前</div>
+<div style="padding:12px 14px;font-size:13.5px">
+<ul style="margin:0;padding-left:18px">
+<li>只有语音上云，无外部控制入口</li>
+<li>默认板级假设有 OLED，未接线即报错</li>
+<li>状态不可见、无急停通道</li>
+<li>配网只能靠热点/网页</li>
+<li>构建要连续踩 5 个环境坑</li>
+</ul></div></div>
+<div style="border:1px solid #E0E0E0;border-radius:8px;overflow:hidden">
+<div style="padding:8px 14px;background:#E8F5E9;color:#2E7D32;font-weight:600">改动后</div>
+<div style="padding:12px 14px;font-size:13.5px">
+<ul style="margin:0;padding-left:18px">
+<li>App 可看状态、切模式、急停、配网</li>
+<li><code>ai-dog-s3</code> 板级：无屏无 LED，即编即用</li>
+<li>指令经状态机，HTTP 层不直接驱动 GPIO</li>
+<li>控制服务只在 STA 联网后启动，避开配网端口冲突</li>
+<li>构建脚本内置 5 项环境修正</li>
+</ul></div></div>
+</div>
+
+
+<h2>七之二、新增图 4 · 语音控制模式切换链路（v3）</h2>
+<p>这条链路复用了 xiaozhi 既有的语音通道，<b>设备端只新增一个 MCP 工具</b>，不另造轮子。</p>
+<figure>
+<svg viewBox="0 0 680 300" width="100%" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>语音控制模式切换链路：用户语音经云端 LLM 调用设备端 MCP 工具 self.dog.set_mode</title>
+<defs>
+<marker id="g1" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#2E7D32"/></marker>
+<marker id="g2" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#9E9E9E"/></marker>
+</defs>
+<rect width="680" height="300" fill="#FFFFFF"/>
+<text x="340" y="22" text-anchor="middle" font-size="12.5" font-weight="700">「开始巡逻」→ 设备反问 → 「确认」→ 切换</text>
+<rect x="20" y="46" width="120" height="46" rx="6" fill="#EEEDFE" stroke="#534AB7" stroke-width="1.5"/>
+<text x="80" y="66" text-anchor="middle" font-size="11.5" font-weight="700" fill="#3C3489">用户语音</text>
+<text x="80" y="82" text-anchor="middle" font-size="10" fill="#616161">唤醒词后说话</text>
+<rect x="190" y="46" width="140" height="46" rx="6" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="260" y="66" text-anchor="middle" font-size="11.5" font-weight="600">xiaozhi.me 云端</text>
+<text x="260" y="82" text-anchor="middle" font-size="10" fill="#616161">ASR → LLM（原有）</text>
+<rect x="380" y="46" width="150" height="46" rx="6" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2.5"/>
+<text x="455" y="66" text-anchor="middle" font-size="11.5" font-weight="700" fill="#2E7D32">MCP 工具</text>
+<text x="455" y="82" text-anchor="middle" font-size="10" fill="#616161">self.dog.set_mode（新增）</text>
+<rect x="580" y="46" width="80" height="46" rx="6" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2.5"/>
+<text x="620" y="66" text-anchor="middle" font-size="11.5" font-weight="700" fill="#2E7D32">设备端</text>
+<text x="620" y="82" text-anchor="middle" font-size="10" fill="#616161">执行切换</text>
+<line x1="140" y1="69" x2="190" y2="69" stroke="#534AB7" marker-end="url(#g2)"/>
+<text x="165" y="62" text-anchor="middle" font-size="9.5" fill="#616161">音频</text>
+<line x1="330" y1="69" x2="380" y2="69" stroke="#2E7D32" marker-end="url(#g1)"/>
+<text x="355" y="62" text-anchor="middle" font-size="9.5" fill="#2E7D32">tools/call</text>
+<line x1="530" y1="69" x2="580" y2="69" stroke="#2E7D32" marker-end="url(#g1)"/>
+<rect x="190" y="126" width="340" height="58" rx="6" fill="#FFF3E0" stroke="#EF6C00" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="360" y="148" text-anchor="middle" font-size="11" font-weight="700" fill="#E65100">LLM 侧二次确认（写在工具描述里）</text>
+<text x="360" y="166" text-anchor="middle" font-size="10" fill="#616161">patrol / guard 必须先反问「要开始巡逻吗？」得到「确认」才调用</text>
+<rect x="20" y="212" width="180" height="56" rx="6" fill="#E8EAF6" stroke="#3F51B5" stroke-width="1.5"/>
+<text x="110" y="234" text-anchor="middle" font-size="11" font-weight="700" fill="#3F51B5">ControlServer</text>
+<text x="110" y="250" text-anchor="middle" font-size="10" fill="#616161">SetMode()（原有）</text>
+<rect x="240" y="212" width="180" height="56" rx="6" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2.5"/>
+<text x="330" y="234" text-anchor="middle" font-size="11" font-weight="700" fill="#2E7D32">ai_dog_mcp_tool.cc</text>
+<text x="330" y="250" text-anchor="middle" font-size="10" fill="#616161">本次新增 92 行：校验 + Alert 反馈</text>
+<rect x="460" y="212" width="200" height="56" rx="6" fill="#F1EFE8" stroke="#5F5E5A" stroke-width="0.5"/>
+<text x="560" y="234" text-anchor="middle" font-size="11" font-weight="600">语音 + OLED 反馈</text>
+<text x="560" y="250" text-anchor="middle" font-size="10" fill="#616161">Application::Alert（原有）</text>
+<path d="M 455 92 L 455 212" stroke="#2E7D32" fill="none" marker-end="url(#g1)"/>
+<text x="466" y="150" font-size="9.5" fill="#2E7D32">回调在主线程执行</text>
+<line x1="200" y1="240" x2="240" y2="240" stroke="#2E7D32" marker-end="url(#g1)"/>
+<line x1="420" y1="240" x2="460" y2="240" stroke="#2E7D32" marker-end="url(#g1)"/>
+</svg>
+<figcaption>图 7 · 语音控制链路：绿框 = 本次新增，橙虚线 = LLM 侧二次确认规则</figcaption>
+</figure>
+
+<h3>7.1 三条设计规则（产品决策，已写入代码注释）</h3>
+<table>
+<tr><th style="width:26%">规则</th><th>实现方式</th></tr>
+<tr><td>二次确认</td><td>工具 description 中明确要求 LLM：patrol/guard 调用前必须先向用户复述并获得同意。由云端 LLM 执行，设备端不增加状态机复杂度</td></tr>
+<tr><td>最后到达者优先</td><td>语音与 App 都调 <code>ControlServer::SetMode()</code>，天然满足；急停例外（只从 App 下发）</td></tr>
+<tr><td>无机械动作可直接切</td><td>idle/chat 不需确认，description 中显式标注 safe</td></tr>
+</table>
+
+<h2>十、改动流程（后续必须遵守）</h2>
+
+<ol style="line-height:2">
+<li><b>先澄清再动手</b>：需求不清先问清关键决策，不猜测。</li>
+<li><b>确认落点</b>：只动 <code>boards/ai-dog-s3/</code> 与 <code>android/</code>，不侵入上游。</li>
+<li><b>写代码</b>：中文注释写"为什么"；安全逻辑（急停、互斥）显式写清。</li>
+<li><b>编译验证</b>：看到真实产物（<code>xiaozhi.bin</code> / <code>app-debug.apk</code>）才算过，禁止"应该能编过"。</li>
+<li><b>提交 git</b>：固件仓库一条改动一次提交。</li>
+<li><b>更新文档与记忆</b>：同步 <code>docs/</code> 与 <code>.workbuddy-ai/memory/</code>。</li>
+<li><b>本文档版本化更新</b>：改动发生后<b>新建版本文件</b>（如 v3），在图中把新改动用绿框标出，并在"修改历史"登记。</li>
+</ol>
+
+<h2>十一、当前未完成项</h2>
+<table>
+<tr><th style="width:32%">项目</th><th style="width:12%">状态</th><th>说明</th></tr>
+<tr><td>电池采样（GPIO8 ADC）</td><td>未接</td><td><code>battery</code> 返回 -1，App 显示"无采样"；需真机标定分压比</td></tr>
+<tr><td>WebSocket 状态推送</td><td>未实现</td><td>App 自动降级 2 秒轮询，当前可用</td></tr>
+<tr><td>运动控制 / 巡线 / 避障</td><td>占位</td><td>回调已留好，等硬件到位接入</td></tr>
+<tr><td>看门声检测 + 本地狗叫</td><td>未开始</td><td>纯本地、断网可用（PRD FR-11~14）</td></tr>
+<tr><td>3D 外壳</td><td>未开始</td><td>需真实器件尺寸，安排在 M5</td></tr>
+<tr><td>真机联调</td><td>阻塞中</td><td>硬件在途</td></tr>
+</table>
+
+
+<h2>十二、v4 增量：遥控链路与精简项</h2>
+<p class="note">以上 v1–v3 图表保留为历史快照，其中“四模式”“运动模块预留”“无屏”等描述已过时；当前已有 Remote 第五模式、OLED 与电机驱动代码。下表和新图描述本次核查的实际状态，电机 GPIO 仍待实物验证。</p>
+<h3>12.1 改动清单（v4）</h3>
+<table><tr><th>文件</th><th>改动</th><th>理由</th></tr>
+<tr><td><code>android/.../api/DeviceApi.java</code></td><td>停车优先保留一条 pending stop；状态监听增加 generation；移除未使用的 pushCallback/getBaseUrl</td><td>10Hz 运动请求占线时不能吞掉松手停车；旧 WS 失败不得在 onPause 后重启轮询</td></tr>
+<tr><td><code>android/app/build.gradle</code></td><td>核对依赖声明并保留 RecyclerView / ConstraintLayout 版本约束</td><td>Material 传递依赖引入更旧版本；移除直接声明后离线构建无法解析，故不做破坏性精简</td></tr>
+<tr><td><code>firmware/build-ai-dog.ps1</code></td><td>每次 idf.py 后立即检查退出码；禁用 ccache</td><td>避免 set-target 失败被后续 build 覆盖；避免首次构建临时缓存路径故障</td></tr>
+<tr><td><code>tools/sim_dog.py</code></td><td>删除空操作；限制 POST JSON 顶层为对象；切模式清运动状态；uptime 改为单调运行时长</td><td>模拟器与固件的模式切换停车语义保持一致</td></tr></table>
+<h3>12.2 前后对比：从“可丢的运动指令”到“不可丢的停车指令”</h3>
+<figure><svg viewBox="0 0 680 250" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>遥控并发行为改造前后对比</title><rect width="680" height="250" fill="#FFFFFF"/>
+<rect x="12" y="20" width="310" height="194" rx="8" fill="#F5F5F5" stroke="#9E9E9E" stroke-width="2"/>
+<text x="167" y="50" text-anchor="middle" font-size="16" font-weight="700" fill="#424242">改动前：旧逻辑</text>
+<text x="28" y="86" font-size="13" fill="#424242">① forward 在途（网络慢）</text><text x="28" y="119" font-size="13" fill="#424242">② 松手 stop 因 moveInFlight 被丢弃</text>
+<text x="28" y="152" font-size="13" fill="#424242">③ 只能等设备端 1.5s 看门狗兜底</text><text x="28" y="187" font-size="13" fill="#616161">旧 WS 失败回调也可能重启轮询</text>
+<rect x="358" y="20" width="310" height="194" rx="8" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2.5"/>
+<text x="513" y="50" text-anchor="middle" font-size="16" font-weight="700" fill="#2E7D32">改动后：优先停车</text>
+<text x="374" y="86" font-size="13" fill="#212121">① forward 在途，重复运动仍丢弃</text><text x="374" y="119" font-size="13" fill="#212121">② 松手 stop 保留一条，不堆积</text>
+<text x="374" y="152" font-size="13" fill="#212121">③ forward 结束，先发 stop 再回调</text><text x="374" y="187" font-size="13" fill="#2E7D32">监听代数让旧回调自动失效</text>
+<text x="340" y="238" text-anchor="middle" font-size="12" fill="#616161">设备端 Remote 独占 + 1.5s 看门狗 + 急停仍保留；不会以优化名义删除安全冗余</text>
+</svg><figcaption>图 8 · 灰框为旧逻辑；绿实线框为 v4 变更；硬件安全兜底维持不变</figcaption></figure>
+
+<h2>十三、v5 增量：去冗余与配置精简</h2>
+<p class="note">本次为<b>纯清理</b>：不新增功能、不改协议、不动安全冗余（三层停车、Remote 独占、1.5s 看门狗全部保留）。Android 侧出 APK、固件侧 <code>idf.py build</code> 均通过后才提交。</p>
+
+<h3>13.1 改动清单（v5）</h3>
+<table>
+<tr><th style="width:26%">文件</th><th style="width:38%">改动</th><th>理由</th></tr>
+<tr><td><code>android/.../Prefs.java</code> <span class="tag tag-new">新增</span></td><td>收口设备 IP 的 SharedPreferences 文件名与 key</td><td>MainActivity 与 SetupActivity 原先各自定义一套 <code>PREFS</code>/<code>KEY_IP</code>，改一处漏一处就会读不到对方写的值</td></tr>
+<tr><td><code>android/.../model/DeviceStatus.java</code></td><td><code>modeLabel</code> 增加静态重载，实例方法改为委托</td><td>界面提示语原先在 MainActivity 里复制了同一套模式名映射，两处容易走偏</td></tr>
+<tr><td><code>android/.../api/DeviceApi.java</code></td><td>抽出 <code>enqueuePost()</code>，<code>move()</code> 不再复制整段 POST + 成功判定 + 主线程回调</td><td>约 30 行逐字重复；改判成功条件时只改一份，不会漏掉 <code>/api/move</code></td></tr>
+<tr><td><code>android/.../MainActivity.java</code></td><td>模式按钮改表驱动（<code>modeButtons</code>），打 tag 与高亮共用同一份映射；删除本地 <code>modeLabel</code>；5 处硬编码中文提示改为 <code>strings.xml</code></td><td>原先 5 个按钮要列两遍（setTag 一遍、高亮 if-else 一遍）；中英文案混在代码里不利于统一</td></tr>
+<tr><td><code>firmware/.../ai_dog_control.{h,cc}</code></td><td>删除 <code>MoveDirectionToString()</code> 与 <code>IsRunning()</code>；新增 <code>ParseJsonBody()</code> / <code>SendOkWith()</code>；看门狗 stop 改为聚合初始化</td><td>两个接口全项目零调用（方向只需"字符串→枚举"一向）；三个 handler 各自重复"读 body + 解析"和"拼 <code>{"ok":true,...}</code>"</td></tr>
+<tr><td><code>firmware/build-ai-dog.ps1</code></td><td>删除 <code>.ccache</code> 目录创建与 <code>CCACHE_DIR</code>；合并重复的 ASCII 编码警告注释；新增 <code>-Jobs</code> 并把 <code>idf.py build</code> 换成直接调 <code>ninja</code>；收尾日志不再写死 "idf.py"</td><td>ccache 已禁用，缓存目录是死配置；<code>idf.py</code> 用 Python 管道接 ninja 的 stdout，本环境下会让 ninja 中途 <code>0xC0000005</code> 崩溃，表现为"编译报错"的假失败</td></tr>
+<tr><td><code>.gitignore</code></td><td>移除 <code>firmware/.ccache/</code></td><td>与上一条同步，避免保留指向不存在目录的规则</td></tr>
+<tr><td><code>tools/sim_dog.py</code></td><td>删除只写不读的 <code>last</code> / <code>last_speed</code> 统计字段；抽出 <code>end_hold()</code></td><td>三处重复"清计时起点 + 置 stop"；死字段让人误以为有统计用途</td></tr>
+</table>
+
+<h3>13.2 刻意保留、不做"精简"的三处</h3>
+<table>
+<tr><th style="width:34%">项</th><th>为什么保留</th></tr>
+<tr><td><code>RecyclerView</code> / <code>ConstraintLayout</code> 显式版本约束</td><td>Material 的传递依赖会引入更旧版本，删掉直接声明后离线构建会解析失败（v4 已验证）</td></tr>
+<tr><td>三层停车保护（App 松手发 stop / 单条在途不堆积 / 设备端看门狗）</td><td>安全冗余不能为了"代码更短"削减</td></tr>
+<tr><td>状态 setter（<code>SetMoving</code> / <code>SetBatteryPercent</code> / <code>SetCharging</code>）</td><td>电池采样与运动模块的接入点，硬件到位即调用；属预留接口不是死代码</td></tr>
+</table>
+
+<h3>13.3 前后对比：重复逻辑收口</h3>
+<figure><svg viewBox="0 0 680 250" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>去冗余前后对比</title><rect width="680" height="250" fill="#FFFFFF"/>
+<rect x="12" y="20" width="310" height="194" rx="8" fill="#F5F5F5" stroke="#9E9E9E" stroke-width="2"/>
+<text x="167" y="50" text-anchor="middle" font-size="16" font-weight="700" fill="#424242">改动前：逻辑散落重复</text>
+<text x="28" y="86" font-size="13" fill="#424242">① 两份 PREFS/KEY_IP 常量</text>
+<text x="28" y="119" font-size="13" fill="#424242">② 两份模式名中文映射</text>
+<text x="28" y="152" font-size="13" fill="#424242">③ move() 复制整段 POST 逻辑</text>
+<text x="28" y="187" font-size="13" fill="#616161">④ 5 个按钮在两处各列一遍</text>
+<rect x="358" y="20" width="310" height="194" rx="8" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2.5"/>
+<text x="513" y="50" text-anchor="middle" font-size="16" font-weight="700" fill="#2E7D32">改动后：单一来源</text>
+<text x="374" y="86" font-size="13" fill="#212121">① Prefs 统一收口存储 key</text>
+<text x="374" y="119" font-size="13" fill="#212121">② DeviceStatus.modeLabel 单一映射</text>
+<text x="374" y="152" font-size="13" fill="#212121">③ enqueuePost 一份网络逻辑</text>
+<text x="374" y="187" font-size="13" fill="#2E7D32">④ modeButtons 表驱动</text>
+<text x="340" y="238" text-anchor="middle" font-size="12" fill="#616161">安全冗余与构建依赖约束不在精简范围内；行为与协议完全不变</text>
+</svg><figcaption>图 9 · 灰框为旧结构；绿实线框为 v5 变更；协议、交互与安全逻辑保持一致</figcaption></figure>
+
+<h2>十四、v6 增量：文案资源化、路由表收口与工具死代码清理</h2>
+<p class="note">同为<b>纯清理</b>：不新增功能、不改协议、不动安全冗余。Android <code>assembleDebug</code> 出 APK、固件 <code>ninja</code> 出 <code>xiaozhi.bin</code>、<code>tools/wire_check.py</code> 输出与清理前逐行一致后才提交。</p>
+
+<h3>14.1 改动清单（v6）</h3>
+<table>
+<tr><th style="width:26%">文件</th><th style="width:38%">改动</th><th>理由</th></tr>
+<tr><td><code>android/.../res/layout/activity_main.xml</code> <span class="tag tag-new">改动</span></td><td>5 处硬编码中文（<code>设备：未设置</code>/<code>状态</code>/<code>遥控</code>/<code>无</code>/<code>60%</code>）改为 <code>@string/…</code>；速度文案由代码写入</td><td>与 strings.xml、Java 提示语各写一套，改文案必漏一处</td></tr>
+<tr><td><code>android/.../res/values/strings.xml</code></td><td>新增 <code>device_ip_value</code> / <code>value_none</code> / <code>section_status</code> / <code>section_remote</code> / <code>speed_value</code></td><td>给上一条提供单一文案来源</td></tr>
+<tr><td><code>android/.../MainActivity.java</code></td><td>默认速度改为从 SeekBar 的 <code>android:progress</code> 读回；删掉高亮时重复设置的同一文字颜色</td><td>"默认 60"原先在布局进度、Java 常量、文案初值三处各写一遍；两个分支的文字颜色取值相同，第二次赋值是纯冗余</td></tr>
+<tr><td><code>android/.../api/DeviceApi.java</code></td><td>抽出 <code>MSG_NO_IP</code> 常量</td><td>"未设置设备 IP"在 3 个方法里各写一遍字面量</td></tr>
+<tr><td><code>android/.../res/values/colors.xml</code></td><td>删除 <code>text_primary</code></td><td>全项目零引用</td></tr>
+<tr><td><code>firmware/.../ai_dog_control.cc</code></td><td>5 个 <code>httpd_uri_t</code> 结构体 + 5 次注册改为 <code>routes[]</code> 路由表循环注册</td><td>除 uri/method/handler 外字段完全相同，约 35 行逐字重复；新增接口只改表一项</td></tr>
+<tr><td><code>firmware/build-ai-dog.ps1</code></td><td>移除 <code>IDF_PY_BUILD_JOBS</code></td><td>构建已改为直接调 ninja，该环境变量不再被任何环节读取，是 v5 遗留的死开关</td></tr>
+<tr><td><code>tools/wire_check.py</code></td><td>删除空循环 <code>for … : pass</code>、未使用的 <code>wl</code> 集合、单次使用的 <code>g_ctrl()</code> 包装</td><td>三处都不参与任何判定；删除后校验输出与清理前逐行一致</td></tr>
+<tr><td><code>tools/gen_breadboard_z.py</code></td><td>删除紧邻重复的 <code>make_tcrt()</code> 定义（6 参版）</td><td>后一个 9 参版立即覆盖前者，前者是从未被调用的历史草稿</td></tr>
+</table>
+
+<h3>14.2 前后对比：从"三处各写一遍"到"单一来源"</h3>
+<figure><svg viewBox="0 0 680 250" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>v6 去冗余前后对比</title><rect width="680" height="250" fill="#FFFFFF"/>
+<rect x="12" y="20" width="310" height="194" rx="8" fill="#F5F5F5" stroke="#9E9E9E" stroke-width="2"/>
+<text x="167" y="50" text-anchor="middle" font-size="16" font-weight="700" fill="#424242">改动前：字面量散落</text>
+<text x="28" y="86" font-size="13" fill="#424242">① 布局 5 处硬编码中文</text>
+<text x="28" y="119" font-size="13" fill="#424242">② 默认速度 60 写三遍</text>
+<text x="28" y="152" font-size="13" fill="#424242">③ 5 个路由逐个建结构体</text>
+<text x="28" y="187" font-size="13" fill="#616161">④ 死开关 / 死集合无人清理</text>
+<rect x="358" y="20" width="310" height="194" rx="8" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2.5"/>
+<text x="513" y="50" text-anchor="middle" font-size="16" font-weight="700" fill="#2E7D32">改动后：单一来源</text>
+<text x="374" y="86" font-size="13" fill="#212121">① strings.xml 统一文案</text>
+<text x="374" y="119" font-size="13" fill="#212121">② 进度条初值 = 唯一定义点</text>
+<text x="374" y="152" font-size="13" fill="#212121">③ routes[] 表驱动注册</text>
+<text x="374" y="187" font-size="13" fill="#2E7D32">④ 死代码删除，行为不变</text>
+<text x="340" y="238" text-anchor="middle" font-size="12" fill="#616161">协议字段、安全冗余、构建依赖约束均未改动；路由 URI 与请求方法保持原样</text>
+</svg><figcaption>图 10 · 灰框为旧结构；绿实线框为 v6 变更；行为与协议保持一致</figcaption></figure>
+
+<h3>15.1 为什么撤（问题怎么被发现的）</h3>
+<p>用户在确认面包板接线时问了一句"<b>TCRT 插在面包板上，还能照到地板上吗</b>"——这一问直接推翻元件 4 的可行性：</p>
+<table>
+<tr><th style="width:22%">维度</th><th>实际约束</th><th style="width:24%">后果</th></tr>
+<tr><td>传感器朝向</td><td>TCRT5000 模块的发射/接收头在 PCB <b>正面</b>，插进面包板后镜头朝上（朝天花板）</td><td>被测地面在模块背后，根本照不到</td></tr>
+<tr><td>有效量程</td><td>0.2–15mm（典型工作距 5–10mm）</td><td>面包板厚 9mm + 狗底盘离地几十 mm，双重超程</td></tr>
+<tr><td>裸装件折弯</td><td>三脚 TCRT 直插也是头朝上，要朝下必须折脚 180°</td><td>反复折弯会断，不可靠</td></tr>
+</table>
+<div class="note">结论：这不是"调一下参数就能用"的问题，而是<b>安装形态与测量原理冲突</b>。真要做巡迹，必须把探头做成独立朝下的小板挂底盘前缘（离地 5–10mm），5 根杜邦线回主控——面包板继续当大脑，探头不上面包板。</div>
+
+<h3>15.2 改动清单（v7）</h3>
+<table>
+<tr><th style="width:30%">文件</th><th style="width:36%">改动</th><th>理由</th></tr>
+<tr><td><code>firmware/.../config.h</code> <span class="tag tag-new">改动</span></td><td>删除 <code>LINE_SENSOR_1..5_GPIO</code> 五行；<code>DOG_I2C_*</code> 注释由"VL53L0X 前向测距"改为"前倾 30° 防跌落 + 近距防撞"</td><td>grep 全工程确认这两个符号<b>零代码引用</b>（只有宏定义本身），按项目判定标准属"零调用且无规划调用方"的死宏；留着会让人以为巡线还在计划里</td></tr>
+<tr><td><code>tools/gen_breadboard_z.py</code></td><td>删除 <code>make_tcrt()</code> 与 TCRT1–5 五个实例、<code>COMPONENTS</code> 移除 5 项；新增 <code>vl53_side_view()</code> 侧视小图；图例"元件 4"改为撤销说明 + 前倾几何；标题/副标题/账目同步</td><td>图必须反映真实装配方案；TCRT 本体 134 挡孔 + 33 落孔一并退回</td></tr>
+<tr><td><code>tools/wire_check.py</code></td><td>删除 15 条 TCRT 白名单、<code>obstacles()</code> 中 <code>startswith("tcrt")</code> 分支</td><td>被豁免对象已不存在，留着是永远不命中的死条目</td></tr>
+<tr><td><code>docs/source/breadboard-z.svg</code> / <code>-outline.svg</code></td><td>重新生成：occupied 117→86、blocked 269→135、free 1274→1439</td><td>与生成器同源</td></tr>
+<tr><td><code>docs/硬件接线方案-v9.html</code></td><td>新建版本文件（v8 保留）：撤销说明、前倾几何表、补登元件 3 明细</td><td>版本化规则：不覆盖旧版</td></tr>
+</table>
+<div class="ok"><b>固件验证：</b>改动后跑 <code>build-ai-dog.ps1</code>，出 <code>xiaozhi.bin</code>（0x281a50 字节，剩余 36%），编译零错误零警告。因为删的是纯宏、且无引用方，编译产物行为不变。</div>
+
+<h3>15.3 前后对比：从"扫地面"到"看桌沿"</h3>
+<figure><svg viewBox="0 0 680 290" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>v7 撤销 TCRT 阵列前后对比</title><rect width="680" height="290" fill="#FFFFFF"/>
+<rect x="12" y="16" width="310" height="228" rx="8" fill="#F5F5F5" stroke="#9E9E9E" stroke-width="2"/>
+<text x="167" y="42" text-anchor="middle" font-size="15" font-weight="700" fill="#424242">改动前：5 只 TCRT 插在板上</text>
+<rect x="30" y="58" width="274" height="16" fill="#D3D1C7" stroke="#888780"/>
+<text x="167" y="70" text-anchor="middle" font-size="10" fill="#444441">面包板</text>
+<rect x="60" y="44" width="26" height="14" fill="#F7C1C1" stroke="#A32D2D"/>
+<rect x="100" y="44" width="26" height="14" fill="#F7C1C1" stroke="#A32D2D"/>
+<rect x="140" y="44" width="26" height="14" fill="#F7C1C1" stroke="#A32D2D"/>
+<rect x="180" y="44" width="26" height="14" fill="#F7C1C1" stroke="#A32D2D"/>
+<rect x="220" y="44" width="26" height="14" fill="#F7C1C1" stroke="#A32D2D"/>
+<line x1="73" y1="40" x2="73" y2="26" stroke="#E24B4A" stroke-width="1.5" marker-end="url(#ar2)"/>
+<line x1="113" y1="40" x2="113" y2="26" stroke="#E24B4A" stroke-width="1.5" marker-end="url(#ar2)"/>
+<line x1="153" y1="40" x2="153" y2="26" stroke="#E24B4A" stroke-width="1.5" marker-end="url(#ar2)"/>
+<line x1="193" y1="40" x2="193" y2="26" stroke="#E24B4A" stroke-width="1.5" marker-end="url(#ar2)"/>
+<line x1="233" y1="40" x2="233" y2="26" stroke="#E24B4A" stroke-width="1.5" marker-end="url(#ar2)"/>
+<text x="167" y="22" text-anchor="middle" font-size="10.5" fill="#A32D2D">↑ 全朝上，射向天花板</text>
+<line x1="30" y1="108" x2="304" y2="108" stroke="#BDBDBD" stroke-dasharray="4 3"/>
+<line x1="167" y1="74" x2="167" y2="108" stroke="#888780" stroke-dasharray="3 3"/>
+<text x="176" y="94" font-size="10" fill="#5F5E5A">几十 mm ≫ 15mm 量程</text>
+<rect x="30" y="108" width="274" height="10" fill="#B4B2A9"/>
+<text x="167" y="134" text-anchor="middle" font-size="10.5" fill="#616161">地板（永远测不到）</text>
+<text x="167" y="166" text-anchor="middle" font-size="11.5" fill="#424242">占 5 个 GPIO + 167 孔</text>
+<text x="167" y="188" text-anchor="middle" font-size="11.5" fill="#424242">巡迹 / 防跌落 两项全落空</text>
+<text x="167" y="214" text-anchor="middle" font-size="11.5" fill="#A32D2D">configure 通过、编译通过——图好看但装不上</text>
+
+<rect x="358" y="16" width="310" height="228" rx="8" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2.5"/>
+<text x="513" y="42" text-anchor="middle" font-size="15" font-weight="700" fill="#2E7D32">改动后：单只 VL53 前倾 30°</text>
+<rect x="376" y="96" width="200" height="20" rx="5" fill="#9FE1CB" stroke="#0F6E56"/>
+<text x="476" y="110" text-anchor="middle" font-size="10.5" fill="#085041">狗身</text>
+<circle cx="392" cy="126" r="8" fill="#FFFFFF" stroke="#5F5E5A"/>
+<circle cx="560" cy="126" r="8" fill="#FFFFFF" stroke="#5F5E5A"/>
+<g transform="translate(380 130) rotate(-30)"><rect x="-11" y="-5" width="22" height="10" rx="2" fill="#AFA9EC" stroke="#534AB7"/><rect x="-11" y="-5" width="4" height="10" fill="#26215C"/></g>
+<line x1="380" y1="130" x2="406" y2="130" stroke="#888780" stroke-dasharray="2 2"/>
+<line x1="380" y1="130" x2="392" y2="145" stroke="#E24B4A" stroke-width="1.4" stroke-dasharray="3 2" marker-end="url(#ar2)"/>
+<text x="404" y="136" font-size="10" fill="#444441">30°</text>
+<rect x="376" y="178" width="274" height="9" fill="#B4B2A9"/>
+<text x="592" y="172" font-size="10" fill="#5F5E5A">桌沿</text>
+<line x1="388" y1="150" x2="388" y2="178" stroke="#888780" stroke-dasharray="2 2" marker-start="url(#ar2)" marker-end="url(#ar2)"/>
+<text x="374" y="166" text-anchor="end" font-size="10" fill="#444441">h</text>
+<line x1="392" y1="192" x2="560" y2="192" stroke="#888780" stroke-dasharray="2 2" marker-start="url(#ar2)" marker-end="url(#ar2)"/>
+<text x="476" y="200" text-anchor="middle" font-size="10" fill="#444441">d ≈ 1.7h（h=80mm → ~140mm）</text>
+<text x="513" y="222" text-anchor="middle" font-size="11.5" fill="#212121">1 只传感器 + 2 根 I²C，兼顾防跌落与近障</text>
+
+<text x="340" y="268" text-anchor="middle" font-size="11.5" fill="#616161">释放 GPIO17/18/38/39/40；LED_SENSOR 宏删除（零引用）；账目 occupied 86 / blocked 135 / free 1439</text>
+<defs><marker id="ar2" markerWidth="7" markerHeight="7" refX="6" refY="2.5" orient="auto"><path d="M0,0 L0,5 L6,2.5 z" fill="#616161"/></marker></defs>
+</svg><figcaption>图 11 · 灰框为撤销前的 TCRT 方案（物理不可行）；绿框为 v7 决策后的 VL53 前倾方案</figcaption></figure>
+<p class="note"><b>这条改动的教训：</b>"编译通过 + 校验通过"不等于"能装上"。几何/朝向约束必须在设计阶段就用实物形态去核（谁朝哪、离被测面多远），否则整块图纸都会白画。以后每加一个元件，先问三件事：<b>镜头朝哪、离被测目标多远、有没有东西挡光路</b>。</p>
+
+<footer>v7 为在 v6 基础上保留历史的增量记录；验证结论见本次执行结果。旧版本 HTML 文件均不覆盖。</footer>
+</div></body></html>

@@ -639,124 +639,27 @@ def pin_label(pin):
     return pin["lab"] if isinstance(pin, dict) else pin[2]
 
 
-# 元件 4/9：TCRT5000 五路巡线传感器（用户 2026-10-16 决策：分散阵列；VCC 接 3V3）
-# 实物（docs/source/TCRT5000.svg，Fritzing 零件判读，缩放 0.28227 mm/单位）：
-#   蓝板 24.15×11.09，左端单列 4 针 Vcc/Gnd/Do/Ao（针距 2.52≈2.54，针心在板身左缘外 0.88mm）。
-#   **单列针竖插会整列同网短接（铁律）→ 只能横躺占 4 连续列**；AO 针悬空（config.h 只读 DO）。
-# config.h：LINE_SENSOR_1..5 = GPIO17/18/38/39/40（数字量 DO，不占 ADC）：
-#   GPIO17/18 = k41/k42（Y 板，同列同网须落 l/m/n/o 行 41/42 列）
-#   GPIO38/39/40 = j41/j40/j39（X 板，同列同网须落 f/g/h/i 行 39/40/41 列）
-# X 板的线与 Y 板网跨不过拼接缝（两板导轨仅物理相邻）→ 探头分两排：
-#   排 1（Y 板）：TCRT1 n 行起列 20（GOIO17→DO 跳线 l41）、TCRT2 o 行起列 33（GPIO18→跳线 o42）
-#   排 2（X 板 f 行）：TCRT3 起列 27（GPIO40→跳线 i39）、TCRT4 起列 38（GPIO39，f40 与 j40
-#     同列同网**直连零跳线**）、TCRT5 起列 49（GPIO38→跳线 i41）
-# 起列 27/38/49 + 20/33：本体 24.15mm、起列间隔 11 列（27.94mm）→ 本体间隙 3.87mm、
-# 最左针伸出 1.81mm（伸不进邻舱本体），互不遮挡；TCRT2 本体右缘 112.51 < MAX 左缘 114.30。
-# 电源（用户决策 3V3）：VCC→上内轨 +、GND→上外轨 −（轨孔均避开 ESP32 板身遮挡区
-# x[80.65,137.8]；轨与 3V3/GND 网连通由元件 9 电源区完成，图例注明）。
-def make_tcrt(idx, board, rw, col0, gpio, kind, gnd_pts=None, vcc_ctrl=None, flip=False):
-    """一只 TCRT5000 探头。kind: ("direct",) DO 直连（针列即 GPIO 网列）；
-    ("ctrl",落孔名,ctrl点) 或 ("pts",落孔名,点列)：DO 跳线到 GPIO 同列网孔。
-    gnd_pts：覆盖 GND 线为 pts 折线（TCRT2 绕开麦克风 m32 落孔/标签与板身）；vcc_ctrl 同理。
-    flip：本体翻转（传感器头朝左，本体 x=[spine-25.03, spine-1.81]）——TCRT3 用：
-    直接对准 j39 网列拿直连、本体左缘避开 TCRT5。"""
-    px0 = col_x(col0)
-    spine = px0 + 1.5 * PITCH                 # 4 针排中心
-    py = row_y(board, rw)                     # 针排行心
-    # 本体：板身中心在针排中心右侧 12.96mm（Fritzing 原型：板身中心 15.66 vs 针中心 2.70，
-    # 差 12.96）→ 板身左缘 = spine - 1.81（最左针心伸出板缘 1.81mm，后 3 针焊盘在板身内，
-    # 与真实小板一致；blocked 掩膜排除全部 4 针孔）
-    if flip:
-        x0, x1 = spine - 25.03, spine - 1.81   # 翻转：本体在针排左侧（探头朝左）
-    else:
-        x0, x1 = spine - 1.81, spine + 22.34   # 本体 24.15 宽，正常朝向（头朝右）
-    y0, y1 = py - 5.55, py + 5.55
-    if idx == 2:
-        y0 = 18.95                            # 上缘抬 1.01：让开 MAX 信号落孔 m38/39/40（孔底 18.91）
-    # 电源轨目的地：就近轨孔（Y 板 top_* 需避开板身遮挡区 x[80.65,137.8]）
-    rail_vcc, rail_vcc_ctrl, rail_gnd, rail_gnd_ctrl = {
-        1: ("zy.top_inner_16", (50.5, 14.6), "zy.top_outer_15", (50.5, 13.2)),
-        2: ("zy.top_inner_23", (74.0, 13.0), "zy.top_outer_23", None),
-        3: ("zx.top_inner_35", (113.0, -38.0), "zx.top_outer_36", (114.0, -38.0)),
-        4: ("zx.top_inner_42", (131.5, -33.6), "zx.top_outer_44", (134.5, -35.0)),
-        # TCRT5 的轨孔须避开 VL53L0X 本体掩膜（板上段覆盖 top_* 26–34）→ 右移到 _41
-        5: ("zx.top_inner_41", (112.0, -33.6), "zx.top_outer_41", (114.0, -35.0)),
-    }[idx]
-    if vcc_ctrl is not None:
-        rail_vcc_ctrl = vcc_ctrl
-    wires = [
-        {"from": ("pin", 0), "to": ("hole", rail_vcc), "ctrl": rail_vcc_ctrl,
-         "cls": "wire_vcc", "label": None},
-    ]
-    if gnd_pts is not None:
-        wires.append({"from": ("pin", 1), "to": ("hole", rail_gnd), "pts": gnd_pts,
-                      "cls": "wire_gnd", "label": None})
-    else:
-        wires.append({"from": ("pin", 1), "to": ("hole", rail_gnd), "ctrl": rail_gnd_ctrl,
-                      "cls": "wire_gnd", "label": None})
-    if kind[0] == "ctrl":
-        wires.append({"from": ("pin", 2), "to": ("hole", kind[1]), "ctrl": kind[2],
-                      "cls": "wire_sig", "label": None})
-    elif kind[0] == "pts":
-        wires.append({"from": ("pin", 2), "to": ("hole", kind[1]), "pts": kind[2],
-                      "cls": "wire_sig", "label": None})
-    # kind == ("direct",) 时 DO 针与 ESP32 针同列同网，零跳线
-    cx = (x0 + x1) / 2.0
-    return {
-        "id": "tcrt%d" % idx,
-        "label": "TCRT%d" % idx,
-        "sub": "线检 · GPIO%d" % gpio,
-        "board": board,
-        "boards": (board,),
-        "label_pos": (cx, y0 + 2.6),
-        "sub_pos": (cx, y0 + 4.5),
-        "pins": [(rw, col0, "VCC"), (rw, col0 + 1, "GND"),
-                 (rw, col0 + 2, "DO"), (rw, col0 + 3, "AO")],
-        "body": (x0, y0, x1 - x0, y1 - y0),
-        "blocked_rects": [(x0, y0, x1, y1)],   # 本体掩膜（自动排除 4 个针孔）
-        "wires": wires,
-    }
-
-
-TCRT1 = make_tcrt(1, "zy", "n", 20, 17, ("ctrl", "zy.l41", (76.0, 17.0)))
-TCRT2 = make_tcrt(2, "zy", "o", 33, 18,
-                  # DO 落 l42（同列 42 同连 GPIO18；o42 在本体挡孔内故改上排孔）：
-                  # o35 → 上抬 n/o 缝中线 y=22.22 → 横右 → 列 42/43 缝 x=109.22 竖上 → 入 l42
-                  ("pts", "zy.l42", [(col_x(35), 23.49), (col_x(35), 22.22),
-                                     (109.22, 22.22), (109.22, 15.87), (col_x(42), 15.87)]),
-                  # VCC 弧线从 m32（麦克风 3V3 落孔）与其标签西侧 1.2mm 外掠过，
-                  # 末端擦 TCRT1 本体右上角 0.6mm（白名单豁免，物理即贴板角走线）
-                  vcc_ctrl=(77.0, 16.0),
-                  # GND 绕开：o34 → 斜左（贴 n/o 缝避开 o32 落孔）→ 竖段 x=79.5 出板身左缘外 →
-                  # 两轨之间缝 y=7.2 横左 → 入 top_outer_23（VCC 入 top_inner_23，错开布线）
-                  gnd_pts=[(88.9, 23.49), (82.0, 21.0), (79.5, 15.0), (79.5, 7.2),
-                           (74.93, 7.2), (74.93, 5.71)])
-# TCRT3 关键调整（2026-10-17 校验暴露）：VL53 SCL/SDA 的竖带已占 38/39、39/40 两条缝，
-# TCRT3 DO 再走跳线必然与 SCL/SDA 竖带同色交叉 —— 改为**翻转朝向 + 起列 37**：
-# DO 针 f39 与 j39（GPIO40）同列同网直连零跳线；本体左缘 97.25 避开 TCRT5（102.33）；
-# VCC/GND 轨孔也须避开 VL53 本体掩膜（top_* 26–34）→ 落到右缘外的 _35/_36，弧线贴
-# VL53 右缘北上（微擦 0.16mm 白名单）。
-TCRT3 = make_tcrt(3, "zx", "f", 37, 40, ("direct",), flip=True)
-# TCRT4 与 TCRT5 交换起列区：TCRT5（GPIO38）放起列 39，DO 针 f41 与 j41（GPIO38）同列同网
-# **直连零跳线**；TCRT4（GPIO39）放最右起列 51，DO 跳线 f53→i40 斜穿 TCRT5 本体 6mm
-# （"压线不压体"先例，TCRT5 本体该段无丝印）。
-TCRT4 = make_tcrt(4, "zx", "f", 51, 39, ("ctrl", "zx.i40", (112.0, -14.6)))
-TCRT5 = make_tcrt(5, "zx", "f", 39, 38, ("direct",))       # f41 与 j41 同列同网，零跳线
-# 元件 5/9：VL53L0X 前向测距（用户 2026-10-17 决策：板外上方·窗朝北；XSHUT/GPIO 悬空）
+# 元件 4/9 撤销（2026-10-19 用户决策 B）：TCRT5000 五路巡线阵列整体移除。
+# 原因：TCRT 模块的发射/接收头在 PCB 正面，插上面包板后镜头朝上（朝天花板）；
+# 且量程仅 0.2–15mm，底盘一离地即超程——物理上照不到地板，巡迹/防跌落都落空。
+# 防跌落改由 VL53L0X 支架前倾 30° 承担（见元件 5 与图例"侧视"小图）。
+# LINE_SENSOR_1..5（GPIO17/18/38/39/40）同轮从 config.h 删除（grep 确认零代码引用），
+# 这 5 个 GPIO 与 X/Y 板对应孔位一并释放，转为预留。
+# 元件 5/9：VL53L0X 激光测距（2026-10-19 改决策 B：支架前倾 30°，防跌落 + 近距防撞；XSHUT/GPIO 悬空）
 # 实物（docs/source/VL53L0X.svg，Adafruit rev C breakout，viewBox 77.16x50.4 = 27.24x17.78mm，
 # 缩放 0.3531 mm/单位）：板身 27.24x17.78，底部单排 6 针 VIN/GND/SCL/SDA/GPIO/XSHUT。
 # 板高 17.78 > X 板任一半区的 10.16mm行带 -> 本体必在板外（用户选：悬板外上方、窗朝北）。
 # 接线（config.h：SDA=GPIO41=j38、SCL=GPIO42=j37，均为 X 板 j 行针，网在 f-i 行列 38/37）：
 #   6 针横躺落 a 行列 35-40（VIN/GND/SCL/SDA/GPIO/XSHUT）；
-#   SCL/SDA 走"东竖带"弧线（中段贴 38/39 缝 x=99.06/101.60，避开 TCRT3 本体右缘 96.8、
-#     TCRT5 本体左缘 102.33 与 b-h 行同列孔）汇入 i37/i38 与 j37/j38 同列同网；
+#   SCL/SDA 走"东竖带"折线（中段贴 38/39 缝 x=99.06/101.60，避开 b–h 行同列孔与 ESP32 板身）
+#     汇入 i37/i38 与 j37/j38 同列同网；
 #   VIN/GND 绕本体西南角落 top_inner_25 / top_outer_25（线贴板身角走，白名单）；
 #   GPIO/XSHUT 悬空（breakout 板载上拉，默认使能、地址 0x29）。
 # 本体挡孔：板上段覆盖 top_* 轨孔 26-34（18 孔；VL53 自身 VIN/GND 落 25 孔在掩膜外）。
 VL53L0X = {
     "id": "vl53l0x",
     "label": "VL53L0X",
-    "sub": "前向测距",
+    "sub": "防跌落 · 前倾30°",
     "board": "zx",
     "boards": ("zx",),
     "label_pos": (96.52, -48.6),
@@ -788,10 +691,10 @@ VL53L0X = {
         '<circle cx="96.52" cy="-54.5" r="4.2" fill="#1f2937" stroke="#0b0e0f" stroke-width="0.25" class="vl53-window"/>'
         '<circle cx="96.52" cy="-54.5" r="1.6" fill="#4b5563" stroke="none"/>'
         + text(96.52, -42.6, "I2C 0x29", 0.85, "#d1fae5", "middle", "vl53-sub")
-        + text(88.6, -51.4, "窗朝北", 0.8, "#a7f3d0", "middle", "vl53-note")
+        + text(88.6, -51.4, "前倾30°", 0.8, "#a7f3d0", "middle", "vl53-note")
     ),
 }
-COMPONENTS = [INMP441, MAX98357A, TB6612FNG, TCRT1, TCRT2, TCRT3, TCRT4, TCRT5, VL53L0X]
+COMPONENTS = [INMP441, MAX98357A, TB6612FNG, VL53L0X]
 
 def auto_blocked(comp):
     """按 comp["blocked_rects"]（世界坐标矩形 [(x0,y0,x1,y1)]）自动生成挡孔名集合，
@@ -965,16 +868,45 @@ def component_wires_group(comp):
     return "".join(p)
 
 
+def vl53_side_view():
+    """图例区侧视小图（占 y=60..96 空带，避开 TB 板外方框 x≥92 与 Y 板下缘 55.23）：
+    VL53L0X 支架前倾 30°，光束打到狗身前方的桌面/地板——悬空时距离读数突增（防跌落），
+    并保留 140mm 内近距防撞。触发距离 d = h ÷ tan30° ≈ 1.7h。"""
+    p = ['<g id="vl53-side" class="doc-inset">']
+    p.append('<rect x="0" y="60" width="70" height="36" rx="4" fill="#f9fafb" stroke="#b4b2a9" stroke-width="0.25"/>')
+    p.append(text(35, 65.5, "侧视 · VL53 支架前倾 30°", 1.4, "#085041", "middle", "doc-legend", bold=True))
+    p.append('<rect x="4" y="88" width="62" height="2.5" fill="#B4B2A9" stroke="#888780" stroke-width="0.25"/>')
+    p.append(text(58, 92.8, "桌面", 1.1, "#5F5E5A", "middle", "doc-legend"))
+    p.append('<rect x="26" y="68" width="34" height="9" rx="4" fill="#9FE1CB" stroke="#0F6E56" stroke-width="0.25"/>')
+    p.append(text(43, 72.5, "狗身", 1.1, "#085041", "middle", "doc-legend"))
+    p.append('<circle cx="32" cy="80.5" r="3" fill="#FFFFFF" stroke="#5F5E5A" stroke-width="0.25"/>')
+    p.append('<circle cx="54" cy="80.5" r="3" fill="#FFFFFF" stroke="#5F5E5A" stroke-width="0.25"/>')
+    p.append('<g transform="translate(22 82) rotate(-30)">'
+             '<rect x="-5" y="-2.25" width="10" height="4.5" rx="1" fill="#AFA9EC" stroke="#534AB7" stroke-width="0.25"/>'
+             '<rect x="-5" y="-2.25" width="2" height="4.5" fill="#26215C" stroke="none"/>'
+             '</g>')
+    p.append('<line x1="22" y1="82" x2="34" y2="82" stroke="#888780" stroke-width="0.25" stroke-dasharray="2 1.5"/>')
+    p.append(text(28, 85.5, "30°", 1.1, "#444441", "middle", "doc-legend"))
+    p.append('<line x1="18.5" y1="84" x2="11.6" y2="88" stroke="#E24B4A" stroke-width="0.8" stroke-dasharray="2.5 1.5" marker-end="url(#arrow)"/>')
+    p.append('<line x1="9" y1="84" x2="9" y2="88" stroke="#888780" stroke-width="0.25" stroke-dasharray="1.5 1.2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>')
+    p.append(text(9, 86.6, "h", 1.1, "#444441", "middle", "doc-legend"))
+    p.append('<line x1="11.6" y1="91" x2="22" y2="91" stroke="#888780" stroke-width="0.25" stroke-dasharray="1.5 1.2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>')
+    p.append(text(23.5, 91.7, "d ≈ 1.7h", 1.1, "#444441", "start", "doc-legend"))
+    p.append('</g>')
+    return "".join(p)
+
+
 def build(include_holes):
     p = ['<?xml version="1.0" encoding="UTF-8"?>']
     p.append('<svg xmlns="http://www.w3.org/2000/svg" viewBox="%s %s %s %s" width="%d" height="%d" font-family="%s">'
              % (fmt(CANVAS_X0), fmt(CANVAS_Y0), fmt(CANVAS_W), fmt(CANVAS_H), PX_W, PX_H, FONT))
     if include_holes:
-        p.append("<title>面包板 Z · 双 830 点并排拼接（28 行 × 63 列 · 共 1660 插孔 · 中央插 ESP32-S3 · 元件 5/9 INMP441 + MAX98357A + TB6612FNG + TCRT5000×5 + VL53L0X）</title>")
+        p.append("<title>面包板 Z · 双 830 点并排拼接（28 行 × 63 列 · 共 1660 插孔 · 中央插 ESP32-S3 · 元件 4/9 INMP441 + MAX98357A + TB6612FNG + VL53L0X）</title>")
         p.append("<desc>Two 830-point breadboards joined along their power-rail long edges "
                  "into board Z (28 rows x 63 columns), with an ESP32-S3 board plugged across "
-                 "the seam and components 5/9 (INMP441, MAX98357A, TB6612FNG motor driver, "
-                 "five TCRT5000 line sensors, VL53L0X rangefinder) wired in. Units: millimetres. "
+                 "the seam and components 4/9 (INMP441, MAX98357A, TB6612FNG motor driver, "
+                 "VL53L0X rangefinder tilted 30 deg down for cliff detection) wired in. "
+                 "The TCRT5000 line-sensor array was removed on 10-19. Units: millimetres. "
                  "Planning drawing, not an electrical verification.</desc>")
     else:
         p.append("<title>面包板 Z · 轮廓 —— 双 830 点并排拼接（28 行 × 63 列）</title>")
@@ -1021,7 +953,7 @@ def build(include_holes):
                       3.2, COLOR["title"], "start", "doc-title", bold=True))
         p.append(text(-6, -57.2, "X（上板，行 a–j）+ Y（下板，行 k–t）沿电源轨长边拼接为整板 Z；"
                                   "先轮廓（#z-outline）后插孔（#z-holes），再插 ESP32-S3（#z-devices），"
-                                  "然后逐个接入元件与跳线（#z-components 本体 + #z-wires 跳线，当前 5/9：INMP441 + MAX98357A 功放 + TB6612FNG 电机驱动 + TCRT5000×5 巡线 + VL53L0X 测距）。",
+                                  "然后逐个接入元件与跳线（#z-components 本体 + #z-wires 跳线，当前 4/9：INMP441 + MAX98357A 功放 + TB6612FNG 电机驱动 + VL53L0X 测距；TCRT×5 已于 10-19 撤销）。",
                       1.8, COLOR["note"], "start", "doc-subtitle"))
         p.append(text(-6, 98, "行序（自上而下，'|' = 隔断）：X = | - + | a b c d e | f g h i j | + - | ；"
                               "Y = | - + | k l m n o | p q r s t | + - |",
@@ -1057,25 +989,24 @@ def build(include_holes):
                                 "J1 针同列 l–o 同网；m/n/o 45–51 列被 MAX 本体挡死，l 行是唯一合法行，斜线压 MAX 本体下插）；"
                                 "BIN1/BIN2→X 板 i48/i49（GPIO47/21，同列 f–i 同网）；红 VCC→o32（3V3）；黑 GND→下轨外轨 − 第 44 孔。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 142.0, "元件 4：TCRT5000 五路巡线（用户 2026-10-16 决策：分散阵列、VCC 接 3V3）。蓝板 24.15×11.09，"
-                                "左端单列 4 针 Vcc/Gnd/Do/Ao——单列针竖插会整列同网短接（铁律），只能横躺占 4 连续列；"
-                                "AO 针悬空（config.h 只读数字量 DO，不占 ADC、与 WiFi 无冲突）。",
+        p.append(text(-6, 142.0, "元件 4 撤销（2026-10-19 用户决策 B）：TCRT5000×5 巡线阵列整体移除——TCRT 模块镜头在 PCB 正面，"
+                                "插上面包板后朝上照不到地板；量程仅 0.2–15mm，底盘一离地即超程。防跌落改由 VL53L0X 前倾 30° 承担，"
+                                "GPIO17/18/38/39/40 与对应孔位释放、转为预留（config.h 中 LINE_SENSOR 宏同轮删除，零代码引用）。",
                       1.8, COLOR["pcb"], "start", "doc-legend"))
-        p.append(text(-6, 146.4, "五探头分两排：Y 板 n 行起列 20（TCRT1·GPIO17，DO 跳线→l41）、o 行起列 33（TCRT2·GPIO18，DO 跳线→o42）；"
-                                "X 板 f 行起列 27/38/49（TCRT3·GPIO40 跳线→i39、TCRT4·GPIO39 落 f40 与 j40 同列直连零线、"
-                                "TCRT5·GPIO38 跳线→i41）——GPIO17/18 的网在 Y 板，X 板的线跨不过拼接缝，故两探头分到 Y 板。"
-                                "VCC 全落上内轨 +、GND 全落上外轨 −（轨避板身遮挡区；轨与 3V3/GND 网连通由元件 9 电源区完成）。",
+        p.append(text(-6, 146.4, "前倾几何（见下方侧视小图）：触发距离 d = 安装高度 h ÷ tan30° ≈ 1.7h——h=80mm 时桌沿进约 140mm 内即停，"
+                                "并保留 140mm 内近距防撞；代价是 300mm 外的墙/人照不到（光束已扎进地面），远距前向避障放弃。"
+                                "供电走 VIN/GND 轨孔（待元件 9 电源区接 3V3/GND 网）。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 150.8, "元件 5：VL53L0X 前向测距（用户 2026-10-17 决策：板外上方、窗朝北；XSHUT/GPIO 悬空）。"
-                                "Adafruit 板 27.24×17.78 单排 6 针 VIN/GND/SCL/SDA/GPIO/XSHUT；板高 17.78 超过任一半区行带（10.16）→ 本体悬板外上方。",
+        p.append(text(-6, 150.8, "元件 5：VL53L0X 激光测距（2026-10-19 改决策 B：支架前倾 30°，防跌落 + 近距防撞；XSHUT/GPIO 悬空）。"
+                                "Adafruit 板 27.24×17.78 单排 6 针 VIN/GND/SCL/SDA/GPIO/XSHUT；板高 17.78 超过任一半区行带（10.16）→ 本体悬板外上方，安装时整体支架前倾（见下方侧视小图）。",
                       1.8, COLOR["pcb"], "start", "doc-legend"))
-        p.append(text(-6, 155.2, "6 针横躺落 a 行列 35–40：SCL/SDA 走东竖带弧线（中段贴 38/39 缝、39/40 缝，避开 TCRT3/TCRT5 本体）汇入 i37/i38，"
-                                "与 j37/j38（GPIO42/41）同列同网；VIN/GND 绕本体西南角落 top_inner_25/top_outer_25（轨待电源区接 3V3）；"
+        p.append(text(-6, 155.2, "6 针横躺落 a 行列 35–40：SCL/SDA 走东竖带折线（中段贴 38/39 缝、39/40 缝，避开 b–h 行同列孔）汇入 i37/i38，"
+                                "与 j37/j38（GPIO42/41）同列同网；VIN/GND 绕本体西南角落 top_inner_25/top_outer_23（轨待电源区接 3V3）；"
                                 "GPIO/XSHUT 悬空（板载上拉，默认使能、I2C 0x29）；本体挡板上缘 2 轨 18 孔。",
                       1.8, COLOR["note"], "start", "doc-legend"))
-        p.append(text(-6, 159.6, "孔三态：深灰 = 空闲 / 被 ESP32 针（44）或跳线与模块针（73）占用；"
-                                "浅灰 = 被板身遮挡不可插（blocked 269 孔 = ESP32 靠缝 4 轨 72 孔 + INMP441 本体 10 孔 + "
-                                "MAX98357A 本体 35 孔 + TCRT5000×5 本体 134 孔 + VL53L0X 本体 18 孔）。",
+        p.append(text(-6, 159.6, "孔三态：深灰 = 空闲 / 被 ESP32 针（44）或跳线与模块针（42）占用；"
+                                "浅灰 = 被板身遮挡不可插（blocked 135 孔 = ESP32 靠缝 4 轨 72 孔 + INMP441 本体 10 孔 + "
+                                "MAX98357A 本体 35 孔 + VL53L0X 本体 18 孔）。",
                       1.8, COLOR["note"], "start", "doc-legend"))
         p.append(text(-6, 164.0, "⚠ 拼接缝处两板导轨仅物理相邻、电气不互通；每条电源轨沿长度方向中间断开（图中'断'）。",
                       1.8, COLOR["warn"], "start", "doc-legend"))
@@ -1084,6 +1015,7 @@ def build(include_holes):
                       1.8, COLOR["note"], "start", "doc-legend"))
         p.append(text(-6, 172.8, "本图为规划图，几何/电气均为近似，不代表实测结果。",
                       1.8, COLOR["note"], "start", "doc-legend"))
+        p.append(vl53_side_view())
     else:
         p.append(text(-6, -61.84, "面包板 Z · 轮廓 —— 双 830 点并排拼接（28 行 × 63 列）",
                       3.2, COLOR["title"], "start", "doc-title", bold=True))
@@ -1323,12 +1255,10 @@ def main():
           "STBY/PWMA/AIN1/AIN2/PWMB 落 l47–l51（GPIO10–14，斜线压 MAX 本体），BIN1/BIN2 落 "
           "X i48/i49（GPIO47/21），VCC→o32（3V3），GND→下轨外轨 − 44；"
           "VM→7.4V 电池、AO1/AO2、BO1/BO2→电机 M1/M2；落孔 9，板外线 5")
-    print("OK  元件 4 TCRT5000×5：单列 4 针只能横躺（同列同网铁律），AO 悬空；"
-          "TCRT1/2 落 Y 板 n20–23（GPIO17→跳线 l41）、o33–36（GPIO18→pts 跳线 l42）；"
-          "TCRT5/3/4 落 X 板 f 行 39/37(翻转)/51（GPIO38 直连 f41=j41、GPIO40 翻转直连 f39=j39、"
-          "GPIO39→跳线 i40 斜穿 TCRT5 本体）；VCC→上内轨 +、GND→上外轨 −（轨由元件 9 接网）；"
-          "本体挡孔 134，落孔/占孔 33")
-    print("OK  元件 5 VL53L0X：板外上方（窗朝北）单排 6 针横躺落 a 行 35-40（板高 17.78 超半区行带）；"
+    print("OK  元件 4 撤销：TCRT5000×5 移除（2026-10-19 B 方案——插板镜头朝上 + 0.2–15mm 量程超程）；"
+          "GPIO17/18/38/39/40 释放，config.h LINE_SENSOR 宏同轮删除")
+    print("OK  元件 5 VL53L0X：板外上方单排 6 针横躺落 a 行 35-40（板高 17.78 超半区行带），"
+          "支架前倾 30° 防跌落 + 近距防撞（d = h/tan30° ≈ 1.7h）；"
           "SCL/SDA 走 38/39、39/40 竖带 pts 汇入 i37/i38（GPIO42/41 同列同网）；VIN → top_inner_25、"
           "GND → top_outer_23（轨待电源区接 3V3）；GPIO/XSHUT 悬空（板载上拉、I2C 0x29）；"
           "本体挡板上缘 2 轨 18 孔")
