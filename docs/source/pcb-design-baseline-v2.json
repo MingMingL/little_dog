@@ -68,17 +68,6 @@
       "note": "I2S 麦克风 Ø15"
     },
     {
-      "ref": "K3",
-      "name": "模式按键",
-      "kind": "key",
-      "side": "top",
-      "x": 56.0,
-      "y": 48.0,
-      "w": 6.0,
-      "h": 6.0,
-      "note": "GPIO9 低有效"
-    },
-    {
       "ref": "R1/R2/R3",
       "name": "电池分压 100k/47k/1k",
       "kind": "pass",
@@ -289,11 +278,6 @@
     },
     {
       "net": "3V3",
-      "ref": "R6",
-      "pin": "R6-1"
-    },
-    {
-      "net": "3V3",
       "ref": "R10",
       "pin": "R10-1"
     },
@@ -449,11 +433,6 @@
     },
     {
       "net": "GND",
-      "ref": "K3",
-      "pin": "b"
-    },
-    {
-      "net": "GND",
       "ref": "R2",
       "pin": "R2-2"
     },
@@ -526,21 +505,6 @@
       "net": "ADC_BAT",
       "ref": "TP5",
       "pin": "TP5"
-    },
-    {
-      "net": "GPIO9",
-      "ref": "U1",
-      "pin": "GPIO9"
-    },
-    {
-      "net": "GPIO9",
-      "ref": "K3",
-      "pin": "a"
-    },
-    {
-      "net": "GPIO9",
-      "ref": "R6",
-      "pin": "R6-2"
     },
     {
       "net": "GPIO4_SCK",
@@ -888,13 +852,6 @@
       "note": "Q1 栅极电阻"
     },
     {
-      "ref": "R6",
-      "name": "10kΩ",
-      "footprint": "0603",
-      "qty": "1",
-      "note": "GPIO9 上拉"
-    },
-    {
       "ref": "R10",
       "name": "1kΩ",
       "footprint": "0603",
@@ -928,13 +885,6 @@
       "footprint": "SOT-23",
       "qty": "1",
       "note": "电池反接保护（可不装，BAT+ 与 7V4 直连）"
-    },
-    {
-      "ref": "K3",
-      "name": "轻触按键 6x6",
-      "footprint": "THT",
-      "qty": "1",
-      "note": "模式键 GPIO9（低有效）"
     },
     {
       "ref": "J3",

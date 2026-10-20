@@ -11,7 +11,7 @@
 <rect x="0" y="72" width="80" height="18" fill="#fef3c7" stroke="#cbd5e1" stroke-width="0.1"/>
 <text x="0.8" y="74.2" font-size="1.6" fill="#94a3b8" text-anchor="start" font-family="system-ui,sans-serif">电源区(底层)</text>
 <rect x="54" y="47" width="26" height="15" fill="#f0fdf4" stroke="#cbd5e1" stroke-width="0.1"/>
-<text x="54.8" y="49.2" font-size="1.6" fill="#94a3b8" text-anchor="start" font-family="system-ui,sans-serif">人机区</text>
+<text x="54.8" y="49.2" font-size="1.6" fill="#94a3b8" text-anchor="start" font-family="system-ui,sans-serif">预留/指示</text>
 <rect x="24" y="0" width="32" height="12" fill="none" stroke="#dc2626" stroke-width="0.35" stroke-dasharray="1.4 1"/>
 <text x="25" y="11.2" font-size="1.5" fill="#dc2626" text-anchor="start" font-family="system-ui,sans-serif">WROOM 天线 keepout（顶层净空）</text>
 <rect x="0" y="0" width="80" height="90" fill="none" stroke="#0f172a" stroke-width="0.5"/>
@@ -57,9 +57,6 @@
 <rect x="54" y="30" width="15" height="15" rx="0.4" fill="#dbeafe" stroke="#2563eb" stroke-width="0.45"/>
 <text x="54.8" y="32.2" font-size="1.9" fill="#1e3a8a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">U7 INMP441</text>
 <text x="54.8" y="44.4" font-size="1.35" fill="#1e3a8a" text-anchor="start" font-family="system-ui,sans-serif">I2S 麦克风 Ø15</text>
-<rect x="56" y="48" width="6" height="6" rx="0.4" fill="#e2e8f0" stroke="#475569" stroke-width="0.45"/>
-<text x="56.8" y="50.2" font-size="1.9" fill="#0f172a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">K3 模式按键</text>
-<text x="56.8" y="53.4" font-size="1.35" fill="#0f172a" text-anchor="start" font-family="system-ui,sans-serif">GPIO9 低有效</text>
 <rect x="64" y="46" width="6" height="3" rx="0.4" fill="#f1f5f9" stroke="#64748b" stroke-width="0.45"/>
 <text x="64.8" y="48.2" font-size="1.9" fill="#334155" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">R1/R2/R3 电池分压 100k/47k/1k</text>
 <text x="64.8" y="48.4" font-size="1.35" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">ADC_BAT@GPIO8 + C1 100nF</text>
