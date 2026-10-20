@@ -851,6 +851,247 @@ def make_oled():
     }
 OLED = make_oled()
 
+# 元件 7/9 撤销（2026-10-20，与 PCB v2.1 同步）：模式按键 + 10k 上拉整体移除。
+# 原因：模式切换只走 App POST /api/mode（固件本就未用这颗键，MODE_BUTTON_GPIO 零引用），
+# 按键占 Y 板列 27-29 三个孔位 + 3 根造网跳线（GPIO9/3V3/GND 扩展）+ 1 根轨组桥，
+# 纯属浪费。移除后 GPIO9 释放给后续传感器；面包板上该位只剩空孔。
+# 保留记录：按键曾在列 27-29（o29/p29 跨中隔槽、上拉 n29<-n27），"GPIO9 网只剩 l46 一个孔"
+# 的接法见 git 历史；扳本机 config.h 已同步删除 MODE_BUTTON_GPIO。
+
+
+
+def row_y(prefix, letter):
+    """行字母 -> 世界 y 孔心坐标（X 板 translate X_TY，Y 板不偏）。"""
+    rows = X_ROWS if prefix == "zx" else Y_ROWS
+    i = rows.index(letter)
+    y = ROW_Y_TOP[i] if i < 5 else ROW_Y_BOT[i - 5]
+    return y + (X_TY if prefix == "zx" else Y_TY)
+
+
+def col_x(c):
+    """列号 -> 世界 x 孔心坐标。"""
+    return COL_X0 + (c - 1) * PITCH
+
+
+def hole_xy(name):
+    """孔名（如 zy.m22 / zy.top_outer_41）-> 世界坐标。"""
+    prefix, rest = name.split(".")
+    ty = X_TY if prefix == "zx" else Y_TY
+    if "_" in rest:                                   # 导轨孔：轨名_序号
+        rname, idx = rest.rsplit("_", 1)
+        for rn, ry in RAIL_YS:
+            if rn == rname:
+                return rail_hole_x(int(idx)), ry + ty
+        raise ValueError("未知导轨: %s" % name)
+    letter, c = rest[:-2], int(rest[-2:])             # 终端孔：字母+列号
+    return col_x(c), row_y(prefix, letter)
+
+
+def pin_ref(pin):
+    """针条目 -> ("rc", 行字母, 列号) 或 ("xy", 世界x, 世界y)。
+    板上元件用旧格式 (行, 列, 丝印)；板外元件（TB6612FNG，comp["off_board"]=True）
+    用 {"xy": (x, y), "lab": 丝印}——针位是模块本体上的世界坐标，不占面包板孔。"""
+    if isinstance(pin, dict):
+        if "xy" in pin:
+            return ("xy", pin["xy"][0], pin["xy"][1])
+        return ("rc", pin["row"], pin["col"])
+    return ("rc", pin[0], pin[1])
+
+
+def pin_label(pin):
+    return pin["lab"] if isinstance(pin, dict) else pin[2]
+
+
+# 元件 4/9 撤销（2026-10-19 用户决策 B）：TCRT5000 五路巡线阵列整体移除。
+# 原因：TCRT 模块的发射/接收头在 PCB 正面，插上面包板后镜头朝上（朝天花板）；
+# 且量程仅 0.2–15mm，底盘一离地即超程——物理上照不到地板，巡迹/防跌落都落空。
+# 防跌落改由 VL53L0X 支架前倾 30° 承担（见元件 5 与图例"侧视"小图）。
+# LINE_SENSOR_1..5（GPIO17/18/38/39/40）同轮从 config.h 删除（grep 确认零代码引用），
+# 这 5 个 GPIO 与 X/Y 板对应孔位一并释放，转为预留。
+# 元件 5/9：VL53L0X 激光测距（2026-10-19 改决策 B：支架前倾 30°，防跌落 + 近距防撞；XSHUT/GPIO 悬空）
+# 实物（docs/source/VL53L0X.svg，Adafruit rev C breakout，viewBox 77.16x50.4 = 27.24x17.78mm，
+# 缩放 0.3531 mm/单位）：板身 27.24x17.78，底部单排 6 针 VIN/GND/SCL/SDA/GPIO/XSHUT。
+# 板高 17.78 > X 板任一半区的 10.16mm行带 -> 本体必在板外（用户选：悬板外上方、窗朝北）。
+# 接线（config.h：SDA=GPIO41=j38、SCL=GPIO42=j37，均为 X 板 j 行针，网在 f-i 行列 38/37）：
+#   6 针横躺落 a 行列 35-40（VIN/GND/SCL/SDA/GPIO/XSHUT）；
+#   SCL/SDA 走"东竖带"折线（中段贴 38/39 缝 x=99.06/101.60，避开 b–h 行同列孔与 ESP32 板身）
+#     汇入 i37/i38 与 j37/j38 同列同网；
+#   VIN/GND 绕本体西南角落 top_inner_25 / top_outer_25（线贴板身角走，白名单）；
+#   GPIO/XSHUT 悬空（breakout 板载上拉，默认使能、地址 0x29）。
+# 本体挡孔：板上段覆盖 top_* 轨孔 26-34（18 孔；VL53 自身 VIN/GND 落 25 孔在掩膜外）。
+VL53L0X = {
+    "id": "vl53l0x",
+    "label": "VL53L0X",
+    "sub": "防跌落 · 前倾30°",
+    "board": "zx",
+    "boards": ("zx",),
+    "label_pos": (96.52, -48.6),
+    "sub_pos": (96.52, -46.4),
+    "body": (82.90, -57.90, 27.24, 17.78),     # 本体跨板缘：板外段 + 板上轨区段
+    "pins": [("a", 35, "VIN"), ("a", 36, "GND"), ("a", 37, "SCL"), ("a", 38, "SDA"),
+             ("a", 39, "GPIO"), ("a", 40, "XSHUT")],
+    "blocked_rects": [(82.90, -57.90, 110.14, -40.12)],
+    "wires": [
+        # VIN/GND：弧线先北上离开 a 行孔带（否则贴行心向西会连扫 a34/a35 孔），
+        # 再贴本体西南板身角入轨（VIN _25 / GND _23 错开 4mm + ctrl 平行，避免互扫落孔
+        # 彩环；擦点均在近端连接距离内。落轨待电源区接 3V3）
+        {"from": ("pin", 0), "to": ("hole", "zx.top_inner_25"), "ctrl": (87.0, -42.0),
+         "cls": "wire_vcc", "label": None},
+        {"from": ("pin", 1), "to": ("hole", "zx.top_outer_23"), "ctrl": (75.0, -44.0),
+         "cls": "wire_gnd", "label": None},
+        # SCL：a37 南下出体 → 横右贴 38/39 缝（x=99.06）竖下 → h/i 行间缝（y=-15.88）→ 入 i37。
+        # 竖带同时避开 TCRT3 本体右缘（96.8）与 TCRT5 本体左缘（102.33）。
+        {"from": ("pin", 2), "to": ("hole", "zx.i37"),
+         "pts": [(95.25, -40.01), (95.25, -38.7), (99.06, -38.7), (99.06, -15.88),
+                 (95.25, -15.88), (95.25, -14.61)], "cls": "wire_sig", "label": None},
+        # SDA：a38 微南下 → 斜右贴 39/40 缝（x=101.6）竖下 → 斜入 i38（与 SCL 竖带平行距 2.54）
+        {"from": ("pin", 3), "to": ("hole", "zx.i38"),
+         "pts": [(97.79, -40.01), (97.79, -39.4), (101.6, -38.7), (101.6, -16.6),
+                 (97.79, -14.61)], "cls": "wire_sig", "label": None},
+    ],
+    # 传感器窗（板顶北端，对准狗前方）+ 地址丝印 + 探针说明
+    "extra_svg": (
+        '<circle cx="96.52" cy="-54.5" r="4.2" fill="#1f2937" stroke="#0b0e0f" stroke-width="0.25" class="vl53-window"/>'
+        '<circle cx="96.52" cy="-54.5" r="1.6" fill="#4b5563" stroke="none"/>'
+        + text(96.52, -42.6, "I2C 0x29", 0.85, "#d1fae5", "middle", "vl53-sub")
+        + text(88.6, -51.4, "前倾30°", 0.8, "#a7f3d0", "middle", "vl53-note")
+    ),
+}
+# 元件 6/9：OLED 1.3 寸 SH1106（7 针 SPI 模块，实为 9 针单排）
+# 实物（docs/source/OLED.svg，Fritzing breadboard，缩放 0.3531 mm/单位）：
+#   板身 35.04×35.54，单排 9 针（针距 2.54 = 7.2 单位）位于板身上缘 y=8.73（相对 viewBox 顶部 3.08mm）：
+#   左→右丝印 = Gnd Vin 3v3 CS Rst SA0 Clk Data DC（左侧编号 5–12，右侧 4 个大焊盘 = 安装孔）。
+#   **Rst 在正中第 5 针，而 config.h 的 GPIO48（Rst）落在 j47、GPIO1/2（Clk/Data）落在 j35/j36
+#   ——首尾跨 12 列 30.5mm，远超模块 9 针 20.3mm 的长度，任何起列/翻转都装不下。**
+# 用户 2026-10-19 决策：本体放**板外（面包板上方）**、屏幕朝上便于查看，9 根飞线直连目标孔。
+# 焊盘 x 对齐 a 行 44–52 的栅格（避开 VL53 的 a35–40 与其掩膜列 26–34），
+#   丝印顺序 = 列号顺序（Gnd=44 … DC=52），与实物朝上放置时的左→右一致，不做转置。
+# 接线（config.h：SCLK=GPIO1=j35、MOSI=GPIO2=j36、DC=GPIO46=k45、RES=GPIO48=j47、CS 接 GND）：
+#   Gnd→top_outer_35、CS→top_outer_38、SA0→top_outer_40（外轨 = GND 网，CS/SA0 接地固定片选与地址）；
+#   Vin→top_inner_36、3v3→top_inner_38（内轨 = 3V3 网，与 VL53 VIN 同轨；若模块 LDO 压差不够，
+#   元件 9 电源区可把 Vin 改接 5V 专用轨）；Rst→j47、Clk→j35、Data→j36、DC→k45（跨拼接缝）。
+def make_oled():
+    """OLED 模块：9 个焊盘在本体下沿（本体悬在板外上方），9 根飞线直连目标孔，屏幕朝上。
+
+    为什么是"飞线直连"而不是"9 针插 a 行"（2026-10-19 重写）：
+      本体在板外，针根本插不进面包板；焊盘 -> 面包板孔之间必须画飞线。
+      首版让飞线先落 a 行 44-52、再从 a 行接出去，结果本体与 a 行之间 19mm **没有任何引线**，
+      图上模块像悬空孤岛；而且 a 行东段的电源线横穿针脚丝印。改成一根线走到底（焊盘 -> 目标孔）。
+
+    为什么每根线都要"换道"（2026-10-19 校验后定案）：
+      本体在板外北面，目标孔全在两条上轨以南 —— 9 根线必须自上而下穿过
+      top_outer(-47.63) / top_inner(-45.09)。轨孔与列孔共用 2.54 栅格（每 5 孔一组、组间空档），
+      Vin/3v3/Rst/Clk/Data/DC 的焊盘正下方都有轨孔，直落会"穿过"轨孔造成误读；
+      故这些线在轨区改走**列间缝**（离两侧轨孔各 1.27mm > 接触阈值 1.05），
+      用一段 1.27mm 短横在外轨以北的空档（y=-49.04）换道。
+      Gnd(113.03) 落在轨孔空档可直落；CS(120.65)/SA0(125.73) 的目标就是正下方的外轨孔
+      （终点即目标，不算穿越），同样直落。
+    丝印顺序 = 列号顺序（Gnd 在西、DC 在东，与实物朝上放置时一致，不做转置），
+      这样 Clk/Data 这两个要跑到最西 j35/j36 的针排在最东，竖带互不错位，全图仅 1 处交叉。
+    """
+    RAIL_Y = dict(RAIL_YS)                    # 本地板内坐标
+    Y_OUTER = RAIL_Y["top_outer"] + X_TY      # -47.63
+    Y_INNER = RAIL_Y["top_inner"] + X_TY      # -45.09
+    Y_RAILGAP = (Y_OUTER + Y_INNER) / 2.0     # -46.36（两轨正中空带，离两条轨孔各 1.27）
+    Y_JOG = Y_OUTER - 1.41                    # -49.04（外轨以北 1.41 的空档，换道横档）
+    SEAM = 1.27                               # 列间缝到孔心的距离
+    Y_J_N = row_y("zx", "j") - 1.27           # -13.34  j 行带北侧空档（离 i/j 孔各 1.27）
+    Y_J_S = row_y("zx", "j") + 1.27           # -10.80  j 行带南侧空档
+    Y_J_S2 = row_y("zx", "j") + 2.57          #  -9.50  j 行与下内轨之间的空档（离孔 2.5+）
+    Y_K_N = row_y("zy", "k") - 1.27           #  12.06  Y 板 k 行带北侧空档
+
+    col0, col1 = 44, 52
+    pin_y = row_y("zx", "a")                  # -40.01（仅用于文档对照，飞线不再落 a 行）
+    body_w, body_h, pin_inset = 35.04, 35.54, 19.0   # 本体在板外：下沿离 a 行 19mm
+    bx0 = (col_x(col0) + col_x(col1)) / 2.0 - body_w / 2.0
+    by1 = pin_y - pin_inset                   # -59.01（本体下沿 = 焊盘排）
+    by0 = by1 - body_h                        # -94.55（整块在板外，不挡任何孔）
+    pin_order = ["Gnd", "Vin", "3v3", "CS", "Rst", "SA0", "Clk", "Data", "DC"]
+    # 焊盘 = 板外世界坐标（模块本体下沿）；丝印顺序与列号同向（针 i ↔ 列 44+i）
+    pins = [{"xy": (col_x(col0 + i), by1), "lab": pin_order[i]} for i in range(len(pin_order))]
+
+    def jog(px, seam_x):
+        """焊盘 -> 换道横档 -> 竖带起点（seam_x 可等于 px：正下方是轨孔空档，直落不换道）。"""
+        if seam_x == px:
+            return [(px, by1)]
+        return [(px, by1), (px, Y_JOG), (seam_x, Y_JOG)]
+
+    def to_rail(px, seam_x, rail_i, y_rail):
+        """焊盘 -> 竖穿上轨 -> 轨间空带 -> 轨孔（终点即目标）。"""
+        hx = rail_hole_x(rail_i)
+        return jog(px, seam_x) + [(seam_x, Y_RAILGAP), (hx, Y_RAILGAP), (hx, y_rail)]
+
+    wires = [
+        # ① Gnd(113.03) -> zx.top_outer_35（110.49）：走**外轨以北空档 Y_JOG** 换道。
+        #    2026-10-19 改道原因：原来走轨间空档 Y_RAILGAP(-46.36) 西行占掉 x[110.49,113.03]，
+        #    而电源区要把 3V3 送进上内轨东段，只能从 111.76 竖廊下来再沿轨间空档西行落 top_inner_35
+        #    ——两条线会在 -46.36 上共线重叠（一 GND 一 3V3 = 图上短接）。改走北侧 -49.04 后
+        #    轨间空档整段让给 3V3，两条线只在 110.49 处上下错开，互不重叠。
+        {"from": ("pin", 0), "to": ("hole", "zx.top_outer_35"), "cls": "wire_gnd",
+         "pts": [(col_x(44), by1), (col_x(44), Y_JOG),
+                 (rail_hole_x(35), Y_JOG), (rail_hole_x(35), Y_OUTER)], "label": None},
+        # ② Vin(115.57) -> zx.top_inner_36（115.57）：正下方是外轨孔 36（非目标），换道东缝 116.84
+        {"from": ("pin", 1), "to": ("hole", "zx.top_inner_36"), "cls": "wire_vcc",
+         "pts": to_rail(col_x(45), col_x(45) + SEAM, 36, Y_INNER), "label": None},
+        # ③ 3v3(118.11) -> zx.top_inner_38（120.65）：换道东缝 119.38（118.11 是外轨孔 37，非目标）
+        {"from": ("pin", 2), "to": ("hole", "zx.top_inner_38"), "cls": "wire_vcc",
+         "pts": to_rail(col_x(46), col_x(46) + SEAM, 38, Y_INNER), "label": None},
+        # ④ CS(120.65) -> zx.top_outer_38（120.65）：正下方即目标外轨孔，直落
+        {"from": ("pin", 3), "to": ("hole", "zx.top_outer_38"), "cls": "wire_gnd",
+         "pts": [(col_x(47), by1), (col_x(47), Y_OUTER)], "label": None},
+        # ⑤ SA0(125.73) -> zx.top_outer_40（125.73）：同上，直落
+        {"from": ("pin", 4), "to": ("hole", "zx.top_outer_40"), "cls": "wire_gnd",
+         "pts": [(col_x(49), by1), (col_x(49), Y_OUTER)], "label": None},
+        # ⑥ Rst(123.19) -> zx.j47（GPIO48）：换道东缝 124.46 竖下，j 行带北侧空档西行一孔
+        {"from": ("pin", 5), "to": ("hole", "zx.j47"), "cls": "wire_sig",
+         "pts": jog(col_x(48), col_x(48) - SEAM)
+                + [(col_x(48) - SEAM, Y_J_N), (col_x(47), Y_J_N),
+                   (col_x(47), row_y("zx", "j"))], "label": None},
+        # ⑦ Clk(128.27) -> zx.j35（GPIO1）：换道东缝 129.54 竖下，j 行带南侧空档一路西行
+        {"from": ("pin", 6), "to": ("hole", "zx.j35"), "cls": "wire_sig",
+         "pts": jog(col_x(50), col_x(50) - SEAM)
+                + [(col_x(50) - SEAM, Y_J_S), (col_x(35) - SEAM, Y_J_S),
+                   (col_x(35) - SEAM, row_y("zx", "j")),
+                   (col_x(35), row_y("zx", "j"))], "label": None},
+        # ⑧ Data(130.81) -> zx.j36（GPIO2）：换道东缝 132.08 竖下，走 j 行与下内轨之间的空档
+        #    （与 Clk 的 -10.80 空档错开一层，避免两条长横档叠在同一 y 上）
+        {"from": ("pin", 7), "to": ("hole", "zx.j36"), "cls": "wire_sig",
+         "pts": jog(col_x(51), col_x(51) - SEAM)
+                + [(col_x(51) - SEAM, Y_J_S2), (col_x(36) + SEAM, Y_J_S2),
+                   (col_x(36) + SEAM, row_y("zx", "j")),
+                   (col_x(36), row_y("zx", "j"))], "label": None},
+        # ⑨ DC(133.35) -> zy.k45（GPIO46，跨拼接缝）：换道东缝 134.62 竖下，穿 X 板下轨、
+        #    拼接缝、Y 板上轨，到 k 行带北侧空档西行到 k45（橙线，与 TB6612 电机线同色系但更靠北）
+        {"from": ("pin", 8), "to": ("hole", "zy.k45"), "cls": "wire_mtr",
+         "pts": jog(col_x(52), col_x(52) - SEAM)
+                + [(col_x(52) - SEAM, Y_K_N), (col_x(45) - SEAM, Y_K_N),
+                   (col_x(45) - SEAM, row_y("zy", "k")),
+                   (col_x(45), row_y("zy", "k"))], "label": None},
+    ]
+
+    return {
+        "id": "oled",
+        "label": "OLED 1.3\"",
+        "sub": "SH1106 · SPI · 屏幕朝上",
+        "board": "zx",
+        "boards": ("zx", "zy"),
+        "off_board": True,                     # 本体在板外：不占针孔、无挡孔
+        "label_pos": (bx0 + body_w / 2.0, by0 + body_h - 5.4),
+        "sub_pos": (bx0 + body_w / 2.0, by0 + body_h - 2.6),
+        "pins": pins,
+        "body": (bx0, by0, body_w, body_h),
+        "blocked_rects": [],                   # 本体整块在板外，不压任何孔
+        "wires": wires,
+        # 屏幕玻璃 + 玻璃上的分辨率丝印（针位圆环与针名由通用渲染器按 xy 焊盘自动画）
+        "extra_svg": (
+            '<rect x="%s" y="%s" width="%s" height="%s" rx="1.0" fill="#0f172a" stroke="#1f2937" stroke-width="0.25"/>'
+            % (fmt(bx0 + 2.4), fmt(by0 + 2.4), fmt(body_w - 4.8), fmt(by1 - by0 - 13.0))
+            + text(bx0 + body_w / 2.0, (by0 + 2.4 + by1 - 13.0) / 2.0 + 0.7,
+                   "128 × 64", 2.2, "#94a3b8", "middle", "oled-screen")
+        ),
+    }
+OLED = make_oled()
+
 # 元件 7/9：模式按键 + 10k 上拉（GPIO9）
 # **位置是被迫重排了三次才定下来的**（2026-10-19）：
 #   ① GPIO9 的网 = Y 板列 46 上半区（k–o 同列一条），但 k46 是 ESP32 针脚本身、
@@ -1030,7 +1271,7 @@ def make_power():
         → 降压输出根本没接到功放和板子，**整机不会上电**
       · zy.bottom_outer：按键地(26)、MP1584 OUT−(35)、功放地(40)、电机地/板子地(44)、麦克风地(50)
         各自落在 5 个不同小组 → 5 个"地"互不相通，**等于没有共地**
-    修法：加 9 根"轨组短跳线"（W[9:] 起，见 rail_bridge()）把同一条轨上的相邻小组两两搭通，
+    修法：加"轨组短跳线"（见 rail_bridge()）把同一条轨上的相邻小组两两搭通，
     这正是实物面包板上的标准做法（跳线桥接轨组）。它们只有 5.08mm 长、就躺在轨孔连线上，
     没有白底也能看清（轨印线在轨孔外 1.6mm，不打架），也不需要新开白名单。
 
@@ -1038,7 +1279,6 @@ def make_power():
       X top_outer = GND；Y bottom_inner = 5V（MAX98357A 功放，峰值 0.4–1A 不压
       ESP32 板载 LDO）；Y bottom_outer = GND。Y 板上轨与 X 板下轨被 ESP32 板身遮住，不可用。
 
-    另外三根是"网定义扩展线"，给元件 7 的按键与上拉就近造出 GPIO9 / 3V3 / GND 三个网。
 
     本元件没有本体（不是实物，是一组网定义跳线），只在图例里说明。
     """
@@ -1067,7 +1307,6 @@ def make_power():
     CL_W1 = col_x(30) + SEAM    # 78.74  3V3 西段用
     CL_W2 = col_x(29) + SEAM    # 76.20  3V3 东段用
     CL_W3 = col_x(28) + SEAM    # 73.66  GND 西段用
-    CL_W4 = col_x(27) + SEAM    # 71.12  按键地线用（南段，y 31.11→47.62）
     # 板身以东、VL53 本体以东的两条竖廊（111.76 / 114.30：都在 VL53 右缘 110.14 之外，
     # 又避开了 OLED 已占用的 113.03 / 115.57 / 116.84 / 118.11 / 119.38）
     CL_E1 = col_x(43) + SEAM    # 111.76  3V3 东段北上用
@@ -1132,45 +1371,25 @@ def make_power():
                       (col_x(53) + SEAM, Y_BGAP), (rail_hole_x(44), Y_BGAP),
                       rail("zy", "bottom_outer", 44)],
               "cls": "wire_gnd", "label": None})
-    # ⑦ GPIO9 扩展：l46（列 46 上半区唯一没被 MAX 挡住的孔）→ 沿 **y=14.60 板身南边界**
-    #    西行 → l29。把 GPIO9 网"搬"到空列 29，按键与上拉才各有孔可插（详见 BUTTON 注释）。
-    #    唯一一根要压板身的线：l46 南北都被堵死（北上撞 ESP32 针脚 k46、南下撞 MAX 本体
-    #    挡住的 m46），只剩沿板身南缘横穿这一条路——物理上就是"从板子底下穿过去"，
-    #    与 TB6612 BIN 竖带、OLED 四根控制线压板身是同一类先例（见 wire_check WHITELIST）。
-    W.append({"from": ("hole", "zy.l46"), "to": ("hole", "zy.l29"),
-              "pts": [rc("zy", "l", 46), (col_x(46), Y_KL), (col_x(29), Y_KL),
-                      rc("zy", "l", 29)],
-              "cls": "wire_sig", "label": None})
-    # ⑧ 3V3 扩展：l32（3V3_1 网）→ 17.14 横档西行 → l27。列 27 上半区从此 = 3V3，
-    #    上拉电阻的另一端（n27）就近取电，不必飞线到 13 列外的 3V3 源。
-    W.append({"from": ("hole", "zy.l32"), "to": ("hole", "zy.l27"),
-              "pts": [rc("zy", "l", 32), (col_x(32), Y_LM), (col_x(27), Y_LM),
-                      rc("zy", "l", 27)],
-              "cls": "wire_vcc", "label": None})
-    # ⑨ GND 扩展：p29（列 29 **下半区**，与上半区隔中隔槽，独立网）→ 西行到 71.12
-    #    → 南下到 47.62（两下轨之间）→ 东行 → 落 bottom_outer_26（85.09，东段）。
-    #    71.12 这条竖廊只有本线用（北段的三条竖廊是 73.66/76.20/78.74）。
-    W.append({"from": ("hole", "zy.p29"), "to": ("hole", "zy.bottom_outer_26"),
-              "pts": [rc("zy", "p", 29), (CL_W4, row_y("zy", "p")),
-                      (CL_W4, Y_BGAP), (rail_hole_x(26), Y_BGAP),
-                      rail("zy", "bottom_outer", 26)],
-              "cls": "wire_gnd", "label": None})
-    # ---- 轨组短跳线（W[9:] 起）------------------------------------------------------
+    # ---- 轨组短跳线 ---------------------------------------------------------------
     # 把"5 孔一小组"的断点搭通。逐组对照（括号内为落孔来源）：
     #   zx.top_inner 东段：35(3V3 馈线②) → 36/38(OLED Vin/3v3)      —— 3V3 进 OLED
     #   zx.top_outer 东段：35(OLED Gnd) → 36(GND 馈线④)/38/40(CS/SA0) —— GND 上 OLED
     #   zy.bottom_inner 东段：38(MP1584 OUT+) → 41(MAX VIN)/42(ESP32 5V 脚)
     #        只跨 1 个组界（40|41）。OUT+ 落点从 28 改到 38 就是为了少跨两组——少两根桥，
     #        也避开 TB6612 VCC 线的必经之路（详见 mp1584en w0 注释）。
-    #   zy.bottom_outer 东段：26(按键地) → 35(MP1584 OUT−) → 40(功放地)
-    #        → 44(电机地 + ESP32 GND 脚) → 46/50(麦克风地) —— 五个"地"并成一个地
+    #   zy.bottom_outer 东段：35(MP1584 OUT−) → 40(功放地) → 44(电机地 + ESP32 GND 脚)
+    #        → 46/50(麦克风地) —— 四个"地"并成一个地（26 号按键地随元件 7 撤销消失）
     W.append(rail_bridge("zx", "top_inner", 35, 36, "wire_vcc"))
     W.append(rail_bridge("zx", "top_outer", 35, 36, "wire_gnd"))
     W.append(rail_bridge("zy", "bottom_inner", 40, 41, "wire_5v"))
-    W.append(rail_bridge("zy", "bottom_outer", 30, 31, "wire_gnd"))
     W.append(rail_bridge("zy", "bottom_outer", 35, 36, "wire_gnd"))
     W.append(rail_bridge("zy", "bottom_outer", 40, 41, "wire_gnd"))
     W.append(rail_bridge("zy", "bottom_outer", 45, 46, "wire_gnd"))
+    # 给每根线登记网名（net_check 按 w["net"] 断言，不再靠 list 索引）
+    for _w in W:
+        _w.setdefault("net", {"wire_vcc": "3V3", "wire_5v": "5V",
+                              "wire_gnd": "GND", "wire_sig": "GPIO9"}[_w["cls"]])
     return {
         "id": "power", "label": "", "sub": "",          # 无本体，仅在图例说明
         "board": "zy", "boards": ("zy", "zx"),
@@ -1180,7 +1399,7 @@ def make_power():
 
 
 POWER = make_power()
-COMPONENTS = [INMP441, MAX98357A, TB6612FNG, VL53L0X, OLED, BUTTON, MP1584, POWER]
+COMPONENTS = [INMP441, MAX98357A, TB6612FNG, VL53L0X, OLED, MP1584, POWER]
 
 def auto_blocked(comp):
     """按 comp["blocked_rects"]（世界坐标矩形 [(x0,y0,x1,y1)]）自动生成挡孔名集合，
@@ -1561,13 +1780,9 @@ def legend_items(include_holes):
         ("note", "Rst→j47(GPIO48)、Clk→j35(GPIO1)、Data→j36(GPIO2) 沿列间缝竖下后在 j 行带空档"
                  "西行进孔，三者分走 y=−13.34 / −10.80 / −9.50 三层互不叠线；DC→k45(GPIO46) 跨拼接缝"
                  "（橙线）。丝印顺序 = 列号顺序（Gnd 在西、DC 在东），与实物朝上放置时一致。"),
-        ("pcb", "元件 7：模式按键 + 10kΩ 上拉（GPIO9）。按键 6×6mm 跨中隔槽插 o29/p29"
-                "（脚距 7.62mm 上下跨槽，两脚才分属不同网）；上拉电阻横跨 n29←n27（轴向 5.08mm）。"
-                "平时 GPIO9 被 10k 拉到 3V3（高），按下接地（低）→ 固件取低电平 / 下降沿。"),
-        ("note", "GPIO9 网原本只剩 l46 一个孔可用（k46 是 ESP32 针脚、m46/n46/o46 被 MAX98357A 本体"
-                 "挡死），按键 + 上拉要占两个孔，插不下 → 用元件 9 的 GPIO9 扩展跳线把该网搬到列 29；"
-                 "按键位置为此重排三次（列 41–43 撞麦克风弧线 → 列 31 撞电源横档丝印 → 定案列 27–29，"
-                 "与所有电源横档隔开 ≥1.27mm）。"),
+        ("note", "元件 7（模式按键 + 10kΩ 上拉，GPIO9）2026-10-20 撤销：模式切换只走 App "
+                 "POST /api/mode，固件本就零引用该键；随之删除 3 根造网跳线（GPIO9/3V3/GND 扩展）"
+                 "与 1 根轨组桥，GPIO9 释放给后续传感器。PCB v2.1 同步取消该按键。"),
         ("pcb", "元件 8：MP1584EN 降压模块（7.4V → 5V · 3A）。用户 2026-10-19 决策：系统供电 = "
                 "7.4V 电池 → 降压 → ESP32 5V 脚（k52）与 5V 轨；电机 VM 直取 7.4V 不经降压。"
                 "模块 22.2×17.5 带大电感、走 1–3A → 本体放板外 x[70,92] y[76,93.5]，只把 4 根线落孔。"),
@@ -1582,14 +1797,14 @@ def legend_items(include_holes):
         ("note", "每条导轨沿长度方向在 x=82.55 处断开、左右两段不互通，而 3V3/GND 的负载分布在两侧"
                  "（VL53 在西、OLED 在东）→ 3V3 与 GND 各画两根馈线（西段、东段各一）。从 Y 板去 X 板"
                  "上轨一律先西行到板身以西的列间缝（78.74/76.20/73.66/71.12），再沿 X 板行间空档东行"
-                 "北上——整条线不压板身、不压 VL53 本体。另 3 根是网定义扩展线（GPIO9 / 3V3 / GND "
-                 "各一，给元件 7 造网）。"),
+                 "北上——整条线不压板身、不压 VL53 本体。（原 3 根给元件 7 按键造网的扩展跳线"
+                 "已随按键撤销删除。）"),
         ("warn", "⚠ 血的教训（2026-10-19，wire_check 全绿也查不出）：面包板电源轨印成连续红线/蓝线，"
                  "金属条却是 5 孔一小组（组间 5.1mm 空隙）——轨孔只通电同组另外 4 个孔，左右邻居全不通。"
                  "9 根馈线画完仍 4 处'看着接了、实际没接'：3V3 馈线落 35 而 OLED 的 Vin/3v3 落 36/38；"
                  "GND 馈线落 36 而 OLED Gnd 落 35；MP1584 的 OUT+ 落 28 而 5V 负载落 41/42"
                  "（降压输出没接到功放和板子，整机不上电）；五个'地'分落 5 组（等于没有共地）。"
-                 "修法 = 图中 7 根轨组短跳线（both_rings 两端彩环）把相邻小组两两搭通——实物面包板上"
+                 "修法 = 图中轨组短跳线（both_rings 两端彩环）把相邻小组两两搭通——实物面包板上"
                  "的标准操作。这类错误已固化为 tools/net_check.py 的连通性断言（当前 0 处断网/短接）。"),
         ("note", "地网走向（有意设计）：X 板地经 j32(GND_3)、Y 板地经 k53(GND_4)，仅靠 ESP32 板载"
                  "地平面（4 个 GND 针内部共地）合并，没有跨板地线；电机回流在 Y 板内闭环（电池− → "
@@ -1628,14 +1843,14 @@ def build(include_holes):
                 PX_W, int(round(PX_W * canvas_h / CANVAS_W)), FONT))
     if include_holes:
         p.append("<title>面包板 Z · 双 830 点并排拼接（28 行 × 63 列 · 共 1660 插孔 · 中央插 ESP32-S3 · "
-                 "元件 9/9 全部接入：INMP441 + MAX98357A + TB6612FNG + VL53L0X + SH1106 OLED + "
-                 "模式按键 + MP1584EN 降压 + 电源区）</title>")
+                 "元件 8/9 在线：INMP441 + MAX98357A + TB6612FNG + VL53L0X + SH1106 OLED + "
+                 "MP1584EN 降压 + 电源区；元件 7 模式按键 2026-10-20 撤销）</title>")
         p.append("<desc>Two 830-point breadboards joined along their power-rail long edges "
                  "into board Z (28 rows x 63 columns), with an ESP32-S3 board plugged across "
                  "the seam and all 9 planned items wired in: INMP441 mic, MAX98357A amp, "
                  "TB6612FNG motor driver, VL53L0X rangefinder tilted 30 deg down for cliff "
-                 "detection, SH1106 OLED, mode button with 10k pull-up, MP1584EN buck "
-                 "(7.4V to 5V) and the power-net section (rail group bridge jumpers). "
+                 "detection, SH1106 OLED, MP1584EN buck (7.4V to 5V) and the power-net "
+                 "section (rail group bridge jumpers). The mode button was removed 2026-10-20. "
                  "The TCRT5000 line-sensor array was removed on 10-19. Units: millimetres. "
                  "Planning drawing, not an electrical verification.</desc>")
     else:
@@ -1923,17 +2138,16 @@ def main():
           "Gnd→top_outer_35、CS→top_outer_38、SA0→top_outer_40、Vin→top_inner_36、3v3→top_inner_38，"
           "Rst→j47(GPIO48)、Clk→j35(GPIO1)、Data→j36(GPIO2)、DC→k45(GPIO46)；"
           "轨区一律走列间缝换道（离轨孔 1.27mm），竖带让开 TB6612 的 124.46/134.62；本体不挡孔、不占孔")
-    print("OK  元件 7 模式按键：跨中隔槽插 o29(GPIO9 扩展网)/p29(GND 扩展网)，10k 上拉横跨 n29←n27(3V3 扩展网)；"
-          "GPIO9 网由元件 9 的扩展跳线从 l46 搬到列 29（k46 是 ESP32 针、m/n/o46 被 MAX 本体挡死）；"
-          "按键挡 0 孔（6×6 本体卡在 o/p 行间空档），电阻挡 n28 一孔")
+    print("OK  元件 7 撤销（2026-10-20）：模式按键 + 10k 上拉、3 根造网跳线、1 根轨组桥全删；"
+          "模式切换走 App POST /api/mode，GPIO9 释放；PCB v2.1 同步取消该按键")
     print("OK  元件 8 MP1584EN 降压：本体板外 x[70,92] y[76,93.5]（22.2×17.5，不占孔不挡孔）；"
           "IN+/IN− 接 7.4V 电池（与 TB6612 VM 并联），OUT+→bottom_inner_38（5V 轨）、"
           "OUT−→bottom_outer_35（GND 轨，IN−/OUT− 模块内直通）；系统供电 = 电池 → 5V → "
           "ESP32 5V 脚 k52 + MAX98357A VIN，电机 VM 直取 7.4V")
-    print("OK  元件 9 电源区（无本体，16 根网线 = 9 根馈线 + 7 根轨组短跳线）："
+    print("OK  元件 9 电源区（无本体，12 根网线 = 6 根馈线 + 6 根轨组短跳线）："
           "X 上内轨=3V3 / X 上外轨=GND / Y 下内轨=5V / Y 下外轨=GND，"
           "每条轨 x=82.55 断开左右两段故 3V3/GND 各两根馈线；"
-          "轨金属 5 孔一小组 → 7 根短跳线搭通相邻组（wire_check 查不出，net_check.py 固化为 0 处断网/短接）")
+          "轨金属 5 孔一小组 → 6 根短跳线搭通相邻组（wire_check 查不出，net_check.py 固化为 0 处断网/短接）")
 
 
 if __name__ == "__main__":

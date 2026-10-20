@@ -42,35 +42,20 @@ import gen_breadboard_z as g  # noqa: E402
 NET_OF = {
     # ---- 3V3（ESP32 板载 LDO，只带小电流）----
     ("inmp441", 3): "3V3",          # VDD -> m32（与 k32/k33 3V3 脚同列同半区）
-    ("tb6612fng", 7): "3V3",        # VCC -> o32（同上，TB 逻辑电源）
-    ("power", 0): "3V3",            # n32 -> zx.top_inner_21（西段馈线）
-    ("power", 1): "3V3",            # o32 -> zx.top_inner_35（东段馈线）
-    ("power", 7): "3V3",            # l32 -> l27（按键上拉取电）
-    ("power", 9): "3V3",            # 轨组短跳线 top_inner 35->36
+    ("tb6612fng", 7): "3V3",        # VCC -> o32（同上，TB 逻辑电源）            # n32 -> zx.top_inner_21（西段馈线）            # o32 -> zx.top_inner_35（东段馈线）            # l32 -> l27（按键上拉取电）            # 轨组短跳线 top_inner 35->36
     ("vl53l0x", 0): "3V3",          # VIN -> zx.top_inner_25
     ("oled", 1): "3V3",             # Vin  -> zx.top_inner_36
     ("oled", 2): "3V3",             # 3v3  -> zx.top_inner_38
     # ---- 5V（MP1584EN 输出，功放专用）----
     ("max98357a", 4): "5V",         # SD_MODE -> VIN 模块内短接（SD 脚被拉到 5V）
-    ("max98357a", 6): "5V",         # VIN -> zy.bottom_inner_41
-    ("power", 4): "5V",             # bottom_inner_42 -> l52（ESP32 5V 脚）
-    ("power", 11): "5V",            # 轨组短跳线 bottom_inner 40->41
+    ("max98357a", 6): "5V",         # VIN -> zy.bottom_inner_41             # bottom_inner_42 -> l52（ESP32 5V 脚）            # 轨组短跳线 bottom_inner 40->41
     ("mp1584en", 0): "5V",          # OUT+ -> zy.bottom_inner_38
     # ---- GND ----
     ("inmp441", 4): "GND", ("inmp441", 5): "GND",
     ("max98357a", 3): "GND", ("max98357a", 5): "GND",
     ("tb6612fng", 8): "GND",
     ("vl53l0x", 1): "GND",
-    ("oled", 0): "GND", ("oled", 3): "GND", ("oled", 4): "GND",   # Gnd/CS/SA0 接地
-    ("power", 2): "GND",            # i32 -> zx.top_outer_24（西段馈线，源 = j32 GND_3）
-    ("power", 3): "GND",            # h32 -> zx.top_outer_36（东段馈线）
-    ("power", 5): "GND",            # l53 -> zy.bottom_outer_44（源 = k53 GND_4）
-    ("power", 8): "GND",            # 按键地 p29 -> zy.bottom_outer_26
-    ("power", 10): "GND",           # 轨组短跳线 top_outer 35->36
-    ("power", 12): "GND",           # 轨组短跳线 bottom_outer 30->31
-    ("power", 13): "GND",           # 轨组短跳线 bottom_outer 35->36
-    ("power", 14): "GND",           # 轨组短跳线 bottom_outer 40->41
-    ("power", 15): "GND",           # 轨组短跳线 bottom_outer 45->46
+    ("oled", 0): "GND", ("oled", 3): "GND", ("oled", 4): "GND",   # Gnd/CS/SA0 接地            # i32 -> zx.top_outer_24（西段馈线，源 = j32 GND_3）            # h32 -> zx.top_outer_36（东段馈线）            # l53 -> zy.bottom_outer_44（源 = k53 GND_4）            # 按键地 p29 -> zy.bottom_outer_26           # 轨组短跳线 top_outer 35->36           # 轨组短跳线 bottom_outer 30->31           # 轨组短跳线 bottom_outer 35->36           # 轨组短跳线 bottom_outer 40->41           # 轨组短跳线 bottom_outer 45->46
     ("mp1584en", 1): "GND",         # OUT− -> zy.bottom_outer_35（模块内地与 IN− 共地）
     # ---- 7.4V 电池（不上面包板，走模块 VM / 降压 IN+）----
     ("tb6612fng", 9): "7V4",        # 电池正极 -> TB VM
@@ -178,7 +163,7 @@ def build(dev_links=True):
             for k in (ka, kb):
                 if k[0] == "xy":
                     xy_at.setdefault((k[1], k[2]), []).append(k)
-            net = NET_OF.get((comp["id"], wi))
+            net = w.get("net") or NET_OF.get((comp["id"], wi))
             if net:
                 for k in (ka, kb):
                     if isinstance(k, str) or k[0] == "xy":
