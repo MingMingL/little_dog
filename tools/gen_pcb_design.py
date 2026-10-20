@@ -214,6 +214,94 @@ MODULES_EXISTING = [
 ]
 
 
+# ---------------------------------------------------------------- 焊盘与高度
+# 焊盘：相对元件左上角 (dx, dy, 针名)，2.54 栅格。用于摆件/焊接对位，不是真实封装。
+J1_LABELS = ["3V3", "3V3", "RST", "4", "5", "6", "7", "15", "16", "17", "18",
+             "8", "3", "46", "9", "10", "11", "12", "13", "14", "5V", "GND"]
+J3_LABELS = ["GND", "TX", "RX", "1", "2", "42", "41", "40", "39", "38", "37",
+             "36", "35", "0", "45", "48", "47", "21", "20", "19", "GND", "GND"]
+
+
+def _row(n, dx, dy, labels, step=2.54, vertical=False):
+    out = []
+    for i in range(n):
+        lab = labels[i] if i < len(labels) else ""
+        out.append((dx + (0 if vertical else i * step), dy + (i * step if vertical else 0), lab))
+    return out
+
+
+PADS = {
+    # 开发板：两排 22 针（J1 = k 行 / J3 = j 行），针距 2.54，距板身左右各 1.27
+    "U1": (_row(22, 1.27, 2.0, J1_LABELS) + _row(22, 26.67, 2.0, J3_LABELS)),
+    # 模块：平躺直焊，焊盘排在本体南缘外 1.27（顶面）/ 北缘（底面）
+    "U6": _row(7, 1.27, 19.09 + 1.27, ["LRC", "BCLK", "DIN", "GAIN", "SD", "GND", "VIN"]),
+    "U7": _row(6, 1.27, 15.0 + 1.27, ["SCK", "WS", "L/R", "SD", "VDD", "GND"]),
+    "U4": _row(10, 1.27, 24.0 + 1.27, ["STBY", "PWMA", "AIN1", "AIN2", "PWMB",
+                                       "VCC", "BIN1", "BIN2", "GND", "VM"]),
+    "U5": _row(4, 1.27, 17.5 + 1.27, ["OUT+", "OUT-", "IN+", "IN-"]),
+    # 连接器
+    "J3": _row(2, 1.5, 10.5 + 1.0, ["1", "2"]),
+    "J4": _row(2, 1.5, 5.0 + 1.0, ["1", "2"]),
+    "J5": _row(2, 1.5, 5.0 + 1.0, ["1", "2"]),
+    "J6": _row(2, 1.5, 5.0 + 1.0, ["1", "2"]),
+    "SW1": _row(3, 1.5, 5.0 + 1.0, ["1", "2", "3"]),
+    "U8": _row(9, -1.27, 1.27, ["Gnd", "Vin", "3v3", "CS", "Rst", "SA0", "Clk", "Data", "DC"], vertical=True),
+    "U9": _row(4, -1.27, 1.27, ["VIN", "GND", "SCL", "SDA"], vertical=True),
+}
+
+# 高度预算（mm，板面以上 / 板面以下；ESTIMATE：模块按常见成品尺寸取整，实测为准）
+HEIGHTS = {
+    "U1": (10.0, 0.0),    # 排母 8.5 + 开发板 1.6（含排针）
+    "U6": (12.0, 0.0), "U7": (3.0, 0.0), "U8": (8.5, 0.0), "U9": (8.5, 0.0),
+    "J6": (7.0, 0.0), "SW1": (5.0, 0.0),
+    "U5": (0.0, 12.0), "U4": (0.0, 12.0), "U3": (0.0, 3.5), "D1": (0.0, 2.5),
+    "J3": (0.0, 10.0), "J4": (0.0, 7.0), "J5": (0.0, 7.0),
+}
+
+# 网表针号：开发板按 J1-/J3- 列号（与面包板 j/k 行列一致）；模块/连接器按丝印针名
+U1_PINNO = {
+    "3V3": "J1-32", "5V": "J1-52", "GND": "J1-53",
+    "GPIO4": "J1-35", "GPIO5": "J1-36", "GPIO6": "J1-37", "GPIO7": "J1-38",
+    "GPIO15": "J1-39", "GPIO16": "J1-40", "GPIO8": "J1-43", "GPIO46": "J1-45",
+    "GPIO9": "J1-46", "GPIO10": "J1-47", "GPIO11": "J1-48", "GPIO12": "J1-49",
+    "GPIO13": "J1-50", "GPIO14": "J1-51",
+    "GPIO1": "J3-35", "GPIO2": "J3-36", "GPIO42": "J3-37", "GPIO41": "J3-38",
+    "GPIO48": "J3-47", "GPIO47": "J3-48", "GPIO21": "J3-49",
+    "GPIO43": "J3-33", "GPIO44": "J3-34", "GPIO0": "J3-45",
+}
+PINNO = {"U1": U1_PINNO}
+for _ref, _pads in PADS.items():
+    if _ref == "U1":
+        continue
+    PINNO[_ref] = {}
+    for _i, (_dx, _dy, _lab) in enumerate(_pads):
+        if _lab:
+            PINNO[_ref][_lab] = str(_i + 1)
+
+# 针名别名：模块丝印与网表名不一致、或焊盘未单独画出的引脚
+ALIAS = {
+    ("U6", "SD_MODE"): "5", ("U6", "VO+"): "8", ("U6", "VO-"): "9",
+    ("U4", "AO1"): "11", ("U4", "AO2"): "12",
+    ("U4", "BO1"): "13", ("U4", "BO2"): "14",
+    ("U3", "IN"): "IN", ("U3", "BAT"): "BAT", ("U3", "SW"): "SW", ("U3", "GND"): "GND",
+}
+
+def pin_no(ref, pin):
+    """网表针号：先查显式表，再按器件类型推断（无源件 1/2、二极管 A/K、测试点 1）。"""
+    if (ref, pin) in ALIAS:
+        return ALIAS[(ref, pin)]
+    m = PINNO.get(ref, {})
+    if pin in m:
+        return m[pin]
+    if ref[:1] in "RCL" and pin.endswith(("-1", "-2")):
+        return pin[-1]
+    if ref.startswith("TP"):
+        return "1"
+    if ref in ("D1", "LED1", "Q1"):
+        return pin
+    return ""
+
+
 # ---------------------------------------------------------------- 校验
 def rect_of(c):
     return (c["x"], c["y"], c["w"], c["h"])
@@ -301,14 +389,14 @@ def draw_svg():
     S = []
     W, H = BOARD["w"], BOARD["h"]
     pad_l, pad_t = 6.0, 10.0
-    vw, vh = W + 24.0, H + 34.0
+    vw, vh = W + 26.0, H + 56.0
     S.append('<?xml version="1.0" encoding="UTF-8"?>')
     S.append('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %s %s" width="%smm" height="%smm">' % (fmt(vw), fmt(vh), fmt(vw), fmt(vh)))
     S.append('<rect x="0" y="0" width="%s" height="%s" fill="#ffffff"/>' % (fmt(vw), fmt(vh)))
     S.append('<g transform="translate(%s %s)">' % (fmt(pad_l), fmt(pad_t)))
     # 标题
-    S.append(t(0, -5.5, "机器狗 V1 · PCB 顶层布局  v2（开发板直插）", 3.2, "#0f172a", bold=True))
-    S.append(t(W, -5.5, "80×70mm · 2层 · y=0 为板北缘(车头/前缘)", 2.2, "#475569", anchor="end"))
+    S.append(t(0, -5.5, "机器狗 V1 · PCB 顶层布局  v2.2（开发板直插 · 焊盘级）", 3.2, "#0f172a", bold=True))
+    S.append(t(W, -5.5, "%dx%dmm · 2层 · y=0 为板北缘(车头/前缘)" % (W, H), 2.2, "#475569", anchor="end"))
     # 功能区底色
     for (x0, y0, x1, y1, name, color) in ZONES:
         S.append('<rect x="%s" y="%s" width="%s" height="%s" fill="%s" stroke="#cbd5e1" stroke-width="0.1"/>' % (fmt(x0), fmt(y0), fmt(x1 - x0), fmt(y1 - y0), color))
@@ -324,10 +412,10 @@ def draw_svg():
         S.append('<circle cx="%s" cy="%s" r="%s" fill="#ffffff" stroke="#0f172a" stroke-width="0.3"/>' % (fmt(hx), fmt(hy), fmt(HOLE_D / 2)))
         S.append('<circle cx="%s" cy="%s" r="%s" fill="none" stroke="#dc2626" stroke-width="0.12" stroke-dasharray="0.8 0.6"/>' % (fmt(hx), fmt(hy), fmt(HOLE_KEEP / 2)))
     # 尺寸标注
-    S.append(t(W / 2, H + 3.4, "80.00", 2.2, "#64748b", anchor="middle"))
+    S.append(t(W / 2, H + 3.4, "%.2f" % W, 2.2, "#64748b", anchor="middle"))
     S.append('<line x1="0" y1="%s" x2="%s" y2="%s" stroke="#64748b" stroke-width="0.15"/><line x1="0" y1="%s" x2="0" y2="%s" stroke="#64748b" stroke-width="0.15"/><line x1="%s" y1="%s" x2="%s" y2="%s" stroke="#64748b" stroke-width="0.15"/>'
              % (fmt(H + 2.6), fmt(W), fmt(H + 2.6), fmt(H + 1.6), fmt(H + 3.6), fmt(W), fmt(H + 1.6), fmt(W), fmt(H + 3.6)))
-    S.append(t(W + 3.4, H / 2, "70.00", 2.2, "#64748b", rotate=-90, anchor="middle"))
+    S.append(t(W + 3.4, H / 2, "%.2f" % H, 2.2, "#64748b", rotate=-90, anchor="middle"))
     S.append('<line x1="%s" y1="0" x2="%s" y2="%s" stroke="#64748b" stroke-width="0.15"/><line x1="%s" y1="0" x2="%s" y2="0" stroke="#64748b" stroke-width="0.15"/><line x1="%s" y1="%s" x2="%s" y2="%s" stroke="#64748b" stroke-width="0.15"/>'
              % (fmt(W + 2.6), fmt(W + 2.6), fmt(H), fmt(W + 1.6), fmt(W + 3.6), fmt(W + 1.6), fmt(H), fmt(W + 3.6), fmt(H)))
 
@@ -349,17 +437,20 @@ def draw_svg():
                 fill = col["fill"]
             S.append('<rect x="%s" y="%s" width="%s" height="%s" rx="0.4" fill="%s" stroke="%s" stroke-width="%s"%s/>'
                      % (fmt(x), fmt(y), fmt(w), fmt(h), fill, col["stroke"], fmt(lw), dash))
-            # 针焊盘：模块平躺直焊的 2.54 焊盘沿南缘画一排小圆
-            if c["kind"] == "module" and c["side"] == "top" and c.get("pads"):
-                n = 0
-                try:
-                    n = int(c["pads"].split("x")[0])
-                except Exception:
-                    n = 0
-                if n:
-                    for i in range(n):
-                        S.append('<circle cx="%s" cy="%s" r="0.35" fill="#ffffff" stroke="%s" stroke-width="0.12"/>'
-                                 % (fmt(x + 2.0 + i * 2.54), fmt(y + h + 1.27), col["stroke"]))
+            # 焊盘（数据驱动）：小圆 + 针名 + 1 脚方标
+            for i, (dx, dy, lab) in enumerate(PADS.get(c["ref"], [])):
+                px, py = x + dx, y + dy
+                if i == 0:      # 1 脚：方焊盘
+                    S.append('<rect x="%s" y="%s" width="1.3" height="1.3" fill="#ffffff" stroke="%s" stroke-width="0.15"/>'
+                             % (fmt(px - 0.65), fmt(py - 0.65), col["stroke"]))
+                else:
+                    S.append('<circle cx="%s" cy="%s" r="0.55" fill="#ffffff" stroke="%s" stroke-width="0.12"/>'
+                             % (fmt(px), fmt(py), col["stroke"]))
+                if lab and c["ref"] in ("U1", "U6", "U7", "U4", "U5", "U8", "U9"):
+                    if c["ref"] in ("U8", "U9"):
+                        S.append(t(px - 1.0, py + 0.4, lab, 0.95, "#475569", anchor="end"))
+                    else:
+                        S.append(t(px, py + 2.2, lab, 0.95, "#475569", anchor="middle"))
             # 标签
             if c["ref"] not in ("U8", "U9"):
                 S.append(t(x + 0.8, y + 2.2, "%s %s" % (c["ref"], c["name"]), 1.9, col["text"], bold=True))
@@ -381,10 +472,33 @@ def draw_svg():
         S.append('<line x1="%s" y1="%s" x2="80.5" y2="%s" stroke="#0891b2" stroke-width="0.4" stroke-dasharray="1.5 1"/>' % (fmt(x1), fmt(y1), fmt(y1)))
     S.append(t(81.5, 30.0, "OLED 9P 排线", 1.5, "#0891b2"))
     S.append(t(81.5, 17.0, "VL53 4P 排线(前倾30°支架)", 1.5, "#0891b2"))
+    # 高度剖面（侧视，1:1；板面为 0 线）
+    sy = H + 6.0
+    S.append(t(0, sy - 1.4, "高度剖面（侧视 1:1，单位 mm；ESTIMATE 以实测为准）", 2.0, "#0f172a", bold=True))
+    S.append('<line x1="0" y1="%s" x2="%s" y2="%s" stroke="#0f172a" stroke-width="0.6"/>' % (fmt(sy), fmt(W), fmt(sy)))
+    for c in COMPONENTS:
+        up, dn = HEIGHTS.get(c["ref"], (0.0, 0.0))
+        if up <= 0 and dn <= 0:
+            continue
+        x, y, w, h = rect_of(c)
+        col = COLORS[c["kind"]]
+        if up > 0:
+            S.append('<rect x="%s" y="%s" width="%s" height="%s" fill="%s" stroke="%s" stroke-width="0.25"/>'
+                     % (fmt(x), fmt(sy - up), fmt(max(w, 2.0)), fmt(up), col["fill"], col["stroke"]))
+            S.append(t(x + max(w, 2.0) / 2, sy - up / 2 + 0.5, "%s %.1f" % (c["ref"], up), 1.15, col["text"], anchor="middle"))
+        if dn > 0:
+            S.append('<rect x="%s" y="%s" width="%s" height="%s" fill="%s" stroke="%s" stroke-width="0.25" stroke-dasharray="1 0.7"/>'
+                     % (fmt(x), fmt(sy), fmt(max(w, 2.0)), fmt(dn), col["fill"], col["stroke"]))
+            S.append(t(x + max(w, 2.0) / 2, sy + dn / 2 + 0.5, "%s %.1f" % (c["ref"], dn), 1.15, col["text"], anchor="middle"))
+    _max_up = max([HEIGHTS.get(c["ref"], (0, 0))[0] for c in COMPONENTS] or [0])
+    _max_dn = max([HEIGHTS.get(c["ref"], (0, 0))[1] for c in COMPONENTS] or [0])
+    S.append(t(W + 1.0, sy - _max_up - 0.8, "上 %.1f" % _max_up, 1.6, "#b91c1c", bold=True))
+    S.append(t(W + 1.0, sy + _max_dn + 1.4, "下 %.1f" % _max_dn, 1.6, "#b91c1c", bold=True))
+
     S.append('</g>')
 
     # 图例（板体下方，两列）
-    ly = H + 12.0
+    ly = H + 30.0
     S.append(t(0, ly, "图例", 2.4, "#0f172a", bold=True))
     ly += 3.0
     items = [
@@ -413,13 +527,60 @@ def draw_svg():
     return "\n".join(S)
 
 
+def draw_bottom_svg():
+    """底层视图（从板底看，x 已镜像）。底层器件实线、顶层贯穿孔只画焊盘，用于装配对位。"""
+    S = []
+    W, H = BOARD["w"], BOARD["h"]
+    pad_l, pad_t = 6.0, 10.0
+    vw, vh = W + 26.0, H + 20.0
+    S.append('<?xml version="1.0" encoding="UTF-8"?>')
+    S.append('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %s %s" width="%smm" height="%smm">' % (fmt(vw), fmt(vh), fmt(vw), fmt(vh)))
+    S.append('<rect x="0" y="0" width="%s" height="%s" fill="#ffffff"/>' % (fmt(vw), fmt(vh)))
+    S.append('<g transform="translate(%s %s)">' % (fmt(pad_l), fmt(pad_t)))
+    S.append(t(0, -5.5, "机器狗 V1 · PCB 底层视图（从板底看，左右已镜像）", 3.0, "#0f172a", bold=True))
+    S.append(t(W, -5.5, "底面 = GND 铺铜 + 电源区辅助铜", 2.0, "#475569", anchor="end"))
+    S.append('<rect x="0" y="0" width="%s" height="%s" fill="none" stroke="#0f172a" stroke-width="0.5"/>' % (fmt(W), fmt(H)))
+    for (hx, hy) in HOLES:
+        S.append('<circle cx="%s" cy="%s" r="%s" fill="#ffffff" stroke="#0f172a" stroke-width="0.3"/>'
+                 % (fmt(W - hx), fmt(hy), fmt(HOLE_D / 2)))
+    # 底层器件（实线）+ 焊盘
+    for c in COMPONENTS:
+        if c["side"] != "bottom":
+            continue
+        x, y, w, h = rect_of(c)
+        col = COLORS[c["kind"]]
+        S.append('<rect x="%s" y="%s" width="%s" height="%s" rx="0.4" fill="%s" stroke="%s" stroke-width="0.45"/>'
+                 % (fmt(W - x - w), fmt(y), fmt(w), fmt(h), col["fill"], col["stroke"]))
+        S.append(t(W - x - w + 0.8, y + 2.2, "%s %s" % (c["ref"], c["name"]), 1.8, col["text"], bold=True))
+        for i, (dx, dy, lab) in enumerate(PADS.get(c["ref"], [])):
+            px, py = W - x - w + dx, y + dy
+            S.append('<circle cx="%s" cy="%s" r="0.55" fill="#ffffff" stroke="%s" stroke-width="0.12"/>'
+                     % (fmt(px), fmt(py), col["stroke"]))
+            if lab:
+                S.append(t(px, py + 2.2, lab, 0.95, "#475569", anchor="middle"))
+    # 顶层贯穿孔（只画焊盘，表示针从这里穿过）
+    for c in COMPONENTS:
+        if c["side"] == "bottom":
+            continue
+        col = COLORS[c["kind"]]
+        for i, (dx, dy, lab) in enumerate(PADS.get(c["ref"], [])):
+            px, py = W - (c["x"] + dx), c["y"] + dy
+            S.append('<circle cx="%s" cy="%s" r="0.45" fill="none" stroke="%s" stroke-width="0.18" stroke-dasharray="0.8 0.5"/>'
+                     % (fmt(px), fmt(py), col["stroke"]))
+    S.append(t(0, H + 4.0, "虚线圆 = 顶层器件贯穿孔（开发板排母/模块排针/连接器）；镜像后左右与顶层视图相反", 1.8, "#64748b"))
+    S.append('</g>')
+    S.append('</svg>')
+    return "\n".join(S)
+
+
 # ---------------------------------------------------------------- 输出
 def write_csv(path):
     with open(path, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
         w.writerow(["Net", "Ref", "PinName", "PinNo", "Note"])
         for net, ref, pin in sorted(NETS):
-            w.writerow([net, ref, pin, "", "针号导入 EDA 时按实物丝印/数据手册对齐"])
+            no = pin_no(ref, pin)
+            w.writerow([net, ref, pin, no, "" if no else "未映射：按实物丝印核对"])
     return len(NETS)
 
 
@@ -431,7 +592,8 @@ def write_json(path):
         "holes": HOLES,
         "rf_keepout": RF_KEEPOUT,
         "components": COMPONENTS,
-        "nets": [{"net": n, "ref": r, "pin": p} for n, r, p in NETS],
+        "nets": [{"net": n, "ref": r, "pin": p,
+                  "pin_no": pin_no(r, p)} for n, r, p in NETS],
         "bom_self": [{"ref": r, "name": n, "footprint": fp, "qty": q, "note": note}
                      for r, n, fp, q, note in BOM_SELF],
         "modules": [{"family": fam, "name": n, "qty": q, "mount": m}
@@ -462,9 +624,13 @@ def main():
     svg = draw_svg()
     with open(os.path.join(SRC_DIR, "pcb-layout-v2.svg"), "w", encoding="utf-8") as f:
         f.write(svg)
+    bot = draw_bottom_svg()
+    with open(os.path.join(SRC_DIR, "pcb-layout-v2-bottom.svg"), "w", encoding="utf-8") as f:
+        f.write(bot)
     n = write_csv(os.path.join(OUT_DIR, "PCB网表-v2.csv"))
     data = write_json(os.path.join(SRC_DIR, "pcb-design-baseline-v2.json"))
     print("已生成 docs/source/pcb-layout-v2.svg（%d 字节）" % len(svg))
+    print("已生成 docs/source/pcb-layout-v2-bottom.svg（%d 字节）" % len(bot))
     print("已生成 docs/PCB网表-v2.csv（%d 条 pin-net）" % n)
     print("已生成 docs/source/pcb-design-baseline-v2.json（%d 个网络）" % len(set(x["net"] for x in data["nets"])))
 

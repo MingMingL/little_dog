@@ -249,542 +249,650 @@
     {
       "net": "3V3",
       "ref": "U1",
-      "pin": "3V3"
+      "pin": "3V3",
+      "pin_no": "J1-32"
     },
     {
       "net": "3V3",
       "ref": "U7",
-      "pin": "VDD"
+      "pin": "VDD",
+      "pin_no": "5"
     },
     {
       "net": "3V3",
       "ref": "U4",
-      "pin": "VCC"
+      "pin": "VCC",
+      "pin_no": "6"
     },
     {
       "net": "3V3",
       "ref": "U8",
-      "pin": "Vin"
+      "pin": "Vin",
+      "pin_no": "2"
     },
     {
       "net": "3V3",
       "ref": "U8",
-      "pin": "3v3"
+      "pin": "3v3",
+      "pin_no": "3"
     },
     {
       "net": "3V3",
       "ref": "U9",
-      "pin": "VIN"
+      "pin": "VIN",
+      "pin_no": "1"
     },
     {
       "net": "3V3",
       "ref": "R10",
-      "pin": "R10-1"
+      "pin": "R10-1",
+      "pin_no": "1"
     },
     {
       "net": "3V3",
       "ref": "TP3",
-      "pin": "TP3"
+      "pin": "TP3",
+      "pin_no": "1"
     },
     {
       "net": "5V_BUCK",
       "ref": "U5",
-      "pin": "OUT+"
+      "pin": "OUT+",
+      "pin_no": "1"
     },
     {
       "net": "5V_BUCK",
       "ref": "D1",
-      "pin": "A"
+      "pin": "A",
+      "pin_no": "A"
     },
     {
       "net": "5V",
       "ref": "D1",
-      "pin": "K"
+      "pin": "K",
+      "pin_no": "K"
     },
     {
       "net": "5V",
       "ref": "U1",
-      "pin": "5V"
+      "pin": "5V",
+      "pin_no": "J1-52"
     },
     {
       "net": "5V",
       "ref": "U6",
-      "pin": "VIN"
+      "pin": "VIN",
+      "pin_no": "7"
     },
     {
       "net": "5V",
       "ref": "U6",
-      "pin": "SD_MODE"
+      "pin": "SD_MODE",
+      "pin_no": "5"
     },
     {
       "net": "5V",
       "ref": "SW1",
-      "pin": "1"
+      "pin": "1",
+      "pin_no": "1"
     },
     {
       "net": "5V",
       "ref": "TP6",
-      "pin": "TP6"
+      "pin": "TP6",
+      "pin_no": "1"
     },
     {
       "net": "CHG_IN",
       "ref": "SW1",
-      "pin": "2"
+      "pin": "2",
+      "pin_no": "2"
     },
     {
       "net": "CHG_IN",
       "ref": "U3",
-      "pin": "IN"
+      "pin": "IN",
+      "pin_no": "IN"
     },
     {
       "net": "7V4",
       "ref": "U4",
-      "pin": "VM"
+      "pin": "VM",
+      "pin_no": "10"
     },
     {
       "net": "7V4",
       "ref": "U5",
-      "pin": "IN+"
+      "pin": "IN+",
+      "pin_no": "3"
     },
     {
       "net": "7V4",
       "ref": "Q1",
-      "pin": "D"
+      "pin": "D",
+      "pin_no": "D"
     },
     {
       "net": "7V4",
       "ref": "R1",
-      "pin": "R1-1"
+      "pin": "R1-1",
+      "pin_no": "1"
     },
     {
       "net": "BAT+",
       "ref": "J3",
-      "pin": "1"
+      "pin": "1",
+      "pin_no": "1"
     },
     {
       "net": "BAT+",
       "ref": "Q1",
-      "pin": "S"
+      "pin": "S",
+      "pin_no": "S"
     },
     {
       "net": "GND",
       "ref": "U1",
-      "pin": "GND"
+      "pin": "GND",
+      "pin_no": "J1-53"
     },
     {
       "net": "GND",
       "ref": "U5",
-      "pin": "IN-"
+      "pin": "IN-",
+      "pin_no": "4"
     },
     {
       "net": "GND",
       "ref": "U5",
-      "pin": "OUT-"
+      "pin": "OUT-",
+      "pin_no": "2"
     },
     {
       "net": "GND",
       "ref": "U4",
-      "pin": "GND"
+      "pin": "GND",
+      "pin_no": "9"
     },
     {
       "net": "GND",
       "ref": "U3",
-      "pin": "GND"
+      "pin": "GND",
+      "pin_no": "GND"
     },
     {
       "net": "GND",
       "ref": "U6",
-      "pin": "GND"
+      "pin": "GND",
+      "pin_no": "6"
     },
     {
       "net": "GND",
       "ref": "U6",
-      "pin": "GAIN"
+      "pin": "GAIN",
+      "pin_no": "4"
     },
     {
       "net": "GND",
       "ref": "U7",
-      "pin": "GND"
+      "pin": "GND",
+      "pin_no": "6"
     },
     {
       "net": "GND",
       "ref": "U7",
-      "pin": "L/R"
+      "pin": "L/R",
+      "pin_no": "3"
     },
     {
       "net": "GND",
       "ref": "U8",
-      "pin": "Gnd"
+      "pin": "Gnd",
+      "pin_no": "1"
     },
     {
       "net": "GND",
       "ref": "U8",
-      "pin": "CS"
+      "pin": "CS",
+      "pin_no": "4"
     },
     {
       "net": "GND",
       "ref": "U8",
-      "pin": "SA0"
+      "pin": "SA0",
+      "pin_no": "6"
     },
     {
       "net": "GND",
       "ref": "U9",
-      "pin": "GND"
+      "pin": "GND",
+      "pin_no": "2"
     },
     {
       "net": "GND",
       "ref": "R2",
-      "pin": "R2-2"
+      "pin": "R2-2",
+      "pin_no": "2"
     },
     {
       "net": "GND",
       "ref": "C1",
-      "pin": "C1-2"
+      "pin": "C1-2",
+      "pin_no": "2"
     },
     {
       "net": "GND",
       "ref": "TP4",
-      "pin": "TP4"
+      "pin": "TP4",
+      "pin_no": "1"
     },
     {
       "net": "GND",
       "ref": "LED1",
-      "pin": "LED1-K"
+      "pin": "LED1-K",
+      "pin_no": "LED1-K"
     },
     {
       "net": "FS_SW",
       "ref": "U3",
-      "pin": "SW"
+      "pin": "SW",
+      "pin_no": "SW"
     },
     {
       "net": "FS_SW",
       "ref": "L1",
-      "pin": "L1-1"
+      "pin": "L1-1",
+      "pin_no": "1"
     },
     {
       "net": "8V4",
       "ref": "U3",
-      "pin": "BAT"
+      "pin": "BAT",
+      "pin_no": "BAT"
     },
     {
       "net": "8V4",
       "ref": "L1",
-      "pin": "L1-2"
+      "pin": "L1-2",
+      "pin_no": "2"
     },
     {
       "net": "8V4",
       "ref": "J3",
-      "pin": "2"
+      "pin": "2",
+      "pin_no": "2"
     },
     {
       "net": "ADC_BAT",
       "ref": "R1",
-      "pin": "R1-2"
+      "pin": "R1-2",
+      "pin_no": "2"
     },
     {
       "net": "ADC_BAT",
       "ref": "R3",
-      "pin": "R3-1"
+      "pin": "R3-1",
+      "pin_no": "1"
     },
     {
       "net": "ADC_BAT",
       "ref": "R2",
-      "pin": "R2-1"
+      "pin": "R2-1",
+      "pin_no": "1"
     },
     {
       "net": "ADC_BAT",
       "ref": "C1",
-      "pin": "C1-1"
+      "pin": "C1-1",
+      "pin_no": "1"
     },
     {
       "net": "ADC_BAT",
       "ref": "U1",
-      "pin": "GPIO8"
+      "pin": "GPIO8",
+      "pin_no": "J1-43"
     },
     {
       "net": "ADC_BAT",
       "ref": "TP5",
-      "pin": "TP5"
+      "pin": "TP5",
+      "pin_no": "1"
     },
     {
       "net": "GPIO4_SCK",
       "ref": "U1",
-      "pin": "GPIO4"
+      "pin": "GPIO4",
+      "pin_no": "J1-35"
     },
     {
       "net": "GPIO4_SCK",
       "ref": "U7",
-      "pin": "SCK"
+      "pin": "SCK",
+      "pin_no": "1"
     },
     {
       "net": "GPIO5_WS",
       "ref": "U1",
-      "pin": "GPIO5"
+      "pin": "GPIO5",
+      "pin_no": "J1-36"
     },
     {
       "net": "GPIO5_WS",
       "ref": "U7",
-      "pin": "WS"
+      "pin": "WS",
+      "pin_no": "2"
     },
     {
       "net": "GPIO6_SD",
       "ref": "U1",
-      "pin": "GPIO6"
+      "pin": "GPIO6",
+      "pin_no": "J1-37"
     },
     {
       "net": "GPIO6_SD",
       "ref": "U7",
-      "pin": "SD"
+      "pin": "SD",
+      "pin_no": "4"
     },
     {
       "net": "GPIO7_DIN",
       "ref": "U1",
-      "pin": "GPIO7"
+      "pin": "GPIO7",
+      "pin_no": "J1-38"
     },
     {
       "net": "GPIO7_DIN",
       "ref": "U6",
-      "pin": "DIN"
+      "pin": "DIN",
+      "pin_no": "3"
     },
     {
       "net": "GPIO15_BCLK",
       "ref": "U1",
-      "pin": "GPIO15"
+      "pin": "GPIO15",
+      "pin_no": "J1-39"
     },
     {
       "net": "GPIO15_BCLK",
       "ref": "U6",
-      "pin": "BCLK"
+      "pin": "BCLK",
+      "pin_no": "2"
     },
     {
       "net": "GPIO16_LRC",
       "ref": "U1",
-      "pin": "GPIO16"
+      "pin": "GPIO16",
+      "pin_no": "J1-40"
     },
     {
       "net": "GPIO16_LRC",
       "ref": "U6",
-      "pin": "LRC"
+      "pin": "LRC",
+      "pin_no": "1"
     },
     {
       "net": "SPK+",
       "ref": "U6",
-      "pin": "VO+"
+      "pin": "VO+",
+      "pin_no": "8"
     },
     {
       "net": "SPK+",
       "ref": "J6",
-      "pin": "1"
+      "pin": "1",
+      "pin_no": "1"
     },
     {
       "net": "SPK-",
       "ref": "U6",
-      "pin": "VO-"
+      "pin": "VO-",
+      "pin_no": "9"
     },
     {
       "net": "SPK-",
       "ref": "J6",
-      "pin": "2"
+      "pin": "2",
+      "pin_no": "2"
     },
     {
       "net": "GPIO10",
       "ref": "U1",
-      "pin": "GPIO10"
+      "pin": "GPIO10",
+      "pin_no": "J1-47"
     },
     {
       "net": "GPIO10",
       "ref": "U4",
-      "pin": "STBY"
+      "pin": "STBY",
+      "pin_no": "1"
     },
     {
       "net": "GPIO11",
       "ref": "U1",
-      "pin": "GPIO11"
+      "pin": "GPIO11",
+      "pin_no": "J1-48"
     },
     {
       "net": "GPIO11",
       "ref": "U4",
-      "pin": "PWMA"
+      "pin": "PWMA",
+      "pin_no": "2"
     },
     {
       "net": "GPIO12",
       "ref": "U1",
-      "pin": "GPIO12"
+      "pin": "GPIO12",
+      "pin_no": "J1-49"
     },
     {
       "net": "GPIO12",
       "ref": "U4",
-      "pin": "AIN1"
+      "pin": "AIN1",
+      "pin_no": "3"
     },
     {
       "net": "GPIO13",
       "ref": "U1",
-      "pin": "GPIO13"
+      "pin": "GPIO13",
+      "pin_no": "J1-50"
     },
     {
       "net": "GPIO13",
       "ref": "U4",
-      "pin": "AIN2"
+      "pin": "AIN2",
+      "pin_no": "4"
     },
     {
       "net": "GPIO14",
       "ref": "U1",
-      "pin": "GPIO14"
+      "pin": "GPIO14",
+      "pin_no": "J1-51"
     },
     {
       "net": "GPIO14",
       "ref": "U4",
-      "pin": "PWMB"
+      "pin": "PWMB",
+      "pin_no": "5"
     },
     {
       "net": "GPIO47",
       "ref": "U1",
-      "pin": "GPIO47"
+      "pin": "GPIO47",
+      "pin_no": "J3-48"
     },
     {
       "net": "GPIO47",
       "ref": "U4",
-      "pin": "BIN1"
+      "pin": "BIN1",
+      "pin_no": "7"
     },
     {
       "net": "GPIO21",
       "ref": "U1",
-      "pin": "GPIO21"
+      "pin": "GPIO21",
+      "pin_no": "J3-49"
     },
     {
       "net": "GPIO21",
       "ref": "U4",
-      "pin": "BIN2"
+      "pin": "BIN2",
+      "pin_no": "8"
     },
     {
       "net": "MOTO_A",
       "ref": "U4",
-      "pin": "AO1"
+      "pin": "AO1",
+      "pin_no": "11"
     },
     {
       "net": "MOTO_A",
       "ref": "U4",
-      "pin": "AO2"
-    },
-    {
-      "net": "MOTO_A",
-      "ref": "J4",
-      "pin": "1"
+      "pin": "AO2",
+      "pin_no": "12"
     },
     {
       "net": "MOTO_A",
       "ref": "J4",
-      "pin": "2"
+      "pin": "1",
+      "pin_no": "1"
+    },
+    {
+      "net": "MOTO_A",
+      "ref": "J4",
+      "pin": "2",
+      "pin_no": "2"
     },
     {
       "net": "MOTO_B",
       "ref": "U4",
-      "pin": "BO1"
+      "pin": "BO1",
+      "pin_no": "13"
     },
     {
       "net": "MOTO_B",
       "ref": "U4",
-      "pin": "BO2"
+      "pin": "BO2",
+      "pin_no": "14"
     },
     {
       "net": "MOTO_B",
       "ref": "J5",
-      "pin": "1"
+      "pin": "1",
+      "pin_no": "1"
     },
     {
       "net": "MOTO_B",
       "ref": "J5",
-      "pin": "2"
+      "pin": "2",
+      "pin_no": "2"
     },
     {
       "net": "GPIO42_SCL",
       "ref": "U1",
-      "pin": "GPIO42"
+      "pin": "GPIO42",
+      "pin_no": "J3-37"
     },
     {
       "net": "GPIO42_SCL",
       "ref": "U9",
-      "pin": "SCL"
+      "pin": "SCL",
+      "pin_no": "3"
     },
     {
       "net": "GPIO41_SDA",
       "ref": "U1",
-      "pin": "GPIO41"
+      "pin": "GPIO41",
+      "pin_no": "J3-38"
     },
     {
       "net": "GPIO41_SDA",
       "ref": "U9",
-      "pin": "SDA"
+      "pin": "SDA",
+      "pin_no": "4"
     },
     {
       "net": "GPIO48_RES",
       "ref": "U1",
-      "pin": "GPIO48"
+      "pin": "GPIO48",
+      "pin_no": "J3-47"
     },
     {
       "net": "GPIO48_RES",
       "ref": "U8",
-      "pin": "Rst"
+      "pin": "Rst",
+      "pin_no": "5"
     },
     {
       "net": "GPIO1_SCLK",
       "ref": "U1",
-      "pin": "GPIO1"
+      "pin": "GPIO1",
+      "pin_no": "J3-35"
     },
     {
       "net": "GPIO1_SCLK",
       "ref": "U8",
-      "pin": "Clk"
+      "pin": "Clk",
+      "pin_no": "7"
     },
     {
       "net": "GPIO2_MOSI",
       "ref": "U1",
-      "pin": "GPIO2"
+      "pin": "GPIO2",
+      "pin_no": "J3-36"
     },
     {
       "net": "GPIO2_MOSI",
       "ref": "U8",
-      "pin": "Data"
+      "pin": "Data",
+      "pin_no": "8"
     },
     {
       "net": "GPIO46_DC",
       "ref": "U1",
-      "pin": "GPIO46"
+      "pin": "GPIO46",
+      "pin_no": "J1-45"
     },
     {
       "net": "GPIO46_DC",
       "ref": "U8",
-      "pin": "DC"
+      "pin": "DC",
+      "pin_no": "9"
     },
     {
       "net": "GPIO43_TX",
       "ref": "U1",
-      "pin": "GPIO43"
+      "pin": "GPIO43",
+      "pin_no": "J3-33"
     },
     {
       "net": "GPIO43_TX",
       "ref": "TP1",
-      "pin": "TP1"
+      "pin": "TP1",
+      "pin_no": "1"
     },
     {
       "net": "GPIO44_RX",
       "ref": "U1",
-      "pin": "GPIO44"
+      "pin": "GPIO44",
+      "pin_no": "J3-34"
     },
     {
       "net": "GPIO44_RX",
       "ref": "TP2",
-      "pin": "TP2"
+      "pin": "TP2",
+      "pin_no": "1"
     },
     {
       "net": "LED1",
       "ref": "R10",
-      "pin": "R10-2"
+      "pin": "R10-2",
+      "pin_no": "2"
     },
     {
       "net": "LED1",
       "ref": "LED1",
-      "pin": "LED1-A"
+      "pin": "LED1-A",
+      "pin_no": "LED1-A"
     }
   ],
   "bom_self": [

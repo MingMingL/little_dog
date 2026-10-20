@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 124" width="104mm" height="124mm">
-<rect x="0" y="0" width="104" height="124" fill="#ffffff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 106 146" width="106mm" height="146mm">
+<rect x="0" y="0" width="106" height="146" fill="#ffffff"/>
 <g transform="translate(6 10)">
-<text x="0" y="-5.5" font-size="3.2" fill="#0f172a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">机器狗 V1 · PCB 顶层布局  v2（开发板直插）</text>
-<text x="80" y="-5.5" font-size="2.2" fill="#475569" text-anchor="end" font-family="system-ui,sans-serif">80×70mm · 2层 · y=0 为板北缘(车头/前缘)</text>
+<text x="0" y="-5.5" font-size="3.2" fill="#0f172a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">机器狗 V1 · PCB 顶层布局  v2.2（开发板直插 · 焊盘级）</text>
+<text x="80" y="-5.5" font-size="2.2" fill="#475569" text-anchor="end" font-family="system-ui,sans-serif">80x90mm · 2层 · y=0 为板北缘(车头/前缘)</text>
 <rect x="54" y="4" width="26" height="43" fill="#eff6ff" stroke="#cbd5e1" stroke-width="0.1"/>
 <text x="54.8" y="6.2" font-size="1.6" fill="#94a3b8" text-anchor="start" font-family="system-ui,sans-serif">射频/音频</text>
 <rect x="26" y="61.15" width="28" height="10.85" fill="#fee2e2" stroke="#cbd5e1" stroke-width="0.1"/>
@@ -25,9 +25,17 @@
 <circle cx="74" cy="84" r="3.5" fill="none" stroke="#dc2626" stroke-width="0.12" stroke-dasharray="0.8 0.6"/>
 <text x="40" y="93.4" font-size="2.2" fill="#64748b" text-anchor="middle" font-family="system-ui,sans-serif">80.00</text>
 <line x1="0" y1="92.6" x2="80" y2="92.6" stroke="#64748b" stroke-width="0.15"/><line x1="0" y1="91.6" x2="0" y2="93.6" stroke="#64748b" stroke-width="0.15"/><line x1="80" y1="91.6" x2="80" y2="93.6" stroke="#64748b" stroke-width="0.15"/>
-<text x="83.4" y="45" font-size="2.2" fill="#64748b" text-anchor="middle" transform="rotate(-90 83.4 45)" font-family="system-ui,sans-serif">70.00</text>
+<text x="83.4" y="45" font-size="2.2" fill="#64748b" text-anchor="middle" transform="rotate(-90 83.4 45)" font-family="system-ui,sans-serif">90.00</text>
 <line x1="82.6" y1="0" x2="82.6" y2="90" stroke="#64748b" stroke-width="0.15"/><line x1="81.6" y1="0" x2="83.6" y2="0" stroke="#64748b" stroke-width="0.15"/><line x1="81.6" y1="90" x2="83.6" y2="90" stroke="#64748b" stroke-width="0.15"/>
 <rect x="28" y="20" width="22.2" height="17.5" rx="0.4" fill="#f4f8fe" stroke="#2563eb" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<rect x="28.62" y="38.12" width="1.3" height="1.3" fill="#ffffff" stroke="#2563eb" stroke-width="0.15"/>
+<text x="29.27" y="40.97" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">OUT+</text>
+<circle cx="31.81" cy="38.77" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="31.81" y="40.97" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">OUT-</text>
+<circle cx="34.35" cy="38.77" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="34.35" y="40.97" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">IN+</text>
+<circle cx="36.89" cy="38.77" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="36.89" y="40.97" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">IN-</text>
 <text x="28.8" y="22.2" font-size="1.9" fill="#1e3a8a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">U5 MP1584EN 模块</text>
 <text x="28.8" y="36.9" font-size="1.35" fill="#1e3a8a" text-anchor="start" font-family="system-ui,sans-serif">7.4V-&gt;5V 3A(插座内侧空档)</text>
 <rect x="28" y="39" width="4.5" height="2.5" rx="0.4" fill="#f4fef7" stroke="#16a34a" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
@@ -37,24 +45,164 @@
 <text x="30.8" y="44.2" font-size="1.9" fill="#14532d" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">U3 FS5080E 2S充电</text>
 <text x="30.8" y="53.4" font-size="1.35" fill="#14532d" text-anchor="start" font-family="system-ui,sans-serif">ESOP8+L1 4.7uH, 5V-&gt;8.4V/1A</text>
 <rect x="10" y="63" width="34" height="24" rx="0.4" fill="#f4f8fe" stroke="#2563eb" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<rect x="10.62" y="87.62" width="1.3" height="1.3" fill="#ffffff" stroke="#2563eb" stroke-width="0.15"/>
+<text x="11.27" y="90.47" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">STBY</text>
+<circle cx="13.81" cy="88.27" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="13.81" y="90.47" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">PWMA</text>
+<circle cx="16.35" cy="88.27" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="16.35" y="90.47" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">AIN1</text>
+<circle cx="18.89" cy="88.27" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="18.89" y="90.47" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">AIN2</text>
+<circle cx="21.43" cy="88.27" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="21.43" y="90.47" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">PWMB</text>
+<circle cx="23.97" cy="88.27" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="23.97" y="90.47" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">VCC</text>
+<circle cx="26.51" cy="88.27" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="26.51" y="90.47" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">BIN1</text>
+<circle cx="29.05" cy="88.27" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="29.05" y="90.47" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">BIN2</text>
+<circle cx="31.59" cy="88.27" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="31.59" y="90.47" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">GND</text>
+<circle cx="34.13" cy="88.27" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="34.13" y="90.47" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">VM</text>
 <text x="10.8" y="65.2" font-size="1.9" fill="#1e3a8a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">U4 TB6612FNG 模块</text>
 <text x="10.8" y="86.4" font-size="1.35" fill="#1e3a8a" text-anchor="start" font-family="system-ui,sans-serif">双电机 1.2A/路, VM=7.4V</text>
 <rect x="0" y="62" width="8" height="10.5" rx="0.4" fill="#bbbec4" stroke="#0f172a" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<rect x="0.85" y="72.85" width="1.3" height="1.3" fill="#ffffff" stroke="#0f172a" stroke-width="0.15"/>
+<circle cx="4.04" cy="73.5" r="0.55" fill="#ffffff" stroke="#0f172a" stroke-width="0.12"/>
 <text x="0.8" y="64.2" font-size="1.9" fill="#f8fafc" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">J3 XT30 母座</text>
 <text x="0.8" y="71.9" font-size="1.35" fill="#f8fafc" text-anchor="start" font-family="system-ui,sans-serif">电池 7.4V 输入 西缘</text>
 <rect x="50" y="80" width="5" height="5" rx="0.4" fill="#bbbec4" stroke="#0f172a" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<rect x="50.85" y="85.35" width="1.3" height="1.3" fill="#ffffff" stroke="#0f172a" stroke-width="0.15"/>
+<circle cx="54.04" cy="86" r="0.55" fill="#ffffff" stroke="#0f172a" stroke-width="0.12"/>
 <text x="50.8" y="82.2" font-size="1.9" fill="#f8fafc" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">J4 XH2.54-2P M1</text>
 <text x="50.8" y="84.4" font-size="1.35" fill="#f8fafc" text-anchor="start" font-family="system-ui,sans-serif">左轮电机 南缘</text>
 <rect x="58" y="80" width="5" height="5" rx="0.4" fill="#bbbec4" stroke="#0f172a" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<rect x="58.85" y="85.35" width="1.3" height="1.3" fill="#ffffff" stroke="#0f172a" stroke-width="0.15"/>
+<circle cx="62.04" cy="86" r="0.55" fill="#ffffff" stroke="#0f172a" stroke-width="0.12"/>
 <text x="58.8" y="82.2" font-size="1.9" fill="#f8fafc" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">J5 XH2.54-2P M2</text>
 <text x="58.8" y="84.4" font-size="1.35" fill="#f8fafc" text-anchor="start" font-family="system-ui,sans-serif">右轮电机 南缘</text>
 <rect x="26.03" y="4" width="27.94" height="57.15" rx="0.4" fill="#dbeafe" stroke="#2563eb" stroke-width="0.45"/>
+<rect x="26.65" y="5.35" width="1.3" height="1.3" fill="#ffffff" stroke="#2563eb" stroke-width="0.15"/>
+<text x="27.3" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">3V3</text>
+<circle cx="29.84" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="29.84" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">3V3</text>
+<circle cx="32.38" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="32.38" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">RST</text>
+<circle cx="34.92" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="34.92" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">4</text>
+<circle cx="37.46" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="37.46" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">5</text>
+<circle cx="40" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="40" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">6</text>
+<circle cx="42.54" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="42.54" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">7</text>
+<circle cx="45.08" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="45.08" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">15</text>
+<circle cx="47.62" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="47.62" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">16</text>
+<circle cx="50.16" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="50.16" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">17</text>
+<circle cx="52.7" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="52.7" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">18</text>
+<circle cx="55.24" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="55.24" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">8</text>
+<circle cx="57.78" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="57.78" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">3</text>
+<circle cx="60.32" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="60.32" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">46</text>
+<circle cx="62.86" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="62.86" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">9</text>
+<circle cx="65.4" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="65.4" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">10</text>
+<circle cx="67.94" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="67.94" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">11</text>
+<circle cx="70.48" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="70.48" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">12</text>
+<circle cx="73.02" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="73.02" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">13</text>
+<circle cx="75.56" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="75.56" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">14</text>
+<circle cx="78.1" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="78.1" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">5V</text>
+<circle cx="80.64" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="80.64" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">GND</text>
+<circle cx="52.7" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="52.7" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">GND</text>
+<circle cx="55.24" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="55.24" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">TX</text>
+<circle cx="57.78" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="57.78" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">RX</text>
+<circle cx="60.32" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="60.32" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">1</text>
+<circle cx="62.86" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="62.86" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">2</text>
+<circle cx="65.4" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="65.4" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">42</text>
+<circle cx="67.94" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="67.94" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">41</text>
+<circle cx="70.48" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="70.48" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">40</text>
+<circle cx="73.02" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="73.02" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">39</text>
+<circle cx="75.56" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="75.56" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">38</text>
+<circle cx="78.1" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="78.1" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">37</text>
+<circle cx="80.64" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="80.64" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">36</text>
+<circle cx="83.18" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="83.18" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">35</text>
+<circle cx="85.72" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="85.72" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">0</text>
+<circle cx="88.26" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="88.26" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">45</text>
+<circle cx="90.8" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="90.8" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">48</text>
+<circle cx="93.34" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="93.34" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">47</text>
+<circle cx="95.88" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="95.88" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">21</text>
+<circle cx="98.42" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="98.42" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">20</text>
+<circle cx="100.96" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="100.96" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">19</text>
+<circle cx="103.5" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="103.5" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">GND</text>
+<circle cx="106.04" cy="6" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="106.04" y="8.2" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">GND</text>
 <text x="26.83" y="6.2" font-size="1.9" fill="#1e3a8a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">U1 ESP32-S3 开发板座 2x22P</text>
 <text x="26.83" y="60.55" font-size="1.35" fill="#1e3a8a" text-anchor="start" font-family="system-ui,sans-serif">排母可插拔, USB 端朝南(车尾)</text>
 <rect x="56" y="10" width="17.78" height="19.09" rx="0.4" fill="#dbeafe" stroke="#2563eb" stroke-width="0.45"/>
+<rect x="56.62" y="29.71" width="1.3" height="1.3" fill="#ffffff" stroke="#2563eb" stroke-width="0.15"/>
+<text x="57.27" y="32.56" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">LRC</text>
+<circle cx="59.81" cy="30.36" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="59.81" y="32.56" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">BCLK</text>
+<circle cx="62.35" cy="30.36" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="62.35" y="32.56" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">DIN</text>
+<circle cx="64.89" cy="30.36" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="64.89" y="32.56" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">GAIN</text>
+<circle cx="67.43" cy="30.36" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="67.43" y="32.56" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">SD</text>
+<circle cx="69.97" cy="30.36" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="69.97" y="32.56" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">GND</text>
+<circle cx="72.51" cy="30.36" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="72.51" y="32.56" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">VIN</text>
 <text x="56.8" y="12.2" font-size="1.9" fill="#1e3a8a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">U6 MAX98357A 模块</text>
 <text x="56.8" y="28.49" font-size="1.35" fill="#1e3a8a" text-anchor="start" font-family="system-ui,sans-serif">I2S 功放 5V</text>
 <rect x="54" y="30" width="15" height="15" rx="0.4" fill="#dbeafe" stroke="#2563eb" stroke-width="0.45"/>
+<rect x="54.62" y="45.62" width="1.3" height="1.3" fill="#ffffff" stroke="#2563eb" stroke-width="0.15"/>
+<text x="55.27" y="48.47" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">SCK</text>
+<circle cx="57.81" cy="46.27" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="57.81" y="48.47" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">WS</text>
+<circle cx="60.35" cy="46.27" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="60.35" y="48.47" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">L/R</text>
+<circle cx="62.89" cy="46.27" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="62.89" y="48.47" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">SD</text>
+<circle cx="65.43" cy="46.27" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="65.43" y="48.47" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">VDD</text>
+<circle cx="67.97" cy="46.27" r="0.55" fill="#ffffff" stroke="#2563eb" stroke-width="0.12"/>
+<text x="67.97" y="48.47" font-size="0.95" fill="#475569" text-anchor="middle" font-family="system-ui,sans-serif">GND</text>
 <text x="54.8" y="32.2" font-size="1.9" fill="#1e3a8a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">U7 INMP441</text>
 <text x="54.8" y="44.4" font-size="1.35" fill="#1e3a8a" text-anchor="start" font-family="system-ui,sans-serif">I2S 麦克风 Ø15</text>
 <rect x="64" y="46" width="6" height="3" rx="0.4" fill="#f1f5f9" stroke="#64748b" stroke-width="0.45"/>
@@ -70,17 +218,48 @@
 <text x="64.8" y="59.2" font-size="1.9" fill="#14532d" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">Q1 AO3401 PMOS</text>
 <text x="64.8" y="58.9" font-size="1.35" fill="#14532d" text-anchor="start" font-family="system-ui,sans-serif">电池反接保护(可选)</text>
 <rect x="71" y="35" width="9" height="5" rx="0.4" fill="#e2e8f0" stroke="#475569" stroke-width="0.45"/>
+<rect x="71.85" y="40.35" width="1.3" height="1.3" fill="#ffffff" stroke="#475569" stroke-width="0.15"/>
+<circle cx="75.04" cy="41" r="0.55" fill="#ffffff" stroke="#475569" stroke-width="0.12"/>
+<circle cx="77.58" cy="41" r="0.55" fill="#ffffff" stroke="#475569" stroke-width="0.12"/>
 <text x="71.8" y="37.2" font-size="1.9" fill="#0f172a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">SW1 充电开关</text>
 <text x="71.8" y="39.4" font-size="1.35" fill="#0f172a" text-anchor="start" font-family="system-ui,sans-serif">拨到充电位才给 FS5080E 供电（东缘侧拨）</text>
 <rect x="75" y="41" width="5" height="5" rx="0.4" fill="#1e293b" stroke="#0f172a" stroke-width="0.45"/>
+<rect x="75.85" y="46.35" width="1.3" height="1.3" fill="#ffffff" stroke="#0f172a" stroke-width="0.15"/>
+<circle cx="79.04" cy="47" r="0.55" fill="#ffffff" stroke="#0f172a" stroke-width="0.12"/>
 <text x="75.8" y="43.2" font-size="1.9" fill="#f8fafc" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">J6 XH2.54-2P 喇叭</text>
 <text x="75.8" y="45.4" font-size="1.35" fill="#f8fafc" text-anchor="start" font-family="system-ui,sans-serif">4Ω3W 喇叭 东缘</text>
 <rect x="12" y="4" width="8" height="5" rx="0.4" fill="#f1f5f9" stroke="#64748b" stroke-width="0.45"/>
 <text x="12.8" y="6.2" font-size="1.9" fill="#334155" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">TP1-TP6 测试点</text>
 <text x="12.8" y="8.4" font-size="1.35" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">TX/RX/3V3/5V/GND/ADC</text>
 <rect x="77.5" y="26" width="2.5" height="7.62" rx="0.4" fill="#1e293b" stroke="#0f172a" stroke-width="0.45"/>
+<rect x="75.58" y="26.62" width="1.3" height="1.3" fill="#ffffff" stroke="#0f172a" stroke-width="0.15"/>
+<text x="75.23" y="27.67" font-size="0.95" fill="#475569" text-anchor="end" font-family="system-ui,sans-serif">VIN</text>
+<circle cx="76.23" cy="29.81" r="0.55" fill="#ffffff" stroke="#0f172a" stroke-width="0.12"/>
+<text x="75.23" y="30.21" font-size="0.95" fill="#475569" text-anchor="end" font-family="system-ui,sans-serif">GND</text>
+<circle cx="76.23" cy="32.35" r="0.55" fill="#ffffff" stroke="#0f172a" stroke-width="0.12"/>
+<text x="75.23" y="32.75" font-size="0.95" fill="#475569" text-anchor="end" font-family="system-ui,sans-serif">SCL</text>
+<circle cx="76.23" cy="34.89" r="0.55" fill="#ffffff" stroke="#0f172a" stroke-width="0.12"/>
+<text x="75.23" y="35.29" font-size="0.95" fill="#475569" text-anchor="end" font-family="system-ui,sans-serif">SDA</text>
 <text x="76.5" y="29.81" font-size="1.5" fill="#f8fafc" text-anchor="end" transform="rotate(-90 76.5 29.81)" font-family="system-ui,sans-serif">U9→VL53L0X</text>
 <rect x="77.5" y="48" width="2.5" height="23.3" rx="0.4" fill="#1e293b" stroke="#0f172a" stroke-width="0.45"/>
+<rect x="75.58" y="48.62" width="1.3" height="1.3" fill="#ffffff" stroke="#0f172a" stroke-width="0.15"/>
+<text x="75.23" y="49.67" font-size="0.95" fill="#475569" text-anchor="end" font-family="system-ui,sans-serif">Gnd</text>
+<circle cx="76.23" cy="51.81" r="0.55" fill="#ffffff" stroke="#0f172a" stroke-width="0.12"/>
+<text x="75.23" y="52.21" font-size="0.95" fill="#475569" text-anchor="end" font-family="system-ui,sans-serif">Vin</text>
+<circle cx="76.23" cy="54.35" r="0.55" fill="#ffffff" stroke="#0f172a" stroke-width="0.12"/>
+<text x="75.23" y="54.75" font-size="0.95" fill="#475569" text-anchor="end" font-family="system-ui,sans-serif">3v3</text>
+<circle cx="76.23" cy="56.89" r="0.55" fill="#ffffff" stroke="#0f172a" stroke-width="0.12"/>
+<text x="75.23" y="57.29" font-size="0.95" fill="#475569" text-anchor="end" font-family="system-ui,sans-serif">CS</text>
+<circle cx="76.23" cy="59.43" r="0.55" fill="#ffffff" stroke="#0f172a" stroke-width="0.12"/>
+<text x="75.23" y="59.83" font-size="0.95" fill="#475569" text-anchor="end" font-family="system-ui,sans-serif">Rst</text>
+<circle cx="76.23" cy="61.97" r="0.55" fill="#ffffff" stroke="#0f172a" stroke-width="0.12"/>
+<text x="75.23" y="62.37" font-size="0.95" fill="#475569" text-anchor="end" font-family="system-ui,sans-serif">SA0</text>
+<circle cx="76.23" cy="64.51" r="0.55" fill="#ffffff" stroke="#0f172a" stroke-width="0.12"/>
+<text x="75.23" y="64.91" font-size="0.95" fill="#475569" text-anchor="end" font-family="system-ui,sans-serif">Clk</text>
+<circle cx="76.23" cy="67.05" r="0.55" fill="#ffffff" stroke="#0f172a" stroke-width="0.12"/>
+<text x="75.23" y="67.45" font-size="0.95" fill="#475569" text-anchor="end" font-family="system-ui,sans-serif">Data</text>
+<circle cx="76.23" cy="69.59" r="0.55" fill="#ffffff" stroke="#0f172a" stroke-width="0.12"/>
+<text x="75.23" y="69.99" font-size="0.95" fill="#475569" text-anchor="end" font-family="system-ui,sans-serif">DC</text>
 <text x="76.5" y="59.65" font-size="1.5" fill="#f8fafc" text-anchor="end" transform="rotate(-90 76.5 59.65)" font-family="system-ui,sans-serif">U8→OLED</text>
 <rect x="28" y="20" width="22.2" height="17.5" rx="0.4" fill="none" stroke="#2563eb" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
 <rect x="28" y="39" width="4.5" height="2.5" rx="0.4" fill="none" stroke="#16a34a" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
@@ -93,21 +272,53 @@
 <line x1="73" y1="17" x2="80.5" y2="17" stroke="#0891b2" stroke-width="0.4" stroke-dasharray="1.5 1"/>
 <text x="81.5" y="30" font-size="1.5" fill="#0891b2" text-anchor="start" font-family="system-ui,sans-serif">OLED 9P 排线</text>
 <text x="81.5" y="17" font-size="1.5" fill="#0891b2" text-anchor="start" font-family="system-ui,sans-serif">VL53 4P 排线(前倾30°支架)</text>
+<text x="0" y="94.6" font-size="2" fill="#0f172a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">高度剖面（侧视 1:1，单位 mm；ESTIMATE 以实测为准）</text>
+<line x1="0" y1="96" x2="80" y2="96" stroke="#0f172a" stroke-width="0.6"/>
+<rect x="26.03" y="86" width="27.94" height="10" fill="#dbeafe" stroke="#2563eb" stroke-width="0.25"/>
+<text x="40" y="91.5" font-size="1.15" fill="#1e3a8a" text-anchor="middle" font-family="system-ui,sans-serif">U1 10.0</text>
+<rect x="56" y="84" width="17.78" height="12" fill="#dbeafe" stroke="#2563eb" stroke-width="0.25"/>
+<text x="64.89" y="90.5" font-size="1.15" fill="#1e3a8a" text-anchor="middle" font-family="system-ui,sans-serif">U6 12.0</text>
+<rect x="54" y="93" width="15" height="3" fill="#dbeafe" stroke="#2563eb" stroke-width="0.25"/>
+<text x="61.5" y="95" font-size="1.15" fill="#1e3a8a" text-anchor="middle" font-family="system-ui,sans-serif">U7 3.0</text>
+<rect x="77.5" y="87.5" width="2.5" height="8.5" fill="#1e293b" stroke="#0f172a" stroke-width="0.25"/>
+<text x="78.75" y="92.25" font-size="1.15" fill="#f8fafc" text-anchor="middle" font-family="system-ui,sans-serif">U9 8.5</text>
+<rect x="77.5" y="87.5" width="2.5" height="8.5" fill="#1e293b" stroke="#0f172a" stroke-width="0.25"/>
+<text x="78.75" y="92.25" font-size="1.15" fill="#f8fafc" text-anchor="middle" font-family="system-ui,sans-serif">U8 8.5</text>
+<rect x="71" y="91" width="9" height="5" fill="#e2e8f0" stroke="#475569" stroke-width="0.25"/>
+<text x="75.5" y="94" font-size="1.15" fill="#0f172a" text-anchor="middle" font-family="system-ui,sans-serif">SW1 5.0</text>
+<rect x="75" y="89" width="5" height="7" fill="#1e293b" stroke="#0f172a" stroke-width="0.25"/>
+<text x="77.5" y="93" font-size="1.15" fill="#f8fafc" text-anchor="middle" font-family="system-ui,sans-serif">J6 7.0</text>
+<rect x="28" y="96" width="22.2" height="12" fill="#dbeafe" stroke="#2563eb" stroke-width="0.25" stroke-dasharray="1 0.7"/>
+<text x="39.1" y="102.5" font-size="1.15" fill="#1e3a8a" text-anchor="middle" font-family="system-ui,sans-serif">U5 12.0</text>
+<rect x="28" y="96" width="4.5" height="2.5" fill="#dcfce7" stroke="#16a34a" stroke-width="0.25" stroke-dasharray="1 0.7"/>
+<text x="30.25" y="97.75" font-size="1.15" fill="#14532d" text-anchor="middle" font-family="system-ui,sans-serif">D1 2.5</text>
+<rect x="30" y="96" width="12" height="3.5" fill="#dcfce7" stroke="#16a34a" stroke-width="0.25" stroke-dasharray="1 0.7"/>
+<text x="36" y="98.25" font-size="1.15" fill="#14532d" text-anchor="middle" font-family="system-ui,sans-serif">U3 3.5</text>
+<rect x="10" y="96" width="34" height="12" fill="#dbeafe" stroke="#2563eb" stroke-width="0.25" stroke-dasharray="1 0.7"/>
+<text x="27" y="102.5" font-size="1.15" fill="#1e3a8a" text-anchor="middle" font-family="system-ui,sans-serif">U4 12.0</text>
+<rect x="0" y="96" width="8" height="10" fill="#1e293b" stroke="#0f172a" stroke-width="0.25" stroke-dasharray="1 0.7"/>
+<text x="4" y="101.5" font-size="1.15" fill="#f8fafc" text-anchor="middle" font-family="system-ui,sans-serif">J3 10.0</text>
+<rect x="50" y="96" width="5" height="7" fill="#1e293b" stroke="#0f172a" stroke-width="0.25" stroke-dasharray="1 0.7"/>
+<text x="52.5" y="100" font-size="1.15" fill="#f8fafc" text-anchor="middle" font-family="system-ui,sans-serif">J4 7.0</text>
+<rect x="58" y="96" width="5" height="7" fill="#1e293b" stroke="#0f172a" stroke-width="0.25" stroke-dasharray="1 0.7"/>
+<text x="60.5" y="100" font-size="1.15" fill="#f8fafc" text-anchor="middle" font-family="system-ui,sans-serif">J5 7.0</text>
+<text x="81" y="83.2" font-size="1.6" fill="#b91c1c" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">上 12.0</text>
+<text x="81" y="109.4" font-size="1.6" fill="#b91c1c" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">下 12.0</text>
 </g>
-<text x="0" y="102" font-size="2.4" fill="#0f172a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">图例</text>
-<rect x="0" y="103.4" width="3.0" height="2.0" rx="0.4" fill="#2563eb" fill-opacity="0.9" stroke="#2563eb" stroke-width="0.4"/>
-<text x="4" y="105" font-size="1.9" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">现有模块（平躺直焊 2.54 焊盘）</text>
-<rect x="0" y="106.6" width="3.0" height="2.0" rx="0.4" fill="#16a34a" fill-opacity="0.9" stroke="#16a34a" stroke-width="0.4"/>
-<text x="4" y="108.2" font-size="1.9" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">自研 IC / 分立件</text>
-<rect x="0" y="109.8" width="3.0" height="2.0" rx="0.4" fill="#0f172a" fill-opacity="0.9" stroke="#0f172a" stroke-width="0.4"/>
-<text x="4" y="111.4" font-size="1.9" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">连接器（贴板缘）</text>
-<rect x="0" y="113" width="3.0" height="2.0" rx="0.4" fill="#475569" fill-opacity="0.9" stroke="#475569" stroke-width="0.4"/>
-<text x="4" y="114.6" font-size="1.9" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">轻触按键</text>
-<rect x="0" y="116.2" width="3.0" height="2.0" rx="0.4" fill="#64748b" fill-opacity="0.9" stroke="#64748b" stroke-width="0.4"/>
-<text x="4" y="117.8" font-size="1.9" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">无源/测试点区域</text>
-<text x="52" y="105" font-size="1.7" fill="#475569" text-anchor="start" font-family="system-ui,sans-serif">虚线框 = 底层元件；实线框 = 顶层元件；跨层叠放由底盘高度兜底（见文档 §5）。</text>
-<text x="52" y="108.2" font-size="1.7" fill="#475569" text-anchor="start" font-family="system-ui,sans-serif">底层 = GND 铺铜 + 电源区辅助铜；顶层 = 信号 + 局部电源。电源主干：7V4≥2.0mm / 5V≥1.0mm / 3V3≥0.6mm。</text>
-<text x="52" y="111.4" font-size="1.7" fill="#475569" text-anchor="start" font-family="system-ui,sans-serif">U8/U9 为壳上器件（OLED 屏幕朝上、VL53 前倾30°），经排线连板，不占板面。</text>
-<text x="52" y="114.6" font-size="1.7" fill="#475569" text-anchor="start" font-family="system-ui,sans-serif">针脚圆 = 平躺直焊焊盘（2.54 等距）。测试点 TP1-TP6：TX/RX/3V3/5V/GND/ADC_BAT。</text>
-<text x="0" y="122.5" font-size="1.6" fill="#94a3b8" text-anchor="start" font-family="system-ui,sans-serif">docs/PCB设计方案-v2.html · 本图由 tools/gen_pcb_design.py 生成 · 2026-10-20</text>
+<text x="0" y="120" font-size="2.4" fill="#0f172a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">图例</text>
+<rect x="0" y="121.4" width="3.0" height="2.0" rx="0.4" fill="#2563eb" fill-opacity="0.9" stroke="#2563eb" stroke-width="0.4"/>
+<text x="4" y="123" font-size="1.9" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">现有模块（平躺直焊 2.54 焊盘）</text>
+<rect x="0" y="124.6" width="3.0" height="2.0" rx="0.4" fill="#16a34a" fill-opacity="0.9" stroke="#16a34a" stroke-width="0.4"/>
+<text x="4" y="126.2" font-size="1.9" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">自研 IC / 分立件</text>
+<rect x="0" y="127.8" width="3.0" height="2.0" rx="0.4" fill="#0f172a" fill-opacity="0.9" stroke="#0f172a" stroke-width="0.4"/>
+<text x="4" y="129.4" font-size="1.9" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">连接器（贴板缘）</text>
+<rect x="0" y="131" width="3.0" height="2.0" rx="0.4" fill="#475569" fill-opacity="0.9" stroke="#475569" stroke-width="0.4"/>
+<text x="4" y="132.6" font-size="1.9" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">轻触按键</text>
+<rect x="0" y="134.2" width="3.0" height="2.0" rx="0.4" fill="#64748b" fill-opacity="0.9" stroke="#64748b" stroke-width="0.4"/>
+<text x="4" y="135.8" font-size="1.9" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">无源/测试点区域</text>
+<text x="52" y="123" font-size="1.7" fill="#475569" text-anchor="start" font-family="system-ui,sans-serif">虚线框 = 底层元件；实线框 = 顶层元件；跨层叠放由底盘高度兜底（见文档 §5）。</text>
+<text x="52" y="126.2" font-size="1.7" fill="#475569" text-anchor="start" font-family="system-ui,sans-serif">底层 = GND 铺铜 + 电源区辅助铜；顶层 = 信号 + 局部电源。电源主干：7V4≥2.0mm / 5V≥1.0mm / 3V3≥0.6mm。</text>
+<text x="52" y="129.4" font-size="1.7" fill="#475569" text-anchor="start" font-family="system-ui,sans-serif">U8/U9 为壳上器件（OLED 屏幕朝上、VL53 前倾30°），经排线连板，不占板面。</text>
+<text x="52" y="132.6" font-size="1.7" fill="#475569" text-anchor="start" font-family="system-ui,sans-serif">针脚圆 = 平躺直焊焊盘（2.54 等距）。测试点 TP1-TP6：TX/RX/3V3/5V/GND/ADC_BAT。</text>
+<text x="0" y="140.5" font-size="1.6" fill="#94a3b8" text-anchor="start" font-family="system-ui,sans-serif">docs/PCB设计方案-v2.html · 本图由 tools/gen_pcb_design.py 生成 · 2026-10-20</text>
 </svg>
