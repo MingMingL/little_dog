@@ -42,20 +42,23 @@ import gen_breadboard_z as g  # noqa: E402
 NET_OF = {
     # ---- 3V3（ESP32 板载 LDO，只带小电流）----
     ("inmp441", 3): "3V3",          # VDD -> m32（与 k32/k33 3V3 脚同列同半区）
-    ("tb6612fng", 7): "3V3",        # VCC -> o32（同上，TB 逻辑电源）            # n32 -> zx.top_inner_21（西段馈线）            # o32 -> zx.top_inner_35（东段馈线）            # l32 -> l27（按键上拉取电）            # 轨组短跳线 top_inner 35->36
+    ("tb6612fng", 7): "3V3",        # VCC -> o32（同上，TB 逻辑电源）
     ("vl53l0x", 0): "3V3",          # VIN -> zx.top_inner_25
     ("oled", 1): "3V3",             # Vin  -> zx.top_inner_36
     ("oled", 2): "3V3",             # 3v3  -> zx.top_inner_38
+    # 元件 9（POWER，12 根馈线/轨组桥）不进这张表：它在 gen_breadboard_z 里每根线自带
+    # "net"，build() 优先读线自己的 net。元件 7（按键 + 上拉）2026-10-20 已撤销，
+    # 对应的 ("power", 7) / ("power", 8) 两条随之删除。
     # ---- 5V（MP1584EN 输出，功放专用）----
     ("max98357a", 4): "5V",         # SD_MODE -> VIN 模块内短接（SD 脚被拉到 5V）
-    ("max98357a", 6): "5V",         # VIN -> zy.bottom_inner_41             # bottom_inner_42 -> l52（ESP32 5V 脚）            # 轨组短跳线 bottom_inner 40->41
+    ("max98357a", 6): "5V",         # VIN -> zy.bottom_inner_41
     ("mp1584en", 0): "5V",          # OUT+ -> zy.bottom_inner_38
     # ---- GND ----
     ("inmp441", 4): "GND", ("inmp441", 5): "GND",
     ("max98357a", 3): "GND", ("max98357a", 5): "GND",
     ("tb6612fng", 8): "GND",
     ("vl53l0x", 1): "GND",
-    ("oled", 0): "GND", ("oled", 3): "GND", ("oled", 4): "GND",   # Gnd/CS/SA0 接地            # i32 -> zx.top_outer_24（西段馈线，源 = j32 GND_3）            # h32 -> zx.top_outer_36（东段馈线）            # l53 -> zy.bottom_outer_44（源 = k53 GND_4）            # 按键地 p29 -> zy.bottom_outer_26           # 轨组短跳线 top_outer 35->36           # 轨组短跳线 bottom_outer 30->31           # 轨组短跳线 bottom_outer 35->36           # 轨组短跳线 bottom_outer 40->41           # 轨组短跳线 bottom_outer 45->46
+    ("oled", 0): "GND", ("oled", 3): "GND", ("oled", 4): "GND",   # Gnd/CS/SA0 接地
     ("mp1584en", 1): "GND",         # OUT− -> zy.bottom_outer_35（模块内地与 IN− 共地）
     # ---- 7.4V 电池（不上面包板，走模块 VM / 降压 IN+）----
     ("tb6612fng", 9): "7V4",        # 电池正极 -> TB VM

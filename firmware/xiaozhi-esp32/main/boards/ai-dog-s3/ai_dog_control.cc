@@ -78,11 +78,6 @@ ControlServer& ControlServer::GetInstance() {
 // 状态读写
 // ---------------------------------------------------------------------------
 
-Mode ControlServer::GetMode() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return mode_;
-}
-
 bool ControlServer::SetMode(Mode mode) {
     ModeChangedHandler handler;
     {

@@ -35,9 +35,6 @@ public:
 
     bool IsEnabled() const { return enabled_; }
 
-    /** 当前左右轮速度（供状态/调试用） */
-    void GetSpeeds(int& left, int& right) const;
-
 private:
     MotorDriver() = default;
     MotorDriver(const MotorDriver&) = delete;
