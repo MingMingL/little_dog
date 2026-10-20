@@ -83,12 +83,17 @@ Mode ControlServer::GetMode() const {
     return mode_;
 }
 
-void ControlServer::SetMode(Mode mode) {
+bool ControlServer::SetMode(Mode mode) {
     ModeChangedHandler handler;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (mode_ == mode) {
-            return;
+            return true;
+        }
+        // 闸门在持锁状态下调用：回调只读自己的状态，不会再回头调 ControlServer
+        if (mode_guard_handler_ && !mode_guard_handler_(mode)) {
+            ESP_LOGW(TAG, "模式切换被拒绝：%s（当前 %s）", ModeToString(mode), ModeToString(mode_));
+            return false;
         }
         mode_ = mode;
         moving_ = false;  // 模式切换后运动状态失效，由运动模块重新上报
@@ -101,6 +106,7 @@ void ControlServer::SetMode(Mode mode) {
     if (handler) {
         handler(mode);
     }
+    return true;
 }
 
 void ControlServer::RequestEmergencyStop() {
@@ -126,6 +132,16 @@ void ControlServer::SetMoving(bool moving) {
 void ControlServer::SetBatteryPercent(int percent) {
     std::lock_guard<std::mutex> lock(mutex_);
     battery_percent_ = percent;
+}
+
+void ControlServer::SetBatteryVoltage(float volts) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    battery_volts_ = volts;
+}
+
+void ControlServer::SetBatteryLevelText(const char* level) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    battery_level_ = level ? level : "unknown";
 }
 
 void ControlServer::SetCharging(bool charging) {
@@ -156,6 +172,11 @@ void ControlServer::SetEmergencyStopHandler(EmergencyStopHandler handler) {
 void ControlServer::SetMoveCommandHandler(MoveCommandHandler handler) {
     std::lock_guard<std::mutex> lock(mutex_);
     move_command_handler_ = std::move(handler);
+}
+
+void ControlServer::SetModeGuardHandler(ModeGuardHandler handler) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    mode_guard_handler_ = std::move(handler);
 }
 
 // ---------------------------------------------------------------------------
@@ -320,6 +341,8 @@ esp_err_t ControlServer::StatusHandler(httpd_req_t* req) {
     bool moving;
     int battery;
     bool charging;
+    float battery_volts;
+    std::string battery_level;
     std::string fault;
     {
         std::lock_guard<std::mutex> lock(self.mutex_);
@@ -327,6 +350,8 @@ esp_err_t ControlServer::StatusHandler(httpd_req_t* req) {
         moving = self.moving_;
         battery = self.battery_percent_;
         charging = self.charging_;
+        battery_volts = self.battery_volts_;
+        battery_level = self.battery_level_;
         fault = self.fault_;
     }
 
@@ -335,6 +360,10 @@ esp_err_t ControlServer::StatusHandler(httpd_req_t* req) {
     cJSON_AddBoolToObject(root, "moving", moving);
     cJSON_AddNumberToObject(root, "battery", battery);
     cJSON_AddBoolToObject(root, "charging", charging);
+    // 电池实测电压（V）。-1 表示分压没接好、读不到。
+    // 排查"电池供电反复重启"就看这个数和 battery_level。
+    cJSON_AddNumberToObject(root, "battery_volts", static_cast<double>(battery_volts));
+    cJSON_AddStringToObject(root, "battery_level", battery_level.c_str());
 
     cJSON* wifi = cJSON_CreateObject();
     wifi_ap_record_t ap_info;
@@ -373,7 +402,10 @@ esp_err_t ControlServer::ModeHandler(httpd_req_t* req) {
         return ESP_OK;
     }
 
-    GetInstance().SetMode(mode);
+    if (!GetInstance().SetMode(mode)) {
+        SendResult(req, false, "mode change rejected (see fault / battery_level)");
+        return ESP_OK;
+    }
 
     SendOkWith(req, "mode", ModeToString(mode));
     return ESP_OK;

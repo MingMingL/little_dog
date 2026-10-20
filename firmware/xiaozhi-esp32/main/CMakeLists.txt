@@ -1126,12 +1126,14 @@ endif()
 if(CONFIG_BOARD_TYPE_AI_DOG_S3)
     # 局域网控制服务 main/boards/ai-dog-s3/ai_dog_control.cc 需要
     # OLED（SPI SSD1306）需要 esp_lcd 组件
+    # ai_dog_battery.cc 的 GPIO8 ADC 采样需要 esp_adc 组件
     list(APPEND MAIN_PRIV_REQUIRES_EXTRA
         esp_http_server
         esp_wifi
         espressif__cjson
         esp_lcd
         esp_driver_spi
+        esp_adc
     )
 endif()
 idf_component_register(SRCS ${SOURCES}

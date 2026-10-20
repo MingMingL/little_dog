@@ -84,11 +84,17 @@ public:
 
     // ---- 状态（线程安全） ----
     Mode GetMode() const;
-    void SetMode(Mode mode);
+    /**
+     * 切换模式。返回 false 表示被 mode_guard_handler_ 拒绝（例如电量太低不让进巡逻）。
+     * 调用方应给 App 回 ok:false + 原因。
+     */
+    bool SetMode(Mode mode);
     /** 急停：立即回到 Idle 并触发停止回调 */
     void RequestEmergencyStop();
     void SetMoving(bool moving);
     void SetBatteryPercent(int percent);   // -1 表示无采样
+    void SetBatteryVoltage(float volts);   // -1 表示读不到
+    void SetBatteryLevelText(const char* level);  // normal/warn/restrict/cutoff/unknown
     void SetCharging(bool charging);
     void SetFault(const std::string& fault);
     void ClearFault();
@@ -104,9 +110,16 @@ public:
     using ModeChangedHandler = std::function<void(Mode)>;
     using EmergencyStopHandler = std::function<void()>;
     using MoveCommandHandler = std::function<void(const MoveCommand&)>;
+    /**
+     * 模式切换闸门：返回 false 就不让切（并保持原模式）。
+     * 电池监测用它实现"电量太低，拒绝进巡逻/看门/遥控"。
+     * 注意：急停和掉电自停走的是另一条路，不受这个闸门影响。
+     */
+    using ModeGuardHandler = std::function<bool(Mode)>;
     void SetModeChangedHandler(ModeChangedHandler handler);
     void SetEmergencyStopHandler(EmergencyStopHandler handler);
     void SetMoveCommandHandler(MoveCommandHandler handler);
+    void SetModeGuardHandler(ModeGuardHandler handler);
 
 private:
     ControlServer() = default;
@@ -125,6 +138,8 @@ private:
     Mode mode_ = Mode::Idle;
     bool moving_ = false;
     int battery_percent_ = -1;
+    float battery_volts_ = -1.0f;
+    std::string battery_level_ = "unknown";
     bool charging_ = false;
     std::string fault_;
 
@@ -135,6 +150,7 @@ private:
     ModeChangedHandler mode_changed_handler_;
     EmergencyStopHandler stop_handler_;
     MoveCommandHandler move_command_handler_;
+    ModeGuardHandler mode_guard_handler_;
 
     // httpd 回调（静态，转发到单例）
     static esp_err_t StatusHandler(httpd_req_t* req);

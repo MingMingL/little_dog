@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ESP32-S3 N16R8 开发板（双 Type-C，44 针）元件几何
+  来源：docs/source/breadboard.svg（Breadboard Studio 生成），原样导出未改坐标。
+  外层变换 translate(137.8 -13.34) rotate(90)（2026-10-17 用户要求整体右移 10 列）：
+    局部(x,y) -> 世界(137.8-y, -13.34+x)
+    板身世界坐标 x[80.65,137.8] y[-13.34,14.6]，中心(109.2, 0.63) 正压拼接缝。
+  上排针（局部 x=1.27）落在世界 y=-12.07 = X 板 j 行；下排针（局部 x=26.67）落在
+  世界 y=13.33 = Y 板 k 行；针距 2.54，每排 22 针（世界 x 82.55..139.19，列 32..53）。
+  排对应的连接器（官方 pinout user guide v1.1，已按 data-pin 逐针核对）：
+    上排 = J3：GND TX(43) RX(44) 1 2 42 41 40 39 38 37 36 35 0 45 48 47 21 20 19 GND GND
+    下排 = J1：3V3 3V3 RST 4 5 6 7 15 16 17 18 8 3 46 9 10 11 12 13 14 5V GND
+  （每排左->右 = 列 32..53；USB 双口在局部低 y 端，当前取向 USB 朝右）
+  gen_breadboard_z.py 读取本文件嵌入 breadboard-z.svg；修改请同步更新图例与校验。
+-->
+<g id="component:esp32s3_n16r8_dual_usb_1" transform="translate(137.8 -13.34) rotate(90)" class="component on-board" data-component="esp32s3_n16r8_dual_usb_1"><rect x="-0.1" y="0.1" width="27.94" height="57.15" rx="0.26" fill="#0b0e0f" stroke="#030505" stroke-width="0.22"/>
+<line x1="2.45" y1="0.85" x2="25.49" y2="0.85" stroke="#d9dcda" stroke-width="0.08"/>
+<line x1="2.45" y1="56.28" x2="25.49" y2="56.28" stroke="#d9dcda" stroke-width="0.08"/>
+<line x1="2.9" y1="8.35" x2="25" y2="8.35" stroke="#1d2424" stroke-width="0.11"/>
+<rect x="3.4" y="-1.9" width="9.3" height="9.8" rx="0.26" fill="#8f9492" stroke="#dfe2df" stroke-width="0.18"/>
+<rect x="3.75" y="-1.5" width="8.6" height="9" rx="0.18" fill="#b4b7b3" stroke="#717674" stroke-width="0.1"/>
+<line x1="3.95" y1="0.95" x2="12.15" y2="0.95" stroke="#d8dad7" stroke-width="0.15"/>
+<rect x="4.35" y="2.3" width="1.7" height="0.85" rx="0.14" fill="#565c5b" stroke="#d9dcda" stroke-width="0.09"/>
+<rect x="10.05" y="2.3" width="1.7" height="0.85" rx="0.14" fill="#565c5b" stroke="#d9dcda" stroke-width="0.09"/>
+<line x1="3.9" y1="6.5" x2="12.2" y2="6.5" stroke="#727775" stroke-width="0.18"/>
+<rect x="3.2" y="-1.4" width="0.35" height="5.8" fill="#c7cac7"/>
+<rect x="12.55" y="-1.4" width="0.35" height="5.8" fill="#c7cac7"/>
+<line x1="4.8" y1="7.6" x2="4.8" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<line x1="5.55" y1="7.6" x2="5.55" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<line x1="6.3" y1="7.6" x2="6.3" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<line x1="7.05" y1="7.6" x2="7.05" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<line x1="7.8" y1="7.6" x2="7.8" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<line x1="8.55" y1="7.6" x2="8.55" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<line x1="9.3" y1="7.6" x2="9.3" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<line x1="10.05" y1="7.6" x2="10.05" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<line x1="10.8" y1="7.6" x2="10.8" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<rect x="15" y="-1.9" width="9.3" height="9.8" rx="0.26" fill="#8f9492" stroke="#dfe2df" stroke-width="0.18"/>
+<rect x="15.35" y="-1.5" width="8.6" height="9" rx="0.18" fill="#b4b7b3" stroke="#717674" stroke-width="0.1"/>
+<line x1="15.55" y1="0.95" x2="23.75" y2="0.95" stroke="#d8dad7" stroke-width="0.15"/>
+<rect x="15.95" y="2.3" width="1.7" height="0.85" rx="0.14" fill="#565c5b" stroke="#d9dcda" stroke-width="0.09"/>
+<rect x="21.65" y="2.3" width="1.7" height="0.85" rx="0.14" fill="#565c5b" stroke="#d9dcda" stroke-width="0.09"/>
+<line x1="15.5" y1="6.5" x2="23.8" y2="6.5" stroke="#727775" stroke-width="0.18"/>
+<rect x="14.8" y="-1.4" width="0.35" height="5.8" fill="#c7cac7"/>
+<rect x="24.15" y="-1.4" width="0.35" height="5.8" fill="#c7cac7"/>
+<line x1="16.4" y1="7.6" x2="16.4" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<line x1="17.15" y1="7.6" x2="17.15" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<line x1="17.9" y1="7.6" x2="17.9" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<line x1="18.65" y1="7.6" x2="18.65" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<line x1="19.4" y1="7.6" x2="19.4" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<line x1="20.15" y1="7.6" x2="20.15" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<line x1="20.9" y1="7.6" x2="20.9" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<line x1="21.65" y1="7.6" x2="21.65" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<line x1="22.4" y1="7.6" x2="22.4" y2="8.3" stroke="#d8c28a" stroke-width="0.18"/>
+<rect x="4.6" y="11" width="4.4" height="4.4" rx="0.18" fill="#1b2021" stroke="#727975" stroke-width="0.1"/>
+<circle cx="5.18" cy="11.6" r="0.17" fill="#b4bab6"/>
+<text x="6.8" y="13.45" font-size="0.56" fill="#59605d" text-anchor="middle" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">CH343</text><line x1="4.05" y1="11.8" x2="4.6" y2="11.8" stroke="#c8ccca" stroke-width="0.15"/>
+<line x1="4.05" y1="12.75" x2="4.6" y2="12.75" stroke="#c8ccca" stroke-width="0.15"/>
+<line x1="4.05" y1="13.7" x2="4.6" y2="13.7" stroke="#c8ccca" stroke-width="0.15"/>
+<line x1="4.05" y1="14.65" x2="4.6" y2="14.65" stroke="#c8ccca" stroke-width="0.15"/>
+<line x1="9" y1="11.8" x2="9.55" y2="11.8" stroke="#c8ccca" stroke-width="0.15"/>
+<line x1="9" y1="12.75" x2="9.55" y2="12.75" stroke="#c8ccca" stroke-width="0.15"/>
+<line x1="9" y1="13.7" x2="9.55" y2="13.7" stroke="#c8ccca" stroke-width="0.15"/>
+<line x1="9" y1="14.65" x2="9.55" y2="14.65" stroke="#c8ccca" stroke-width="0.15"/>
+<rect x="23.4" y="12" width="0.65" height="1.15" fill="#cfd2ce"/>
+<rect x="15.98" y="11.78" width="1.65" height="2.5" rx="0.1" fill="#222728" stroke="#c2c6c4" stroke-width="0.11"/>
+<rect x="16.18" y="11.98" width="1.25" height="2.1" fill="#15191a"/>
+<rect x="18.48" y="11.78" width="1.65" height="2.5" rx="0.1" fill="#222728" stroke="#c2c6c4" stroke-width="0.11"/>
+<rect x="18.68" y="11.98" width="1.25" height="2.1" fill="#15191a"/>
+<rect x="20.88" y="11.78" width="1.65" height="2.5" rx="0.1" fill="#222728" stroke="#c2c6c4" stroke-width="0.11"/>
+<rect x="21.08" y="11.98" width="1.25" height="2.1" fill="#15191a"/>
+<text x="23.5" y="14.7" font-size="0.56" fill="#eef0ef" text-anchor="middle" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif" transform="rotate(90 23.5 14.7)">IN-OUT</text><rect x="4.68" y="18.06" width="1.25" height="2.8" rx="0.1" fill="#d9dfdc" stroke="#65706b" stroke-width="0.09"/>
+<rect x="4.88" y="18.61" width="0.85" height="1.7" fill="#d5eee5"/>
+<rect x="7.43" y="18.06" width="1.25" height="2.8" rx="0.1" fill="#d9dfdc" stroke="#65706b" stroke-width="0.09"/>
+<rect x="7.63" y="18.61" width="0.85" height="1.7" fill="#d5eee5"/>
+<rect x="10.08" y="18.06" width="1.25" height="2.8" rx="0.1" fill="#d9dfdc" stroke="#65706b" stroke-width="0.09"/>
+<rect x="10.28" y="18.61" width="0.85" height="1.7" fill="#d5eee5"/>
+<text x="14.7" y="19.2" font-size="0.6" fill="#eef0ef" text-anchor="middle" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif" transform="rotate(180 14.7 19.2)">RGB</text><rect x="4.7" y="23.3" width="3" height="1.5" rx="0.1" fill="#181d1e"/>
+<line x1="5.2" y1="22.9" x2="5.2" y2="23.3" stroke="#c7cbc8" stroke-width="0.17"/>
+<line x1="6.9" y1="22.9" x2="6.9" y2="23.3" stroke="#c7cbc8" stroke-width="0.17"/>
+<line x1="6.05" y1="24.8" x2="6.05" y2="25.3" stroke="#c7cbc8" stroke-width="0.19"/>
+<rect x="9.6" y="23.3" width="3" height="1.5" rx="0.1" fill="#181d1e"/>
+<line x1="10.1" y1="22.9" x2="10.1" y2="23.3" stroke="#c7cbc8" stroke-width="0.17"/>
+<line x1="11.8" y1="22.9" x2="11.8" y2="23.3" stroke="#c7cbc8" stroke-width="0.17"/>
+<line x1="10.95" y1="24.8" x2="10.95" y2="25.3" stroke="#c7cbc8" stroke-width="0.19"/>
+<rect x="16.6" y="15.5" width="5.6" height="5" rx="0.26" fill="#e7e8df" stroke="#7e8581" stroke-width="0.15"/>
+<circle cx="19.4" cy="18" r="1.78" fill="rgb(0, 0, 0)" stroke="#c5c9c3" stroke-width="0.16"/>
+<circle cx="19.4" cy="18" r="1.05" fill="none" stroke="#9ba29d" stroke-width="0.09"/>
+<line x1="18.3" y1="18" x2="20.5" y2="18" stroke="#989f9a" stroke-width="0.08"/>
+<line x1="19.4" y1="16.9" x2="19.4" y2="19.1" stroke="#989f9a" stroke-width="0.08"/>
+<text x="23.2" y="20.1" font-size="0.82" fill="#f0f2f1" text-anchor="middle" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">+</text><rect x="16.6" y="21.5" width="5.6" height="2.8" rx="0.12" fill="#d8d9d3" stroke="#8d928f" stroke-width="0.11"/>
+<rect x="17.4" y="21.75" width="4" height="2.3" fill="#806e59"/>
+<rect x="6.6" y="26.7" width="3.9" height="3.4" rx="0.18" fill="#aaaead" stroke="#e2e5e2" stroke-width="0.12"/>
+<rect x="7" y="27" width="3.1" height="2.7" rx="0.14" fill="#c4c7c5" stroke="#656b69" stroke-width="0.09"/>
+<circle cx="8.55" cy="28.35" r="0.76" fill="#6f7573" stroke="#303534" stroke-width="0.1"/>
+<circle cx="8.55" cy="28.35" r="0.48" fill="#858b88"/>
+<text x="5.26" y="28.41" font-size="0.65" fill="#f0f2f1" text-anchor="middle" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif" transform="rotate(-90 5.26 28.41)">BOOT</text><rect x="6.6" y="31.9" width="3.9" height="3.4" rx="0.18" fill="#aaaead" stroke="#e2e5e2" stroke-width="0.12"/>
+<rect x="7" y="32.2" width="3.1" height="2.7" rx="0.14" fill="#c4c7c5" stroke="#656b69" stroke-width="0.09"/>
+<circle cx="8.55" cy="33.55" r="0.76" fill="#6f7573" stroke="#303534" stroke-width="0.1"/>
+<circle cx="8.55" cy="33.55" r="0.48" fill="#858b88"/>
+<text x="5.26" y="33.41" font-size="0.65" fill="#f0f2f1" text-anchor="middle" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif" transform="rotate(-90 5.26 33.41)">RST</text><rect x="16.55" y="25.15" width="5" height="5.7" rx="0.12" fill="#202526" stroke="#8b908d" stroke-width="0.12"/>
+<rect x="17.35" y="25.75" width="3.6" height="4.5" fill="#303536"/>
+<text x="18.9" y="28" font-size="0.52" fill="#606663" text-anchor="middle" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif" transform="rotate(-90 18.9 28)">1117</text><line x1="21.55" y1="26.25" x2="22.25" y2="26.25" stroke="#d2d5d2" stroke-width="0.36"/>
+<line x1="21.55" y1="28" x2="22.25" y2="28" stroke="#d2d5d2" stroke-width="0.36"/>
+<line x1="21.55" y1="29.75" x2="22.25" y2="29.75" stroke="#d2d5d2" stroke-width="0.36"/>
+<rect x="15.85" y="27.3" width="0.7" height="1.4" fill="#c9cdca"/>
+<rect x="16.5" y="32.5" width="4.8" height="2.4" rx="0.12" fill="#e4e6e0" stroke="#8e938f" stroke-width="0.11"/>
+<rect x="17.2" y="32.8" width="3.4" height="1.8" rx="0.07" fill="#d9a528"/>
+<rect x="4.1" y="36" width="19.8" height="27.5" rx="0.18" fill="#111516" stroke="#292e2e" stroke-width="0.1"/>
+<rect x="5" y="55.2" width="18" height="8.3" rx="0.12" fill="#15191a" stroke="#292f30" stroke-width="0.1"/>
+<line x1="6.1" y1="56.8" x2="21.9" y2="56.8" stroke="#252b2b" stroke-width="0.18"/>
+<line x1="6.1" y1="58.2" x2="21.9" y2="58.2" stroke="#252b2b" stroke-width="0.18"/>
+<line x1="6.1" y1="59.6" x2="21.9" y2="59.6" stroke="#252b2b" stroke-width="0.18"/>
+<line x1="6.1" y1="61" x2="21.9" y2="61" stroke="#252b2b" stroke-width="0.18"/>
+<line x1="6.1" y1="62.4" x2="21.9" y2="62.4" stroke="#252b2b" stroke-width="0.18"/>
+<circle cx="7.6" cy="55.9" r="0.18" fill="#b99542"/>
+<circle cx="20.3" cy="55.9" r="0.18" fill="#b99542"/>
+<rect x="4.55" y="37.7" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="4.55" y="38.9" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="4.55" y="40.1" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="4.55" y="41.3" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="4.55" y="42.5" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="4.55" y="43.7" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="4.55" y="44.9" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="4.55" y="46.1" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="4.55" y="47.3" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="4.55" y="48.5" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="4.55" y="49.7" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="4.55" y="50.9" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="4.55" y="52.1" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="4.55" y="53.3" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="4.55" y="54.5" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="22.7" y="37.7" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="22.7" y="38.9" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="22.7" y="40.1" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="22.7" y="41.3" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="22.7" y="42.5" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="22.7" y="43.7" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="22.7" y="44.9" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="22.7" y="46.1" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="22.7" y="47.3" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="22.7" y="48.5" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="22.7" y="49.7" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="22.7" y="50.9" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="22.7" y="52.1" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="22.7" y="53.3" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="22.7" y="54.5" width="0.7" height="0.9" fill="#c9a956"/>
+<rect x="6" y="36.4" width="0.7" height="0.95" fill="#c9a956"/>
+<rect x="7.35" y="36.4" width="0.7" height="0.95" fill="#c9a956"/>
+<rect x="8.7" y="36.4" width="0.7" height="0.95" fill="#c9a956"/>
+<rect x="10.05" y="36.4" width="0.7" height="0.95" fill="#c9a956"/>
+<rect x="11.4" y="36.4" width="0.7" height="0.95" fill="#c9a956"/>
+<rect x="12.75" y="36.4" width="0.7" height="0.95" fill="#c9a956"/>
+<rect x="14.1" y="36.4" width="0.7" height="0.95" fill="#c9a956"/>
+<rect x="15.45" y="36.4" width="0.7" height="0.95" fill="#c9a956"/>
+<rect x="16.8" y="36.4" width="0.7" height="0.95" fill="#c9a956"/>
+<rect x="18.15" y="36.4" width="0.7" height="0.95" fill="#c9a956"/>
+<rect x="19.5" y="36.4" width="0.7" height="0.95" fill="#c9a956"/>
+<rect x="20.85" y="36.4" width="0.7" height="0.95" fill="#c9a956"/>
+<rect x="5.1" y="37.5" width="17.8" height="17.7" rx="0.25" fill="#a5a99d" stroke="#e2e4dc" stroke-width="0.18"/>
+<rect x="5.55" y="37.95" width="16.9" height="16.8" rx="0.12" fill="#969b8e" stroke="#686e66" stroke-width="0.1"/>
+<circle cx="20.5" cy="40.6" r="0.42" fill="#111516" stroke="#c4c7bd" stroke-width="0.08"/>
+<text x="13.96" y="50.56" font-size="1.15" fill="#d8dbd1" text-anchor="middle" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif" transform="rotate(180 13.96 50.56)">ESP32-S3-N16R8</text><text x="15.46" y="48.01" font-size="0.48" fill="#d1d4ca" text-anchor="middle" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif" transform="rotate(180 15.46 48.01)">FCC ID: 2AC7Z-ESP32S3N16R8</text><text x="16.06" y="47.16" font-size="0.48" fill="#d1d4ca" text-anchor="middle" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif" transform="rotate(180 16.06 47.16)">IC: 21098-ESP32S3N16R8</text><text x="18.67" y="48.67" font-size="1.1" fill="#d8dbd1" text-anchor="middle" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif" transform="rotate(180 18.67 48.67)">CE</text><text x="16.17" y="40.37" font-size="0.78" fill="#d8dbd1" text-anchor="middle" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif" transform="rotate(180 16.17 40.37)">N16R8</text><rect x="7.6" y="40.2" width="4.2" height="4.2" fill="none" stroke="#d7dad0" stroke-width="0.1"/>
+<rect x="10.35" y="42.95" width="1.05" height="1.05" fill="#d7dad0"/>
+<rect x="10.65" y="43.25" width="0.45" height="0.45" fill="#969b8e"/>
+<rect x="8" y="42.95" width="1.05" height="1.05" fill="#d7dad0"/>
+<rect x="8.3" y="43.25" width="0.45" height="0.45" fill="#969b8e"/>
+<rect x="10.35" y="40.65" width="1.05" height="1.05" fill="#d7dad0"/>
+<rect x="10.65" y="40.95" width="0.45" height="0.45" fill="#969b8e"/>
+<rect x="9.5" y="42.5" width="0.5" height="0.5" fill="#d7dad0"/>
+<rect x="8.8" y="41.8" width="0.5" height="0.5" fill="#d7dad0"/>
+<rect x="9.6" y="40.7" width="0.6" height="0.6" fill="#d7dad0"/>
+<rect x="8" y="40.8" width="0.5" height="0.7" fill="#d7dad0"/>
+<text x="17.91" y="46.11" font-size="0.62" fill="#d0d3c9" text-anchor="middle" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif" transform="rotate(180 17.91 46.11)">Espressif</text><text x="15.26" y="46.16" font-size="0.48" fill="#d0d3c9" text-anchor="middle" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif" transform="rotate(180 15.26 46.16)">Systems</text><text x="2.5" y="2.12" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">GND</text><text x="2.5" y="4.66" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">GND</text><text x="2.5" y="7.2" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">19</text><text x="2.5" y="9.74" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">20</text><text x="2.5" y="12.28" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">21</text><text x="2.5" y="14.82" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">47</text><text x="2.5" y="17.36" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">48</text><text x="2.5" y="19.9" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">45</text><text x="2.5" y="22.44" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">0</text><text x="2.5" y="24.98" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">35</text><text x="2.5" y="27.52" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">36</text><text x="2.5" y="30.06" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">37</text><text x="2.5" y="32.6" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">38</text><text x="2.5" y="35.14" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">39</text><text x="2.5" y="37.68" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">40</text><text x="2.5" y="40.22" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">41</text><text x="2.5" y="42.76" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">42</text><text x="2.5" y="45.3" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">2</text><text x="2.5" y="47.84" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">1</text><text x="2.5" y="50.38" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">RX</text><text x="2.5" y="52.92" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">TX</text><text x="2.5" y="55.46" font-size="0.56" fill="#f1f3f4" text-anchor="start" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">GND</text><text x="25.44" y="2.12" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">GND</text><text x="25.44" y="4.66" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">5V</text><text x="25.44" y="7.2" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">14</text><text x="25.44" y="9.74" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">13</text><text x="25.44" y="12.28" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">12</text><text x="25.44" y="14.82" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">11</text><text x="25.44" y="17.36" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">10</text><text x="25.44" y="19.9" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">9</text><text x="25.44" y="22.44" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">46</text><text x="25.44" y="24.98" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">3</text><text x="25.44" y="27.52" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">8</text><text x="25.44" y="30.06" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">18</text><text x="25.44" y="32.6" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">17</text><text x="25.44" y="35.14" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">16</text><text x="25.44" y="37.68" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">15</text><text x="25.44" y="40.22" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">7</text><text x="25.44" y="42.76" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">6</text><text x="25.44" y="45.3" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">5</text><text x="25.44" y="47.84" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">4</text><text x="25.44" y="50.38" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">RST</text><text x="25.44" y="52.92" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">3V3</text><text x="25.44" y="55.46" font-size="0.56" fill="#f1f3f4" text-anchor="end" font-weight="700" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif">3V3</text><circle cx="1.27" cy="1.91" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="4.45" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="6.99" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="9.53" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="12.07" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="14.61" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="17.15" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="19.69" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="22.23" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="24.77" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="27.31" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="29.85" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="32.39" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="34.93" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="37.47" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="40.01" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="42.55" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="45.09" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="47.63" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="50.17" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="52.71" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="1.27" cy="55.25" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="1.91" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="4.45" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="6.99" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="9.53" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="12.07" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="14.61" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="17.15" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="19.69" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="22.23" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="24.77" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="27.31" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="29.85" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="32.39" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="34.93" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="37.47" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="40.01" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="42.55" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="45.09" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="47.63" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="50.17" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="52.71" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<circle cx="26.67" cy="55.25" r="0.83" fill="#aeb2b3" stroke="#eef0ef" stroke-width="0.13"/>
+<rect x="10.45" y="13.7" width="0.7" height="1.4" rx="0.06" fill="#a8865a" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="10.45" y="13.7" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="10.45" y="14.78" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="7.5" y="9.65" width="1.4" height="0.7" rx="0.06" fill="#1f2426" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="7.5" y="9.65" width="0.32" height="0.7" fill="#c9cdc9"/>
+<rect x="8.58" y="9.65" width="0.32" height="0.7" fill="#c9cdc9"/>
+<rect x="8.08" y="9.77" width="0.24" height="0.46" fill="#d9dcd8" opacity="0.35"/>
+<rect x="10.45" y="11.4" width="0.7" height="1.4" rx="0.06" fill="#a8865a" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="10.45" y="11.4" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="10.45" y="12.48" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="11.65" y="11.4" width="0.7" height="1.4" rx="0.06" fill="#1f2426" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="11.65" y="11.4" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="11.65" y="12.48" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="11.77" y="11.98" width="0.46" height="0.24" fill="#d9dcd8" opacity="0.35"/>
+<rect x="12.65" y="11.4" width="0.7" height="1.4" rx="0.06" fill="#1f2426" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="12.65" y="11.4" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="12.65" y="12.48" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="12.77" y="11.98" width="0.46" height="0.24" fill="#d9dcd8" opacity="0.35"/>
+<rect x="13.85" y="11.4" width="0.7" height="1.4" rx="0.06" fill="#1f2426" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="13.85" y="11.4" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="13.85" y="12.48" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="13.97" y="11.98" width="0.46" height="0.24" fill="#d9dcd8" opacity="0.35"/>
+<rect x="14.85" y="11.4" width="0.7" height="1.4" rx="0.06" fill="#1f2426" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="14.85" y="11.4" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="14.85" y="12.48" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="14.97" y="11.98" width="0.46" height="0.24" fill="#d9dcd8" opacity="0.35"/>
+<rect x="14.35" y="17.3" width="0.7" height="1.4" rx="0.06" fill="#1f2426" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="14.35" y="17.3" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="14.35" y="18.38" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="14.47" y="17.88" width="0.46" height="0.24" fill="#d9dcd8" opacity="0.35"/>
+<rect x="11.75" y="18.7" width="0.7" height="1.4" rx="0.06" fill="#1f2426" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="11.75" y="18.7" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="11.75" y="19.78" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="11.87" y="19.28" width="0.46" height="0.24" fill="#d9dcd8" opacity="0.35"/>
+<rect x="9.05" y="18.7" width="0.7" height="1.4" rx="0.06" fill="#1f2426" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="9.05" y="18.7" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="9.05" y="19.78" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="9.17" y="19.28" width="0.46" height="0.24" fill="#d9dcd8" opacity="0.35"/>
+<rect x="6.35" y="18.7" width="0.7" height="1.4" rx="0.06" fill="#1f2426" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="6.35" y="18.7" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="6.35" y="19.78" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="6.47" y="19.28" width="0.46" height="0.24" fill="#d9dcd8" opacity="0.35"/>
+<rect x="8.35" y="23.3" width="0.7" height="1.4" rx="0.06" fill="#1f2426" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="8.35" y="23.3" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="8.35" y="24.38" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="8.47" y="23.88" width="0.46" height="0.24" fill="#d9dcd8" opacity="0.35"/>
+<rect x="13.25" y="23.4" width="0.7" height="1.4" rx="0.06" fill="#1f2426" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="13.25" y="23.4" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="13.25" y="24.48" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="13.37" y="23.98" width="0.46" height="0.24" fill="#d9dcd8" opacity="0.35"/>
+<rect x="15.25" y="23.4" width="0.7" height="1.4" rx="0.06" fill="#1f2426" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="15.25" y="23.4" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="15.25" y="24.48" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="15.37" y="23.98" width="0.46" height="0.24" fill="#d9dcd8" opacity="0.35"/>
+<rect x="14.25" y="23.4" width="0.7" height="1.4" rx="0.06" fill="#a8865a" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="14.25" y="23.4" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="14.25" y="24.48" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="12" y="27.9" width="0.65" height="1.15" fill="#cfd2ce"/>
+<rect x="11.95" y="32.9" width="0.7" height="1.4" rx="0.06" fill="#a8865a" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="11.95" y="32.9" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="11.95" y="33.98" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="22.05" y="33" width="0.7" height="1.4" rx="0.06" fill="#a8865a" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="22.05" y="33" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="22.05" y="34.08" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="23.05" y="33" width="0.7" height="1.4" rx="0.06" fill="#1f2426" stroke="#3a3f40" stroke-width="0.05"/>
+<rect x="23.05" y="33" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="23.05" y="34.08" width="0.7" height="0.32" fill="#c9cdc9"/>
+<rect x="23.17" y="33.58" width="0.46" height="0.24" fill="#d9dcd8" opacity="0.35"/>
+<rect x="0" y="0" width="27.94" height="57.15" fill="transparent" stroke="none" class="component-hit" data-component="esp32s3_n16r8_dual_usb_1"/>
+<text x="13.97" y="-0.9" font-size="1.6" fill="#0f172a" text-anchor="middle" font-weight="bold" font-family="system-ui, -apple-system, &quot;PingFang SC&quot;, &quot;Noto Sans CJK SC&quot;, sans-serif" class="component-name">ESP32-S3 N16R8 开发板（双 Type-C，44 针）</text><circle cx="1.27" cy="1.91" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GND_1"/>
+<circle cx="1.27" cy="1.91" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="1.91" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GND_4"/>
+<circle cx="26.67" cy="1.91" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="4.45" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GND_2"/>
+<circle cx="1.27" cy="4.45" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="4.45" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.5V"/>
+<circle cx="26.67" cy="4.45" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="6.99" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO19"/>
+<circle cx="1.27" cy="6.99" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="6.99" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO14"/>
+<circle cx="26.67" cy="6.99" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="9.53" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO20"/>
+<circle cx="1.27" cy="9.53" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="9.53" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO13"/>
+<circle cx="26.67" cy="9.53" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="12.07" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO21"/>
+<circle cx="1.27" cy="12.07" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="12.07" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO12"/>
+<circle cx="26.67" cy="12.07" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="14.61" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO47"/>
+<circle cx="1.27" cy="14.61" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="14.61" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO11"/>
+<circle cx="26.67" cy="14.61" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="17.15" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO48"/>
+<circle cx="1.27" cy="17.15" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="17.15" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO10"/>
+<circle cx="26.67" cy="17.15" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="19.69" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO45"/>
+<circle cx="1.27" cy="19.69" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="19.69" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO9"/>
+<circle cx="26.67" cy="19.69" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="22.23" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO0"/>
+<circle cx="1.27" cy="22.23" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="22.23" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO46"/>
+<circle cx="26.67" cy="22.23" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="24.77" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO35"/>
+<circle cx="1.27" cy="24.77" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="24.77" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO3"/>
+<circle cx="26.67" cy="24.77" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="27.31" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO36"/>
+<circle cx="1.27" cy="27.31" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="27.31" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO8"/>
+<circle cx="26.67" cy="27.31" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="29.85" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO37"/>
+<circle cx="1.27" cy="29.85" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="29.85" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO18"/>
+<circle cx="26.67" cy="29.85" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="32.39" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO38"/>
+<circle cx="1.27" cy="32.39" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="32.39" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO17"/>
+<circle cx="26.67" cy="32.39" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="34.93" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO39"/>
+<circle cx="1.27" cy="34.93" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="34.93" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO16"/>
+<circle cx="26.67" cy="34.93" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="37.47" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO40"/>
+<circle cx="1.27" cy="37.47" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="37.47" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO15"/>
+<circle cx="26.67" cy="37.47" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="40.01" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO41"/>
+<circle cx="1.27" cy="40.01" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="40.01" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO7"/>
+<circle cx="26.67" cy="40.01" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="42.55" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO42"/>
+<circle cx="1.27" cy="42.55" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="42.55" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO6"/>
+<circle cx="26.67" cy="42.55" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="45.09" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO2"/>
+<circle cx="1.27" cy="45.09" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="45.09" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO5"/>
+<circle cx="26.67" cy="45.09" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="47.63" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO1"/>
+<circle cx="1.27" cy="47.63" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="47.63" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GPIO4"/>
+<circle cx="26.67" cy="47.63" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="50.17" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.RX"/>
+<circle cx="1.27" cy="50.17" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="50.17" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.RST"/>
+<circle cx="26.67" cy="50.17" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="52.71" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.TX"/>
+<circle cx="1.27" cy="52.71" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="52.71" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.3V3_2"/>
+<circle cx="26.67" cy="52.71" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="1.27" cy="55.25" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.GND_3"/>
+<circle cx="1.27" cy="55.25" r="0.31" fill="#34393d" class="pin-hole"/>
+<circle cx="26.67" cy="55.25" r="0.875" fill="#b8bdc0" stroke="#f1f3f4" stroke-width="0.15" class="pin pin-header" data-pin="esp32s3_n16r8_dual_usb_1.3V3_1"/>
+<circle cx="26.67" cy="55.25" r="0.31" fill="#34393d" class="pin-hole"/></g>

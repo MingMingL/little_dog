@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>机器狗 V1 · 硬件接线方案 v7（830 点单板 + 逐级上电验证教程）</title>
+<style>
+:root{--primary:#3F51B5;--primary-light:#E8EAF6;--surface:#F7F8FA;--border:#E0E0E0;--text:#212121;--text2:#616161;--new:#2E7D32;--new-bg:#E8F5E9;--todo:#EF6C00;--todo-bg:#FFF3E0;--warn:#C62828}
+*{box-sizing:border-box}body{margin:0;padding:0 24px 70px;font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;background:#fff;color:var(--text);line-height:1.7}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:26px;margin:0 0 6px}h2{font-size:20px;margin:40px 0 14px;padding-left:12px;border-left:4px solid var(--primary)}
+h3{font-size:16px;margin:24px 0 10px;color:var(--primary)}p,li{font-size:14.5px}
+code{background:var(--surface);padding:1px 5px;border-radius:3px;font-size:13px;font-family:Consolas,Monaco,monospace}
+header{padding:34px 0 20px;border-bottom:2px solid var(--primary);margin-bottom:26px}
+.sub{color:var(--text2);font-size:13.5px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12.5px}
+th,td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--primary-light);font-weight:600}tr:nth-child(even) td{background:#FAFAFA}
+figure{margin:20px 0;text-align:center}figcaption{font-size:13px;color:var(--text2);margin-top:8px}
+svg{max-width:100%;height:auto}
+.note{background:var(--todo-bg);border-left:4px solid var(--todo);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.danger{background:#FFEBEE;border-left:4px solid var(--warn);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.ok{background:var(--new-bg);border-left:4px solid var(--new);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.step{border:1px solid var(--border);border-left:5px solid var(--primary);border-radius:6px;padding:12px 16px;margin:16px 0;background:#FCFCFD}
+.step h4{margin:0 0 8px;font-size:15px;color:var(--primary)}
+.step .kv{font-size:13px;margin:4px 0}
+.step .kv b{display:inline-block;min-width:88px}
+footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--border);color:var(--text2);font-size:13px}
+</style></head><body><div class="wrap">
+<header>
+<h1>机器狗 V1 · 硬件接线方案 v7</h1>
+<div class="sub">v7 = v6 全部内容 + <b>硬件资源修正（830 点单板，撤销 v3 起的 400 点假设）</b> + <b>全新"小白逐级上电验证教程"（怎么调电压、怎么调电流、每一步量什么、防烧）</b> + <b>移除 USB 临时供电（硬件已到齐，回归"2S 电池 → MP1584 → 5V"主方案）</b> · 1.3 寸 SH1106 OLED · 四足仿生 · 引脚级</div>
+</header>
+
+<h2>零、小白导读（先看这里）</h2>
+<p><b>这份文档怎么用：</b>接线当天按这个顺序——<br>
+① <b>第二节"逐级上电验证教程"是你的主线</b>（一个步骤一张卡片，照做即可，每步都告诉你怎么防烧）；<br>
+② 第三步看电机怎么摆（机械）；③ 第四节照着图把模块插到 830 点板的对应列；④ 第五节是引脚级接线总表（每根线接到哪一列/夹哪个针）；⑤ 第七节收尾检查。</p>
+<div class="ok"><b>v7 相对 v6 的三个变化（本版新增/改动，绿框标出）：</b><br>
+① <b>面包板规格修正：你的板子是 830 点（63 列），不是 400 点</b>——v3 起按 400 点写的布局作废，v7 全部按 830 点重排（模块直插 + 公对公跳线为主，母对母夹顶只留给 OLED 4 根信号和 TB6612 的 6 根信号）；<br>
+② <b>新增第二节"逐级上电验证教程"</b>：从万用表怎么用、电压怎么调、电流怎么调/怎么限，到 10 步上电验证，每步给出"量什么 / 期待值 / 异常就停"；<br>
+③ <b>两处安全修正</b>：其一，v3–v6 把面包板连通规则写错了（写成"横着 5 个孔相通"，实际是<b>同一列、同一半区的 5 个孔相通</b>），本节下方有专门纠正；其二，ESP32 的 5V 改从 MB102 <b>直连</b>（v6 是接电源轨，Wi-Fi 峰值 350mA 会把轨拖垮）。
+</div>
+
+<h3>开始前必须记住的 3 条红线（违反会烧器件）</h3>
+<div class="danger" style="font-size:15px">
+<b>红线 1：INMP441 麦克风和 OLED 屏幕只能吃 3.3V。</b>它们板子上没有稳压电路，接 5V 立刻烧坏。<br>
+<b>红线 2：电池（7.4V）绝不能直接碰 ESP32 的任何针脚。</b>ESP32 只认 3.3V 和 5V（且只能接到专门的 5V 针）。<br>
+<b>红线 3：面包板上只插"小电流"的线。</b>电机电流、电池主线、ESP32 主供电全部在面包板外面直连（第四节每张表都已注明）。
+</div>
+
+<h3>面包板连通规则（v7 勘误，接线前必读）</h3>
+<div class="ok"><b>v3–v6 写错了一条规则，v7 纠正：</b>面包板主区<b>不是</b>"横着 5 个孔相通"，而是<b>竖着相通——同一列、同一半区的 5 个孔相通</b>。例如第 12 列：a12/b12/c12/d12/e12 五孔相通，f12/g12/h12/i12/j12 五孔相通，而 e12 与 f12 被中间凹槽隔开、不相通；a12 与 a13（相邻列）也不相通。<br>
+<b>这对你只有一个好处：</b>每个模块的相邻针脚天然各占一列、互不短路，模块可以直接插板；信号线用公对公跳线"列对列"连接即可。<b>自检方法：</b>空板上用万用表蜂鸣档量任意两孔——同一列同半区响，横着相邻不响（教程第 0 步会带你做）。</div>
+
+<h2>一、修改历史</h2>
+<table>
+<tr><th style="width:8%">版本</th><th style="width:12%">日期</th><th>变更</th></tr>
+<tr><td>v1</td><td>2026-10-14</td><td>直连端子版初版</td></tr>
+<tr><td>v2</td><td>2026-10-14</td><td>830 点面包板版：功率域/逻辑域分离 + 星形接地</td></tr>
+<tr><td>v3</td><td>2026-10-14</td><td>400 点 + 四足仿生 + 引脚级 + 新手友好化（连通规则描述有误，v7 勘误）</td></tr>
+<tr><td>v4</td><td>2026-10-14</td><td>加配 7 针 SPI OLED 屏幕接口（型号后于 v5 更正）</td></tr>
+<tr><td>v5</td><td>2026-10-14</td><td>USB 临时供电方案（电池未到货）；OLED 型号更正为 1.3 寸 SH1106</td></tr>
+<tr><td>v6</td><td>2026-10-14</td><td>“两个 2WD 电机”措辞澄清（一套底盘 / 两台电机）</td></tr>
+<tr style="background:var(--new-bg)"><td><b>v7</b></td><td>2026-10-15</td><td><b>本次改动（绿框标出）：</b>① 硬件资源修正——用户只有一块 830 点（63 列）面包板，撤销 v3–v6 的 400 点假设，第四节全部按 830 点重排（模块直插 + 公对公跳线为主）；② 新增第二节“小白逐级上电验证教程”（万用表三用法、调电压、调/限电流、十步上电、电流记录表、冒烟应急）；③ 勘误：面包板主区为“同列同半区 5 孔相通”，非 v3 起所写“横排 5 孔相通”；④ ESP32 5V 由轨供改为 MB102 直连（避免 350mA 峰值拖垮轨）；⑤ 新增“烧坏案例症状表”。</td></tr>
+</table>
+<h2>二、小白逐级上电验证教程（v7 新增 · 防烧主线）</h2>
+<p>这一节是"手把手"章节：<b>每一步只做一件事，做完用万用表验证，正常了才往下走</b>。90% 的"接线烧板"都死于两件事：<b>没量电压就插 3.3V 器件</b>、<b>大电流走了面包板</b>。按本节走，这两件事都被卡死在流程里。</p>
+
+<h3>2.1 工具清单（ total 不到 50 元，但一个都不能省）</h3>
+<table>
+<tr><th style="width:22%">工具</th><th>用途 / 备注</th></tr>
+<tr><td><b>数字万用表（必买，¥20 左右）</b></td><td>本教程的"眼睛"。要有的档位：<b>直流电压 DCV</b>、<b>蜂鸣/通断档</b>。有直流电流档 DCA 更好，没有也能做（用替代法，见 2.3）。</td></tr>
+<tr><td>十字螺丝刀（小号）</td><td>调可调电源模块（MP1584 等）的电位器，调电压用。</td></tr>
+<tr><td>USB 电流表（可选，¥15）</td><td>串在充电头和 MB102 之间，直接读总电流，比万用表串联方便得多。强烈建议买。</td></tr>
+<tr><td>镊子</td><td>夹元件、拔线，比手指稳。</td></tr>
+<tr><td>手机/纸笔</td><td>每步记录电压电流读数 + 给接线拍照，出问题能回溯。</td></tr>
+</table>
+
+<h3>2.2 万用表三个用法（5 分钟学会）</h3>
+<figure>
+<svg viewBox="0 0 680 250" xmlns="http://www.w3.org/2000/svg">
+<rect width="680" height="250" fill="#FFFFFF"/>
+<!-- 电压 -->
+<rect x="15" y="30" width="200" height="190" rx="8" fill="#E8EAF6" stroke="#3F51B5"/>
+<text x="115" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#3F51B5">① 测电压（并联）</text>
+<rect x="55" y="70" width="120" height="46" rx="5" fill="#fff" stroke="#616161"/>
+<text x="115" y="88" text-anchor="middle" font-size="10" fill="#212121">被测两点</text>
+<text x="115" y="104" text-anchor="middle" font-size="9" fill="#616161">如 5V 孔 与 GND 孔</text>
+<line x1="70" y1="116" x2="70" y2="150" stroke="#C62828" stroke-width="2"/>
+<line x1="160" y1="116" x2="160" y2="150" stroke="#1565C0" stroke-width="2"/>
+<rect x="95" y="150" width="40" height="24" rx="3" fill="#FFF9C4" stroke="#F9A825"/>
+<text x="115" y="166" text-anchor="middle" font-size="9">万用表</text>
+<text x="115" y="196" text-anchor="middle" font-size="9.5" fill="#616161">红笔接正、黑笔接负</text>
+<text x="115" y="210" text-anchor="middle" font-size="9.5" fill="#616161">直流 20V 档，<tspan font-weight="700">不用断电</tspan></text>
+<!-- 电流 -->
+<rect x="240" y="30" width="200" height="190" rx="8" fill="#E8F5E9" stroke="#2E7D32"/>
+<text x="340" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#2E7D32">② 测电流（串联）</text>
+<line x1="290" y1="150" x2="340" y2="150" stroke="#616161" stroke-width="2"/>
+<line x1="390" y1="150" x2="340" y2="150" stroke="#616161" stroke-width="2"/>
+<line x1="290" y1="150" x2="290" y2="120" stroke="#C62828" stroke-width="2.5"/>
+<line x1="390" y1="150" x2="390" y2="120" stroke="#C62828" stroke-width="2.5"/>
+<rect x="320" y="138" width="40" height="24" rx="3" fill="#FFF9C4" stroke="#F9A825"/>
+<text x="340" y="154" text-anchor="middle" font-size="9">表串入</text>
+<text x="340" y="196" text-anchor="middle" font-size="9.5" fill="#616161">把一根线剪断/挑开，</text>
+<text x="340" y="210" text-anchor="middle" font-size="9.5" fill="#616161">表笔接两个断口。<tspan font-weight="700">先估大量程</tspan></text>
+<!-- 通断 -->
+<rect x="465" y="30" width="200" height="190" rx="8" fill="#FFF3E0" stroke="#EF6C00"/>
+<text x="565" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="#E65100">③ 蜂鸣档（测通断）</text>
+<circle cx="540" cy="105" r="9" fill="#fff" stroke="#616161"/>
+<circle cx="590" cy="105" r="9" fill="#fff" stroke="#616161"/>
+<line x1="540" y1="105" x2="590" y2="105" stroke="#2E7D32" stroke-width="2"/>
+<text x="565" y="136" text-anchor="middle" font-size="9" fill="#2E7D32">连通 → 滴滴响</text>
+<path d="M 500 185 L 530 185 M 600 185 L 630 185" stroke="#C62828" stroke-width="2" stroke-dasharray="3 3"/>
+<text x="565" y="196" text-anchor="middle" font-size="9.5" fill="#616161">两个孔响 = 内部连通</text>
+<text x="565" y="210" text-anchor="middle" font-size="9.5" fill="#616161">不响 = 不相通。<tspan font-weight="700">断电测</tspan></text>
+</svg>
+<figcaption>图 1 · 万用表三个用法。本教程 90% 的场合只用到①和③；②用得少，可用 USB 电流表替代。</figcaption>
+</figure>
+<div class="danger"><b>万用表两条保命纪律：</b>① <b>测电压时表笔绝对不能改插"电流孔"</b>——多数表电流孔和 COM 孔是分开的，电压档时表笔必须插回 VΩ 孔，否则等于把电源短路，会打火；② 不知道量多少就先选最大量程（20V），再往下调。</div>
+
+<h3>2.3 电压怎么调（把 5V 调到 5.00V）</h3>
+<p><b>先建立概念：本机所有"5V"都来自同一个源头，你只需要在<b>总入口</b>把它调准一次。</b>硬件已到齐，供电路径回到主方案：<code>2S 电池（7.4V）→ MP1584 降压 → 5.00V → 面包板轨 + 各模块 + 电机</code>。</p>
+<table>
+<tr><th style="width:26%">场景</th><th>要不要调</th><th>怎么做</th></tr>
+<tr><td><b>电池 + MP1584（现状·主方案）</b></td><td><b>必须自己调</b></td><td>见下方"六步法"：7.4V 电池 → 调到 5.00V。<b>这是整机唯一需要调压的地方</b>，其他模块的电压都是它分配的（5V 走轨、3.3V 由 ESP32 板载 LDO 从 5V 变出来）。</td></tr>
+<tr><td><b>可调电源（电压电流双旋钮，如有）</b></td><td><b>先调压、再限流</b></td><td>电压旋钮拧到 5.00V，电流旋钮拧到最小，然后见 2.4 节限流。</td></tr>
+<tr><td><b>USB 线</b></td><td><b>不再用于供电</b></td><td>v5/v6 的"USB 临时供电（电池未到）"方案已废除——USB 只保留一个用途：<b>烧录固件</b>（见教程第 3 步），烧完就拔，整机运行一律不插 USB 供电线。</td></tr>
+</table>
+<div class="ok"><b>MP1584 调 5.00V 六步法：</b><br>
+① 断电，把 MP1584 的 IN+/IN− 接电池（7.4V，经开关），OUT+/OUT− <b>先只接万用表</b>（红笔 OUT+，黑笔 OUT−），不接任何负载；<br>
+② 上电，表拨直流 20V 档，先确认 OUT 读数是个小零头（零点几伏，随电位器位置而变）；<br>
+③ 小螺丝刀插进模块侧面电位器，<b>每次只拧一点点，拧完停 2 秒看读数</b>（顺时针/逆时针哪边升，各模块不同，试一次就记住）；<br>
+④ 拧到 <b>5.00V（4.95–5.05 都算合格）</b>；<br>
+⑤ 接上全部负载，再量一次 OUT：带载后只要还 ≥4.85V 就合格（掉太多说明线太细或模块功率不够）；<br>
+⑥ 搞定后<b>给电位器点一滴指甲油/热熔胶封住</b>，防止震动跑偏。<br>
+<div class="note"><b>"限制电压"到底限制的是什么：</b>你真正要防的是"高压进低压器件"——3.3V 的 INMP441 和 OLED 接 5V 就烧。所以规则只有一条：<b>全机的 5V 只有一个出口（MP1584 输出/5V 轨），3.3V 只有一个出口（ESP32 的 3V3 针）</b>，插任何器件前先量它那个孔的电压对不对（教程第 3 步）。</div>
+<h3>2.4 电流怎么调、怎么限（本教程的核心安全课）</h3>
+<p><b>先说一个最常见的误解：电流不是"你想要多少就有多少"，而是"负载要多少、电源最多能给多少"里的小值。</b>所以安全电流管理其实就三句话：<b>① 电源供得起（电压不塌）② 电线/面包板扛得住（不发热）③ 异常时看得见（电压跌落、发烫、重启）。</b></p>
+<table>
+<tr><th style="width:26%">器件</th><th style="width:22%">典型电流</th><th>从哪取电</th></tr>
+<tr><td>ESP32-S3（Wi-Fi 峰值）</td><td>空闲 80–160mA / <b>峰值 ~350mA</b></td><td><b>MP1584 直连 5V 针（J1-21）</b>，不走轨</td></tr>
+<tr><td>SH1106 OLED 屏幕</td><td>~20mA（3.3V）</td><td>ESP32 3V3 针</td></tr>
+<tr><td>INMP441 麦克风</td><td>~5mA（3.3V）</td><td>ESP32 3V3 针</td></tr>
+<tr><td>MAX98357A 功放</td><td>~200mA（5V，音量 70% 起）</td><td>5V 轨</td></tr>
+<tr><td>TCRT5000 ×5 + VL53L0X</td><td>合计 ~100mA（5V）</td><td>5V 轨</td></tr>
+<tr><td>2WD 电机 ×2</td><td>空载 60–150mA/台；<b>堵转 1A+/台</b></td><td><b>MP1584 直连 TB6612，绝不过板</b></td></tr>
+</table>
+<div class="danger"><b>面包板轨的硬上限：一条电源轨别超过 500mA</b>（830 点和 400 点的触点规格一样，没有"830 点更能扛"这回事）。所以上表的取电分工是刻意设计的：ESP32 和电机的峰值电流都从 MP1584 直连，轨上只留功放+传感器共 ~300mA。</div>
+<h4>限流的三种手段（按你手上的装备选）</h4>
+<ol style="line-height:2">
+<li><b>有可调电源/带恒流（CC）的模块（最佳）：</b>① 先把电压设成 5.00V；② 电流旋钮<b>从最小慢慢拧大</b>，同时盯着电压表；③ 拧到"负载全接上但电压不再往下掉"的位置，再退回 20% 余量，这就是你的电流上限。好处：<b>真要短路，电源自动限流，不会打火</b>。</li>
+<li><b>只有 MP1584（限压不限流）：</b>限流靠"选电源 + 分路上电 + 死盯电压"。任一步出现"5V 读数掉 0.1V 以上"或"器件发烫、主控重启"，立即断电，那一级就是超限点，拆了重判。</li>
+<li><b>固件软限流（最后一道防线）：</b>App 遥控把速度拉到 30% 以下再试；固件里 remote 模式默认就是低速起步。堵转（轮子被按住不转）时电流翻几倍，是电池降压模块和 TB6612 的最大杀手——<b>拿在手上玩时，绝不让轮子被捏停超过 1 秒</b>。</li>
+</ol>
+<div class="note"><b>电池预算（现行主方案）：</b>2S 电池标称 7.4V，选 2000mAh 以上带 BMS 的。MP1584 按 5V×1.5A 选（留够余量）。全机逻辑部分 ~0.5A、双电机中速 ~0.8A，合计峰值 ~1.3A，MP1584 会有点发热属正常，烫手才异常。</div>
+
+<h3>2.5 十步上电验证（照做，每步 3 分钟）</h3>
+<p>原则：<b>先断电把所有线接好 → 但每加一级负载，都先"量电压"再"看现象"</b>。表里"期待值"之外的任何读数，先停手、别继续往下接。</p>
+
+<div class="step"><h4>第 0 步：断电体检（一次学会，以后每次接线前都做）</h4>
+<div class="kv"><b>做什么</b>所有线按第四/五节接好，<b>电源全不插</b>（电池不接、USB 不插）。</div>
+<div class="kv"><b>量什么</b>蜂鸣档：① 5V 轨 对 GND 轨：<b>不响</b>；② ESP32 3V3 针 对 GND 针：<b>不响</b>；③ 随手抽查 5 个孔（同列同半区应响、横邻不响）。</div>
+<div class="kv"><b>期待值</b>全部符合"该通的不该通的"判据；目检无歪针、无散丝搭邻列。</div>
+<div class="kv"><b>异常</b>持续蜂鸣 = 有短路。分段排查：拔掉轨外来线 → 还响就逐模块拔，直到不响，最后拔掉的那个就是祸根。</div></div>
+
+<div class="step"><h4>第 1 步：空板上电（只接 MP1584，什么都不插）</h4>
+<div class="kv"><b>做什么</b>电池经开关接 MP1584，MP1584 输出先只接 5V 轨和 GND 轨；<b>ESP32 和所有模块都还没插</b>。</div>
+<div class="kv"><b>量什么</b>直流电压档量 5V 轨；USB 电流表串在电池回路看总电流。</div>
+<div class="kv"><b>期待值</b>轨电压 = <b>4.95–5.05V</b>；总电流 ≈ 0mA；摸 MP1584 不烫。</div>
+<div class="kv"><b>异常</b>电压超 5.1V → 回 2.3 重调电位器；有电流且发热 → 轨上有隐藏短路，回第 0 步。</div></div>
+
+<div class="step"><h4>第 2 步：插 ESP32（全机第一次“活过来”）</h4>
+<div class="kv"><b>做什么</b>MP1584 直连线 → ESP32 5V 针（J1-21）；断电插好，再上电。<b>先只接它一个</b>。</div>
+<div class="kv"><b>量什么</b>① J1-21 电压；② 3V3 针（J1-1）电压；③ 总电流。</div>
+<div class="kv"><b>期待值</b>5V 针 <b>4.7–5.0V</b>（板载保护二极管会掉 0.2V 左右，正常）；3V3 针 <b>3.2–3.4V</b>；电流 <b>80–160mA</b>；串口有启动日志。</div>
+<div class="kv"><b>异常</b>电流超 300mA 或电压掉到 4.5V 以下 → 立刻断电，多半是 5V/GND 接反或 3.3V 器件已误插；主控烫手 → 同判。</div></div>
+
+<div class="step"><h4>第 3 步：先烧固件，再接一根线（USB 只在这里出现）</h4>
+<div class="kv"><b>做什么</b><b>断开电池</b>，USB 线插 ESP32 自己的口，按 <code>docs/固件开发环境.md</code> 烧录。烧完拔 USB，恢复电池供电。</div>
+<div class="kv"><b>量什么</b>烧录成功后日志出现 <code>SH1106 OLED 已就绪</code>（没插屏时会自动回退无屏模式，不报错即可）、<code>局域网控制服务已启动</code>。</div>
+<div class="kv"><b>期待值</b>烧录 100%、重启后日志正常。这一步不碰面包板，不存在烧机风险，却能在接线前排除固件问题。</div>
+<div class="kv"><b>异常</b>烧不过 → USB 线换成数据线；先解决固件再接线，不要"边接边试"。</div></div>
+
+<div class="step"><h4>第 4 步：先量“模块孔位电压”，再插 OLED（全机第一个外设）</h4>
+<div class="kv"><b>做什么</b>OLED 的电源线先接好但<b>模块本身先不插</b>：3.3V 线已顶到它的 VCC 孔、GND 到 GND 孔。上电量这两个孔。</div>
+<div class="kv"><b>量什么</b>OLED 的 VCC 孔（对 GND 孔）电压。</div>
+<div class="kv"><b>期待值</b><b>3.2–3.4V</b>。是 5V 就不插，先查跳线是不是从 5V 轨来的。</div>
+<div class="kv"><b>然后</b>断电，插上 OLED，插 4 根信号线（母对母夹顶），上电 → 日志打印 <code>SH1106 OLED 已就绪</code> + 屏幕亮。黑屏先查 CS 是否接地。</div></div>
+
+<div class="step"><h4>第 5 步：INMP441 麦克风（第二个 3.3V 器件）</h4>
+<div class="kv"><b>做什么</b>同第 4 步套路：先接电源不插模块，量 VCC 孔 = <b>3.3V</b> 确认后，断电插模块、插 3 根信号线，上电。</div>
+<div class="kv"><b>量什么</b>总电流较第 2 步只应多 ~5mA；对着麦克风说话，看 OLED 上是否出现"聆听/识别中"。</div>
+<div class="kv"><b>异常</b>无声且模块发烫 → 立即断电，VCC 多半接了 5V，已烧，换模块。</div></div>
+
+<div class="step"><h4>第 6 步：MAX98357A 功放 + 喇叭</h4>
+<div class="kv"><b>做什么</b>先量 VDD 孔 = <b>5V</b>（这次是 5V，别搞反），断电插模块和 3 根信号线；喇叭最后接。</div>
+<div class="kv"><b>量什么</b>播放 TTS 时总电流增量（音量 50% 时 +100mA 上下正常）；喇叭应有声。</div>
+<div class="kv"><b>异常</b>功放任一秒就烫 → 拔喇叭断电查接线；声音断续 → 5V 轨被拖垮（看第 1/2 步残余电流记录）。</div></div>
+
+<div class="step"><h4>第 7 步：传感器区（巡线 ×5 + VL53L0X）</h4>
+<div class="kv"><b>做什么</b>每颗先量 VCC 孔 = <b>5V</b>，再插；AO 脚一律悬空不接。</div>
+<div class="kv"><b>量什么</b>总电流合计应 ~+100mA；用手挡巡线探头，串口/OLED 状态应有变化；VL53L0X 前方放只手，距离读数变化。</div>
+<div class="kv"><b>异常</b>某颗永远一个读数 → DO 跳线列号接错（对照第五节表核对列号）。</div></div>
+
+<div class="step"><h4>第 8 步：TB6612 + 电机（最后一级，轮子悬空）</h4>
+<div class="kv"><b>做什么</b>TB6612 放板外：6 根信号母对母夹顶；<b>VM/VCC/GND 从 MP1584 直连，不碰面包板</b>。上电前确认轮子离地。</div>
+<div class="kv"><b>量什么</b>低速点一下 remote 模式方向键：量 ESP32 5V 针电压（应稳住 4.8V+）、总电流（单台中速 +80–150mA）。</div>
+<div class="kv"><b>期待值</b>轮子转、电压不塌、TB6612 只是微温。</div>
+<div class="kv"><b>异常</b>电机一转主控就重启 = 电流不够/线太细 → 降速或换 20AWG 直连线；TB6612 烫手 → 查 VM 是不是没接/接错。</div></div>
+
+<div class="step"><h4>第 9 步：全负载拷机 5 分钟 + 记录归档</h4>
+<div class="kv"><b>做什么</b>巡逻模式跑 5 分钟（电机 + 语音 + 屏幕同时开）。</div>
+<div class="kv"><b>量什么</b>每 1 分钟记一次总电流和 5V 轨电压；结束时摸 MP1584 / TB6612 / 各跳线。</div>
+<div class="kv"><b>期待值</b>电压全程 ≥4.85V；所有东西"温热正常、烫手异常"；电池电压从 8.4V 缓慢下降。</div>
+<div class="kv"><b>然后</b>拍照存档接线 + 读数，以后改线前后各对比一次。</div></div>
+
+<h4>电流/电压记录表（打印或抄下来）</h4>
+<table>
+<tr><th>阶段</th><th>总电流</th><th>5V 轨电压</th><th>3.3V 点电压</th><th>备注</th></tr>
+<tr><td>第1步 空板</td><td>≈0mA</td><td>5.00V</td><td>—</td><td></td></tr>
+<tr><td>第2步 ESP32</td><td>~120mA</td><td></td><td>3.30V</td><td></td></tr>
+<tr><td>第4步 +OLED</td><td></td><td></td><td></td><td></td></tr>
+<tr><td>第5步 +麦克风</td><td></td><td></td><td></td><td></td></tr>
+<tr><td>第6步 +功放</td><td></td><td></td><td></td><td></td></tr>
+<tr><td>第7步 +传感器</td><td></td><td></td><td></td><td></td></tr>
+<tr><td>第8步 +电机</td><td></td><td></td><td></td><td></td></tr>
+<tr><td>第9步 拷机</td><td></td><td></td><td></td><td></td></tr>
+</table>
+<h2>三、一套 2WD 底盘的布置（含左右两台电机）：仿四足</h2>
+<h3>3.1 姿态方案</h3>
+<div class="ok"><b>先澄清防误读：</b>本文所说的"两个 2WD 电机"，指的是<b>一套</b> 2WD 底盘里自带的<b>左轮电机 + 右轮电机</b>（各驱动一个后轮），<b>不是两套底盘</b>——采购量就是 <b>1 套</b>（见 PRD 清单）。之所以一台底盘里要装两台电机：<b>一台电机只能直行/倒车，转弯必须靠左右轮转速差（差速转向）</b>，这也是巡线时实时左右修正的唯一廉价实现。到货验收：数一数应有 2 台电机、2 只驱动轮、2 只万向轮（部分套件不含，需另配）。</div>
+<p>一套 2WD 底盘要做"机器狗"观感，关键是<b>把左右两个驱动轮当成狗的后腿</b>，前部用两个被动支撑点当"前腿"：</p>
+<figure>
+<svg viewBox="0 0 680 250" xmlns="http://www.w3.org/2000/svg">
+<rect width="680" height="250" fill="#FFFFFF"/>
+<text x="170" y="24" text-anchor="middle" font-size="12" font-weight="700">俯视图（轮距与前后支撑）</text>
+<rect x="60" y="40" width="220" height="150" rx="10" fill="#F7F8FA" stroke="#9E9E9E"/>
+<circle cx="290" cy="165" r="26" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2.5"/>
+<circle cx="290" cy="65" r="26" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2.5"/>
+<text x="290" y="168" text-anchor="middle" font-size="10" font-weight="700" fill="#2E7D32">驱动轮</text>
+<text x="290" y="180" text-anchor="middle" font-size="9" fill="#616161">（后腿）</text>
+<text x="290" y="68" text-anchor="middle" font-size="10" font-weight="700" fill="#2E7D32">驱动轮</text>
+<text x="290" y="80" text-anchor="middle" font-size="9" fill="#616161">（后腿）</text>
+<rect x="60" y="30" width="40" height="40" rx="6" fill="#FFF3E0" stroke="#EF6C00" stroke-dasharray="4 3"/>
+<rect x="60" y="160" width="40" height="40" rx="6" fill="#FFF3E0" stroke="#EF6C00" stroke-dasharray="4 3"/>
+<text x="80" y="54" text-anchor="middle" font-size="9" fill="#E65100">前脚</text>
+<text x="80" y="184" text-anchor="middle" font-size="9" fill="#E65100">前脚</text>
+<text x="150" y="115" text-anchor="middle" font-size="10.5" fill="#616161">重心尽量落在两驱动轮轴连线</text>
+<text x="150" y="130" text-anchor="middle" font-size="10.5" fill="#616161">前方 10~15 mm 处</text>
+<line x1="290" y1="200" x2="330" y2="200" stroke="#3F51B5" stroke-dasharray="4 3"/>
+<text x="336" y="203" font-size="10" fill="#3F51B5">轴距</text>
+<line x1="290" y1="39" x2="290" y2="191" stroke="#C62828" stroke-dasharray="4 3"/>
+<text x="296" y="118" font-size="10" fill="#C62828">轮距</text>
+<text x="540" y="24" text-anchor="middle" font-size="12" font-weight="700">侧视图（前脚高度）</text>
+<rect x="430" y="120" width="200" height="16" rx="3" fill="#F7F8FA" stroke="#9E9E9E"/>
+<circle cx="580" cy="150" r="22" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2.5"/>
+<rect x="440" y="110" width="22" height="30" rx="4" fill="#FFF3E0" stroke="#EF6C00" stroke-dasharray="4 3"/>
+<line x1="451" y1="140" x2="451" y2="172" stroke="#EF6C00" stroke-dasharray="3 3"/>
+<text x="451" y="112" text-anchor="middle" font-size="9" fill="#E65100">前脚</text>
+<text x="580" y="188" text-anchor="middle" font-size="9" fill="#616161">驱动轮</text>
+<text x="520" y="220" text-anchor="middle" font-size="10" fill="#616161">前脚比轮子低 3~5 mm，</text>
+<text x="520" y="234" text-anchor="middle" font-size="10" fill="#616161">遇障时前脚先被抬起/滑让</text>
+</svg>
+<figcaption>图 2 · 四足仿生布局：后轮驱动 + 前部两点支撑（俯视/侧视）</figcaption>
+</figure>
+<h3>3.2 机械参数（底盘选型/改装时照此核对）</h3>
+<table>
+<tr><th style="width:22%">参数</th><th style="width:26%">建议值</th><th>说明</th></tr>
+<tr><td>驱动方式</td><td>后轮差速驱动（2WD）</td><td>左右轮独立 PWM，差速转向；前脚随动</td></tr>
+<tr><td>轮距（左右轮中线）</td><td>≥ 100 mm</td><td>2WD 底盘常见 100 mm 左右；太窄易打晃</td></tr>
+<tr><td>轴距（前脚连线到后轮轴）</td><td>≥ 120 mm</td><td>太短重心靠后易后仰；前脚到轴距离 = 力臂</td></tr>
+<tr><td>重心位置</td><td>落在驱动轮轴前方 10~15 mm</td><td>保证上坡不后翻；面包板+电池偏重，注意配重</td></tr>
+<tr><td>前脚支撑</td><td>三选一：① 万向轮（最稳）② 塑料滑脚（最简）③ 圆弧脚垫（静音）</td><td>木头/毛毯地面用滑脚即可；原地打转多建议万向轮</td></tr>
+<tr><td>电机安装</td><td>两电机轴相对（一正一反），线束朝车体中心</td><td>左右方向相反属正常，靠固件反向系数补偿</td></tr>
+<tr><td>前脚高度</td><td>比轮子低 3~5 mm</td><td>保证前脚贴地又不与地面摩擦过紧</td></tr>
+</table>
+<h2>四、830 点面包板：布局与列号分配（v7 修正：你的板子是 830 点 / 63 列）</h2>
+<p><b>830 点的富余用法（和 400 点版最大的区别）：</b>ESP32 靠左插（J1 占上排 e 行 5–26 列，J3 占下排 f 行 5–26 列），<b>模块不再需要"夹顶"，直接插板、每脚独占一列</b>，信号用公对公跳线"列对列"连接。母对母夹顶只剩两处：OLED 的 4 根信号、TB6612 的 6 根信号。</p>
+<figure>
+<svg viewBox="0 0 680 430" xmlns="http://www.w3.org/2000/svg">
+<rect width="680" height="430" fill="#FFFFFF"/>
+<defs><marker id="p1" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#C62828"/></marker>
+<marker id="p2" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L8,3 z" fill="#2E7D32"/></marker></defs>
+<!-- 板身 -->
+<rect x="40" y="18" width="610" height="270" rx="6" fill="#FAFAFA" stroke="#BDBDBD"/>
+<text x="345" y="14" text-anchor="middle" font-size="11" font-weight="700" fill="#616161">830 点面包板（63 列；中间凹槽上下不通）</text>
+<!-- 上轨 -->
+<line x1="50" y1="34" x2="335" y2="34" stroke="#C62828" stroke-width="3"/>
+<line x1="355" y1="34" x2="640" y2="34" stroke="#C62828" stroke-width="3"/>
+<line x1="335" y1="26" x2="355" y2="26" stroke="#2E7D32" stroke-width="3" stroke-dasharray="3 2"/>
+<text x="60" y="28" font-size="9.5" fill="#C62828">上轨 +（5V 上半区）</text>
+<text x="360" y="28" font-size="9.5" fill="#2E7D32">上轨 + 右段（桥接）</text>
+<line x1="50" y1="48" x2="640" y2="48" stroke="#1565C0" stroke-width="3"/>
+<text x="60" y="44" font-size="9.5" fill="#1565C0">上轨 −（GND 上半区）</text>
+<!-- 主区行 -->
+<line x1="50" y1="60" x2="640" y2="60" stroke="#9E9E9E" stroke-width="1"/>
+<line x1="50" y1="86" x2="640" y2="86" stroke="#9E9E9E" stroke-width="1"/>
+<line x1="50" y1="112" x2="640" y2="112" stroke="#9E9E9E" stroke-width="1"/>
+<line x1="50" y1="138" x2="640" y2="138" stroke="#9E9E9E" stroke-width="1"/>
+<line x1="50" y1="152" x2="640" y2="152" stroke="#9E9E9E" stroke-width="1"/>
+<line x1="50" y1="164" x2="640" y2="164" stroke="#9E9E9E" stroke-width="1"/>
+<line x1="50" y1="190" x2="640" y2="190" stroke="#9E9E9E" stroke-width="1"/>
+<line x1="50" y1="216" x2="640" y2="216" stroke="#9E9E9E" stroke-width="1"/>
+<line x1="50" y1="242" x2="640" y2="242" stroke="#9E9E9E" stroke-width="1"/>
+<line x1="50" y1="268" x2="640" y2="268" stroke="#9E9E9E" stroke-width="1"/>
+<line x1="50" y1="152" x2="640" y2="152" stroke="#9E9E9E" stroke-width="1" stroke-dasharray="6 4"/>
+<text x="44" y="73" font-size="9" fill="#9E9E9E">a</text><text x="44" y="99" font-size="9" fill="#9E9E9E">b</text>
+<text x="44" y="125" font-size="9" fill="#9E9E9E">c</text><text x="44" y="151" font-size="9" fill="#9E9E9E">d</text>
+<text x="44" y="143" font-size="9" font-weight="700" fill="#3F51B5">e</text>
+<text x="44" y="180" font-size="9" font-weight="700" fill="#3F51B5">f</text><text x="44" y="207" font-size="9" fill="#9E9E9E">g</text>
+<text x="44" y="233" font-size="9" fill="#9E9E9E">h</text><text x="44" y="259" font-size="9" fill="#9E9E9E">i</text>
+<text x="44" y="283" font-size="9" fill="#9E9E9E">j</text>
+<!-- 下轨 -->
+<line x1="50" y1="300" x2="335" y2="300" stroke="#2E7D32" stroke-width="3"/>
+<line x1="355" y1="300" x2="640" y2="300" stroke="#2E7D32" stroke-width="3"/>
+<text x="60" y="294" font-size="9.5" fill="#2E7D32">下轨 +（5V 下半区）</text>
+<text x="360" y="294" font-size="9.5" fill="#2E7D32">下轨 + 右段（桥接）</text>
+<line x1="50" y1="314" x2="640" y2="314" stroke="#1565C0" stroke-width="3"/>
+<text x="60" y="328" font-size="9.5" fill="#1565C0">下轨 −（GND 下半区）</text>
+<!-- ESP32 -->
+<rect x="86" y="58" width="211" height="98" rx="4" fill="#E8EAF6" stroke="#3F51B5" stroke-width="1.5"/>
+<text x="191" y="112" text-anchor="middle" font-size="11" font-weight="700" fill="#3F51B5">ESP32-S3</text>
+<text x="191" y="128" text-anchor="middle" font-size="9" fill="#616161">J1 → e 行 5–26 列 ｜ J3 → f 行 5–26 列</text>
+<text x="191" y="142" text-anchor="middle" font-size="9" fill="#616161">板身盖住 5–26 列全部行；USB 口朝右</text>
+<!-- 音频区 -->
+<rect x="230" y="56" width="255" height="88" rx="6" fill="none" stroke="#2E7D32" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="357" y="66" text-anchor="middle" font-size="10" font-weight="700" fill="#2E7D32">音频区（上排 27–52 列）</text>
+<rect x="258" y="86" width="130" height="40" rx="4" fill="#E8F5E9" stroke="#2E7D32"/>
+<text x="323" y="102" text-anchor="middle" font-size="9.5" font-weight="700">INMP441</text>
+<text x="323" y="116" text-anchor="middle" font-size="8.5" fill="#616161">VCC=31 GND=33 SCK=35 WS=37 SD=39 L/R=41</text>
+<rect x="398" y="86" width="90" height="40" rx="4" fill="#E8F5E9" stroke="#2E7D32"/>
+<text x="443" y="102" text-anchor="middle" font-size="9.5" font-weight="700">MAX98357A</text>
+<text x="443" y="116" text-anchor="middle" font-size="8.5" fill="#616161">VDD=44 GND=46 BCLK=48</text>
+<text x="443" y="126" text-anchor="middle" font-size="8.5" fill="#616161">LRC=50 DIN=52</text>
+<!-- OLED区 -->
+<rect x="495" y="56" width="130" height="88" rx="6" fill="none" stroke="#7B1FA2" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="560" y="66" text-anchor="middle" font-size="10" font-weight="700" fill="#7B1FA2">OLED 区（53–59 列）</text>
+<rect x="505" y="84" width="110" height="52" rx="4" fill="#F3E5F5" stroke="#7B1FA2"/>
+<text x="560" y="102" text-anchor="middle" font-size="9.5" font-weight="700" fill="#7B1FA2">1.3" SH1106</text>
+<text x="560" y="116" text-anchor="middle" font-size="8.5" fill="#616161">GND=53 VCC=54 CLK=55</text>
+<text x="560" y="127" text-anchor="middle" font-size="8.5" fill="#616161">DIN=56 DC=57 RES=58 CS=59</text>
+<!-- 分压区 -->
+<rect x="560" y="170" width="80" height="44" rx="4" fill="#FFEBEE" stroke="#C62828" stroke-dasharray="4 3"/>
+<text x="600" y="188" text-anchor="middle" font-size="9" font-weight="700" fill="#C62828">电池分压</text>
+<text x="600" y="202" text-anchor="middle" font-size="8" fill="#616161">100k/47k → GPIO8</text>
+<text x="600" y="212" text-anchor="middle" font-size="8" fill="#616161">（上排 60–63 列）</text>
+<!-- 传感器区 -->
+<rect x="230" y="168" width="410" height="100" rx="6" fill="none" stroke="#EF6C00" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text x="435" y="180" text-anchor="middle" font-size="10" font-weight="700" fill="#E65100">传感器区（下排 27–63 列）</text>
+<g font-size="8" fill="#616161">
+<rect x="258" y="192" width="34" height="26" rx="3" fill="#FFF3E0" stroke="#EF6C00"/><text x="275" y="208" text-anchor="middle">#1</text>
+<rect x="300" y="192" width="34" height="26" rx="3" fill="#FFF3E0" stroke="#EF6C00"/><text x="317" y="208" text-anchor="middle">#2</text>
+<rect x="342" y="192" width="34" height="26" rx="3" fill="#FFF3E0" stroke="#EF6C00"/><text x="359" y="208" text-anchor="middle">#3</text>
+<rect x="384" y="192" width="34" height="26" rx="3" fill="#FFF3E0" stroke="#EF6C00"/><text x="401" y="208" text-anchor="middle">#4</text>
+<rect x="426" y="192" width="34" height="26" rx="3" fill="#FFF3E0" stroke="#EF6C00"/><text x="443" y="208" text-anchor="middle">#5</text>
+<rect x="480" y="192" width="52" height="26" rx="3" fill="#FFF3E0" stroke="#EF6C00"/><text x="506" y="208" text-anchor="middle">VL53L0X</text>
+</g>
+<text x="435" y="238" text-anchor="middle" font-size="8.5" fill="#616161">DO=31/33/35/37/39；VCC=41/43/45/47/49；GND=51/53/55/57/59；VL53 VCC=60 GND=61 SDA=62 SCL=63</text>
+<!-- 电源 -->
+<rect x="40" y="352" width="120" height="46" rx="6" fill="#FFEBEE" stroke="#C62828" stroke-width="2"/>
+<text x="100" y="372" text-anchor="middle" font-size="11" font-weight="700" fill="#C62828">2S 电池 7.4V</text>
+<text x="100" y="388" text-anchor="middle" font-size="9" fill="#616161">带 BMS + 开关</text>
+<line x1="100" y1="330" x2="100" y2="352" stroke="#C62828" stroke-width="2.5" marker-end="url(#p1)"/>
+<rect x="180" y="352" width="130" height="46" rx="6" fill="#E8F5E9" stroke="#2E7D32" stroke-width="2"/>
+<text x="245" y="374" text-anchor="middle" font-size="11" font-weight="700" fill="#2E7D32">MP1584 → 5.00V</text>
+<text x="245" y="390" text-anchor="middle" font-size="9" fill="#616161">六步调压法见 2.3 节</text>
+<line x1="160" y1="375" x2="180" y2="375" stroke="#C62828" stroke-width="2.5" marker-end="url(#p2)"/>
+<line x1="310" y1="362" x2="310" y2="300" stroke="#C62828" stroke-width="2" marker-end="url(#p1)"/>
+<text x="316" y="332" font-size="9" fill="#C62828">+5V → 下轨 +</text>
+<line x1="330" y1="362" x2="330" y2="48" stroke="#1565C0" stroke-width="2"/>
+<text x="336" y="200" font-size="9" fill="#1565C0">GND → 上轨 −（一根汇流线，星形接地）</text>
+<line x1="245" y1="398" x2="245" y2="152" stroke="#C62828" stroke-width="2" stroke-dasharray="6 3"/>
+<text x="251" y="260" font-size="9" fill="#C62828">+5V → ESP32 J1-21 直连</text>
+<text x="251" y="272" font-size="9" fill="#C62828">（不占轨预算）</text>
+<!-- TB6612 -->
+<rect x="470" y="352" width="160" height="46" rx="6" fill="#FFF3E0" stroke="#EF6C00" stroke-width="2"/>
+<text x="550" y="370" text-anchor="middle" font-size="11" font-weight="700" fill="#E65100">TB6612 + 电机（板外）</text>
+<text x="550" y="384" text-anchor="middle" font-size="9" fill="#616161">VM/VCC/GND 从 MP1584 直出；6 信号夹顶</text>
+<line x1="310" y1="398" x2="470" y2="382" stroke="#C62828" stroke-width="2" stroke-dasharray="6 3" marker-end="url(#p1)"/>
+<text x="390" y="412" text-anchor="middle" font-size="9" fill="#C62828">电机大电流直供，绕过面包板</text>
+</svg>
+<figcaption>图 3 · 830 点板布局：ESP32 占 5–26 列；音频区在上排 27–52 列；OLED 53–59 列；传感器区在下排 27–63 列；电池分压在下排靠右（上排 60–63 列预留）；TB6612 与电机全部在板外。轨中段有断口，需跳线桥接（图上绿色虚线）。</figcaption>
+</figure>
+<table>
+<tr><th style="width:20%">区域</th><th style="width:30%">占名列号</th><th>连接要点</th></tr>
+<tr><td>ESP32（靠左）</td><td>J1 → e 行 5–26 列；J3 → f 行 5–26 列</td><td>J1-1=3V3(列5)、J1-21=5V(列25)、J1-22=G(列26)；板身盖住 5–26 列全部行，模块不得再插这些列</td></tr>
+<tr><td>音频区（上排）</td><td>INMP441：31–41；MAX98357A：44–52</td><td>INMP441 的 VCC 用跳线接到 3V3（列 5/6）；MAX 的 VDD/GND 接上轨 +/−</td></tr>
+<tr><td>OLED 区（上排）</td><td>53–59</td><td>VCC 跳线接 3V3（列 6）；CS=列59 接上轨 −；4 根信号母对母夹顶</td></tr>
+<tr><td>电池分压（上排右侧）</td><td>60–63</td><td>100kΩ 跨列 60–62，抽头列 62 跳线到 GPIO8（列 16）；47kΩ 列 62 → 上轨 −</td></tr>
+<tr><td>传感器区（下排）</td><td>巡线 31–59；VL53L0X：60–63</td><td>VCC 接下轨 +、GND 接下轨 −；DO/VL53 信号用跳线列对列（GPIO17/18 两根跨凹槽）</td></tr>
+<tr><td>电源轨</td><td>上轨+/−、下轨+/−，各分左右两段</td><td><b>四段轨都要用跳线桥接断口</b>（用通断档确认）；+5V 从下轨 + 进、GND 从上轨 − 进</td></tr>
+</table>
+<h3>4.1 J1 / J3 排针 → 列号对照表（接线时对着这张表找孔）</h3>
+<table>
+<tr><th>J1 序号</th><th>信号</th><th>列号(e行)</th><th>J3 序号</th><th>信号</th><th>列号(f行)</th></tr>
+<tr><td>1</td><td>3V3</td><td><b>5</b></td><td>1</td><td>G</td><td>5</td></tr>
+<tr><td>2</td><td>3V3</td><td><b>6</b></td><td>2</td><td>TX(43)</td><td>6</td></tr>
+<tr><td>3</td><td>RST</td><td>7</td><td>3</td><td>RX(44)</td><td>7</td></tr>
+<tr><td>4</td><td>GPIO4（WS）</td><td><b>8</b></td><td>4</td><td>GPIO1（OLED CLK）</td><td>8</td></tr>
+<tr><td>5</td><td>GPIO5（SCK）</td><td><b>9</b></td><td>5</td><td>GPIO2（OLED DIN）</td><td>9</td></tr>
+<tr><td>6</td><td>GPIO6（SD）</td><td><b>10</b></td><td>6</td><td>GPIO42（SCL）</td><td>10</td></tr>
+<tr><td>7</td><td>GPIO7（DIN）</td><td><b>11</b></td><td>7</td><td>GPIO41（SDA）</td><td>11</td></tr>
+<tr><td>8</td><td>GPIO15（BCLK）</td><td><b>12</b></td><td>8</td><td>GPIO40（巡线#5）</td><td>12</td></tr>
+<tr><td>9</td><td>GPIO16（LRC）</td><td><b>13</b></td><td>9</td><td>GPIO39（巡线#4）</td><td>13</td></tr>
+<tr><td>10</td><td>GPIO17（巡线#1）</td><td><b>14</b></td><td>10</td><td>GPIO38（巡线#3）</td><td>14</td></tr>
+<tr><td>11</td><td>GPIO18（巡线#2）</td><td><b>15</b></td><td>11</td><td>GPIO37</td><td>15（内部 SPI 禁用）</td></tr>
+<tr><td>12</td><td>GPIO8（电池分压）</td><td><b>16</b></td><td>12</td><td>GPIO36</td><td>16（内部 SPI 禁用）</td></tr>
+<tr><td>13</td><td>GPIO3(strap)</td><td>17（不接）</td><td>13</td><td>GPIO35</td><td>17（内部 SPI 禁用）</td></tr>
+<tr><td>14</td><td>GPIO46（OLED DC）</td><td>18</td><td>14</td><td>GPIO0(strap/BOOT)</td><td>18（不接）</td></tr>
+<tr><td>15</td><td>GPIO9（按键）</td><td>19</td><td>15</td><td>GPIO45(strap)</td><td>19（不接）</td></tr>
+<tr><td>16</td><td>GPIO10（STBY）</td><td>20</td><td>16</td><td>GPIO48（OLED RES）</td><td>20</td></tr>
+<tr><td>17</td><td>GPIO11（PWMA 左）</td><td>21</td><td>17</td><td>GPIO47（PWMB 右）</td><td>21</td></tr>
+<tr><td>18</td><td>GPIO12（AIN1）</td><td>22</td><td>18</td><td>GPIO21（BIN2）</td><td>22</td></tr>
+<tr><td>19</td><td>GPIO13（AIN2）</td><td>23</td><td>19</td><td>GPIO20（USB D+）</td><td>23（禁用）</td></tr>
+<tr><td>20</td><td>GPIO14（BIN1）</td><td>24</td><td>20</td><td>GPIO19（USB D−）</td><td>24（禁用）</td></tr>
+<tr><td>21</td><td>5V</td><td><b>25</b></td><td>21</td><td>G</td><td>25</td></tr>
+<tr><td>22</td><td>G</td><td>26</td><td>22</td><td>G</td><td>26</td></tr>
+</table>
+<div class="note"><b>怎么读这张表：</b>"列 9 = GPIO5"意思是：GPIO5 这根针插在<b>下排 e 行第 9 列</b>，那么第 9 列的 a–e 任意孔都和它相通。模块线要接 GPIO5，就把跳线一端插第 9 列（上排任意行）、另一端插模块所在列。<b>GPIO17/18（列 14/15，上排）要跨凹槽接下方传感器区</b>：用稍长的跳线从 e 行直接插到传感器所在列的下排行，线从凹槽上方越过去即可。</div>
+
+<h2>五、引脚级接线总表（830 点版：每脚一列 + 跳线）</h2>
+<div class="note"><b>新手怎么看第五节的表：</b>每张表四列——<b>器件脚</b>（照器件丝印找）、<b>接到哪</b>（GPIO 或电源轨）、<b>830 点怎么接</b>（模块插板的列号 + 跳线插哪两列）、<b>备注</b>。接一根线打个勾，全部打完勾再上电（第二节第 0 步）。</div>
+<h3>5.1 音频区（上排 27–52 列）</h3>
+<table>
+<tr><th style="width:22%">INMP441 引脚</th><th style="width:20%">接到</th><th style="width:30%">830 点接法</th><th>备注</th></tr>
+<tr><td>VCC</td><td><b>3.3V</b></td><td>插第 31 列；跳线 31 → 列 6（J1-2 3V3）</td><td><b>红线 1：只能 3.3V</b>，接 5V 立刻烧</td></tr>
+<tr><td>GND</td><td>GND</td><td>插第 33 列；跳线 33 → 上轨 −</td><td></td></tr>
+<tr><td>SCK（位时钟）</td><td>GPIO5</td><td>插第 35 列；跳线 35 → 列 9</td><td></td></tr>
+<tr><td>WS（声道选择）</td><td>GPIO4</td><td>插第 37 列；跳线 37 → 列 8</td><td></td></tr>
+<tr><td>SD（数据）</td><td>GPIO6</td><td>插第 39 列；跳线 39 → 列 10</td><td></td></tr>
+<tr><td>L/R</td><td>GND</td><td>插第 41 列；跳线 41 → 上轨 −</td><td>接地=选左声道</td></tr>
+</table>
+<table>
+<tr><th style="width:22%">MAX98357A 引脚</th><th style="width:20%">接到</th><th style="width:30%">830 点接法</th><th>备注</th></tr>
+<tr><td>VDD</td><td>5V</td><td>插第 44 列；跳线 44 → 上轨 +</td><td>~200mA，在轨 500mA 预算内</td></tr>
+<tr><td>GND</td><td>GND</td><td>插第 46 列；跳线 46 → 上轨 −</td><td></td></tr>
+<tr><td>BCLK</td><td>GPIO15</td><td>插第 48 列；跳线 48 → 列 12</td><td></td></tr>
+<tr><td>LRC / WS</td><td>GPIO16</td><td>插第 50 列；跳线 50 → 列 13</td><td></td></tr>
+<tr><td>DIN</td><td>GPIO7</td><td>插第 52 列；跳线 52 → 列 11</td><td></td></tr>
+<tr><td>输出 +/−</td><td>4Ω 3W 喇叭</td><td>端子/直焊</td><td>教程第 6 步最后接</td></tr>
+<tr><td>GAIN</td><td>悬空</td><td>—</td><td>默认增益</td></tr>
+</table>
+<h3>5.2 电机区（TB6612FNG 在板外，6 根信号母对母夹顶）</h3>
+<table>
+<tr><th style="width:22%">TB6612 引脚</th><th style="width:20%">接到</th><th style="width:30%">830 点接法</th><th>备注</th></tr>
+<tr><td>STBY</td><td>GPIO10</td><td>母对母：夹 J1-16（列 20 针顶）</td><td>不夹高电平=电机使能</td></tr>
+<tr><td>PWMA（左 PWM）</td><td>GPIO11</td><td>母对母：夹 J1-17（列 21）</td><td></td></tr>
+<tr><td>AIN1（左）</td><td>GPIO12</td><td>母对母：夹 J1-18（列 22）</td><td></td></tr>
+<tr><td>AIN2（左）</td><td>GPIO13</td><td>母对母：夹 J1-19（列 23）</td><td></td></tr>
+<tr><td>BIN1（右）</td><td>GPIO14</td><td>母对母：夹 J1-20（列 24）</td><td></td></tr>
+<tr><td>BIN2（右）</td><td>GPIO21</td><td>母对母：夹 J3-18（列 22）</td><td></td></tr>
+<tr><td>PWMB（右 PWM）</td><td>GPIO47</td><td>母对母：夹 J3-17（列 21）</td><td></td></tr>
+<tr><td>VM（电机电源）</td><td><b>MP1584 5V 直连</b></td><td>≥20AWG 硬连线，绕过面包板</td><td>红线 3：绝不上轨</td></tr>
+<tr><td>VCC（逻辑电源）</td><td><b>MP1584 5V 直连</b></td><td>同上</td><td></td></tr>
+<tr><td>GND</td><td>MP1584 负极直连</td><td>汇流点，与面板地一线相连</td><td>共地！</td></tr>
+<tr><td>AO1 / AO2</td><td>左电机两端</td><td>板外直焊，各并 100nF</td><td>电机线双绞</td></tr>
+<tr><td>BO1 / BO2</td><td>右电机两端</td><td>同上</td><td></td></tr>
+</table>
+
+<h3>5.3 传感器与按键区（下排 27–63 列）</h3>
+<table>
+<tr><th style="width:26%">巡线 TCRT5000 ×5（只用 DO）</th><th style="width:20%">接到</th><th style="width:30%">830 点接法</th><th>备注</th></tr>
+<tr><td>#1 DO</td><td>GPIO17</td><td>插第 31 列；跳线 31 → 列 14（跨凹槽）</td><td></td></tr>
+<tr><td>#2 DO</td><td>GPIO18</td><td>插第 33 列；跳线 33 → 列 15（跨凹槽）</td><td></td></tr>
+<tr><td>#3 DO</td><td>GPIO38</td><td>插第 35 列；跳线 35 → 列 14（f 行）</td><td>同列不同半区，别插错行</td></tr>
+<tr><td>#4 DO</td><td>GPIO39</td><td>插第 37 列；跳线 37 → 列 13（f 行）</td><td></td></tr>
+<tr><td>#5 DO</td><td>GPIO40</td><td>插第 39 列；跳线 39 → 列 12（f 行）</td><td></td></tr>
+<tr><td>VCC ×5</td><td>5V</td><td>插第 41/43/45/47/49 列；跳线各 → 下轨 +</td><td></td></tr>
+<tr><td>GND ×5</td><td>GND</td><td>插第 51/53/55/57/59 列；跳线各 → 下轨 −</td><td></td></tr>
+<tr><td>AO ×5</td><td>悬空</td><td>不接</td><td>只拧电位器调灵敏度</td></tr>
+</table>
+<table>
+<tr><th style="width:26%">VL53L0X（测距）</th><th style="width:20%">接到</th><th style="width:30%">830 点接法</th><th>备注</th></tr>
+<tr><td>VCC</td><td>5V</td><td>插第 60 列；跳线 → 下轨 +</td><td>模块自带 LDO，可吃 5V</td></tr>
+<tr><td>GND</td><td>GND</td><td>插第 61 列；跳线 → 下轨 −</td><td></td></tr>
+<tr><td>SDA</td><td>GPIO41</td><td>插第 62 列；跳线 62 → 列 11（f 行）</td><td></td></tr>
+<tr><td>SCL</td><td>GPIO42</td><td>插第 63 列；跳线 63 → 列 10（f 行）</td><td></td></tr>
+<tr><td>XSHUT</td><td>悬空</td><td>—</td><td>单颗默认地址 0x29</td></tr>
+</table>
+<table>
+<tr><th style="width:26%">模式按键</th><th style="width:20%">接到</th><th style="width:30%">830 点接法</th><th>备注</th></tr>
+<tr><td>一端</td><td>GPIO9</td><td>跳线：列 19（e 行）→ 按键脚</td><td>按下一端接 GND 轨触发</td></tr>
+<tr><td>另一端</td><td>GND 轨</td><td>跳线 → 上轨 −</td><td>固件内含消抖</td></tr>
+</table>
+<table>
+<tr><th style="width:26%">电池分压采样</th><th style="width:20%">接到</th><th style="width:30%">830 点接法</th><th>备注</th></tr>
+<tr><td>100kΩ 上端</td><td>VBAT（电池正）</td><td>插第 60 列；VBAT 从电池直连压接</td><td>电阻跨列 60–62</td></tr>
+<tr><td>抽头</td><td>GPIO8</td><td>第 62 列；跳线 62 → 列 16</td><td>7.4V→2.37V；8.4V→2.69V</td></tr>
+<tr><td>47kΩ 下端</td><td>GND</td><td>第 62 列 → 上轨 −</td><td>必须先确认分压 ≤3V 再接</td></tr>
+</table>
+
+<h3>5.4 电源区（电池主方案）</h3>
+<table>
+<tr><th style="width:34%">连接</th><th>走法</th></tr>
+<tr><td>2S 电池 ↔ 开关 ↔ MP1584 输入（7.4V）</td><td>板外直连，<b>禁止上面板</b>；先按 2.3 节把输出调到 5.00V</td></tr>
+<tr><td>MP1584 输出 → <b>ESP32 5V 针（J1-21，列 25）</b></td><td>直连线，不占面包板预算（Wi-Fi 峰值 350mA）</td></tr>
+<tr><td>MP1584 输出 → TB6612 VM / VCC</td><td>≥20AWG 直连线，绕过面包板</td></tr>
+<tr><td>MP1584 输出 +5V → 下轨 +（两段都桥接）</td><td>一根线接轨端孔，供功放/传感器</td></tr>
+<tr><td>MP1584 负极 → 上轨 −（一根汇流线）</td><td>星形接地点：电池负极、面板地、TB6612 地在此汇合</td></tr>
+<tr><td>3.3V 分配：J1-1/2 → INMP441 VCC、OLED VCC</td><td>两根跳线（列 6 → 列 31、列 6 → 列 54）；合计 &lt;30mA，安全</td></tr>
+</table>
+<div class="danger"><b>上电前最后一眼：</b>全部接完后，先合开关前的 30 秒里检查：① MP1584 输出量一次 5.00V（教程第 1 步）；② TB6612 的 VM 线确认插在 MP1584 输出上、没有哪根误插到面包板轨；③ 电机线正确对接、没有互碰。然后按第二节十步流程走。</div>
+<h3>5.5 OLED 屏幕接线（1.3 寸 SH1106/SSD1106 128×64，7 针 SPI，上排 53–59 列）</h3>
+<div class="danger"><b>先确认你这块屏的尺寸：</b>1.3 寸 = SH1106（固件已切到该驱动，日志打印 <code>SH1106 OLED 已就绪</code>）；0.96 寸 = SSD1306。买错或标题看错尺寸，只要改 <code>config.h</code> 里一行开关（<code>DISPLAY_DRIVER_SH1106</code>）重编译就能救，不用改线。</div>
+<table>
+<tr><th style="width:20%">屏幕引脚（照模块丝印）</th><th style="width:18%">接到</th><th style="width:30%">830 点接法</th><th>新手提示</th></tr>
+<tr><td><b>GND</b></td><td>GND 轨</td><td>插第 53 列；跳线 → 上轨 −</td><td>负极，必须接</td></tr>
+<tr><td><b>VCC</b></td><td><b>3.3V</b></td><td>插第 54 列；跳线 54 → 列 6（3V3）</td><td><b>接 3.3V，不是 5V</b>——多数 1.3 寸模块无稳压，5V 会烧</td></tr>
+<tr><td><b>CLK / SCL / D0</b></td><td>GPIO1</td><td>插第 55 列；母对母夹 J3-4 针顶</td><td>时钟线</td></tr>
+<tr><td><b>DIN / MOSI / D1</b></td><td>GPIO2</td><td>插第 56 列；母对母夹 J3-5 针顶</td><td>数据线，别和 CLK 接反</td></tr>
+<tr><td><b>DC</b></td><td>GPIO46</td><td>插第 57 列；母对母夹 J1-14 针顶</td><td>告诉屏幕"这字节是命令还是画面数据"</td></tr>
+<tr><td><b>RES / RST</b></td><td>GPIO48</td><td>插第 58 列；母对母夹 J3-16 针顶</td><td>复位线</td></tr>
+<tr><td><b>CS</b></td><td><b>直接接 GND</b></td><td>插第 59 列；跳线 → 上轨 −</td><td>不占 GPIO；<b>千万别接 VCC</b>（错接=全黑无显示）</td></tr>
+</table>
+<div class="note"><b>为什么 CS 可以直接接 GND：</b>SPI 总线上只有一个从设备时，片选 CS 可以一直接地——反正只跟它说话，不需要"点名"。这样省出一个针脚：本机只剩 4 个 GPIO（1/2/46/48），刚好够 CLK/DIN/DC/RES 四根信号。<b>顺带好处：</b>省下的引脚以后能给第二个 SPI 设备；且 CS 固定接地，避免"某个 GPIO 没初始化导致总线被误片选"的经典坑。</div>
+<div class="note"><b>屏幕能显示什么（固件已支持）：</b>开机 Wi-Fi 连接状态/配网提示、对话中的识别/思考/回答内容与表情、设置页提示。屏幕初始化失败时固件自动退回"无屏模式"继续跑语音，不会变砖。</div>
+
+<h2>六、上电前总检查清单</h2>
+<table>
+<tr><th style="width:6%">✓</th><th style="width:34%">检查项</th><th>合格判据</th></tr>
+<tr><td>☐</td><td>轨断口已桥接</td><td>通断档量四段轨各自连续</td></tr>
+<tr><td>☐</td><td>5V 轨 vs GND 轨不短路</td><td>断电蜂鸣档不响</td></tr>
+<tr><td>☐</td><td>ESP32 3V3 针 vs G 针不短路</td><td>同上</td></tr>
+<tr><td>☐</td><td>MP1584 输出 = 5.00V（空载）</td><td>4.95–5.05V</td></tr>
+<tr><td>☐</td><td>INMP441 / OLED 的 VCC 孔 = 3.3V</td><td>3.2–3.4V（教程第 4/5 步）</td></tr>
+<tr><td>☐</td><td>MAX / 传感器 VCC 孔 = 5V</td><td>≥4.9V</td></tr>
+<tr><td>☐</td><td>ESP32 5V 针、TB6612 VM/VCC 都是 MP1584 直连</td><td>没有一根大电流线插在面包板孔里</td></tr>
+<tr><td>☐</td><td>共地：电池负极 ↔ MP1584 − ↔ 面板 GND 轨 ↔ TB6612 GND 一线汇合</td><td>通断档量任意两点间响</td></tr>
+<tr><td>☐</td><td>电池分压抽头 ≤ 3V 再接 GPIO8</td><td>2.4–2.7V</td></tr>
+<tr><td>☐</td><td>无散丝、无歪针、无线皮压孔</td><td>目检 + 镊子整理</td></tr>
+<tr><td>☐</td><td>电机轮子悬空（首次上电）</td><td>教程第 8 步前确认</td></tr>
+</table>
+
+<h2>七、烧坏案例症状表（出事了先查这张表）</h2>
+<table>
+<tr><th style="width:26%">症状</th><th style="width:34%">最可能原因</th><th>处置</th></tr>
+<tr><td>合开关瞬间 MP1584/电池发烫或冒烟</td><td>输出短路（5V 与 GND 在某处搭上）</td><td><b>立刻分断开关</b>，别反复合闸；逐模块拔，直到短路消失</td></tr>
+<tr><td>主控反复重启、日志断断续续</td><td>电流不够或 5V 被拖塌（通常是电机/功放）</td><td>断电分层加载定位；降 PWM；换粗短的直连线</td></tr>
+<tr><td>INMP441 或 OLED 烫手、无反应</td><td>VCC 误接 5V（红线 1）</td><td>已烧，换件；重新按教程第 4/5 步先量孔位电压</td></tr>
+<tr><td>ESP32 烫手、USB 不识别</td><td>5V 与 3.3V 接反/短，或 3.3V 器件并到了 5V 上</td><td>断电测 3V3 对 G、5V 对 G 是否有意外通路</td></tr>
+<tr><td>OLED 通电微微亮但全黑</td><td>驱动型号不匹配（1.3 寸应为 SH1106）</td><td>改 <code>config.h</code> 开关重编译；或 CS 没接地</td></tr>
+<tr><td>屏花屏/点阵乱</td><td>CLK 与 DIN 接反、跳线松</td><td>核对第 55/56 列</td></tr>
+<tr><td>电机不转、TB6612 烫</td><td>STBY 没拉高、VM 没接、AO/BO 短</td><td>量 VM=5V、STBY=3.3V、AO1–AO2 间阻值非 0</td></tr>
+<tr><td>某 Sensors 永远一个读数</td><td>DO 跳线列号接错、模块没插到底</td><td>对照 5.3 表逐列核对</td></tr>
+<tr><td>USB 烧录失败</td><td>用了电源-only 线</td><td>换数据线；确认电池已断、只留 USB</td></tr>
+</table>
+<div class="danger"><b>冒烟应急三步：</b>① <b>先断电</b>（分开关，别去拔线）；② 别急着"再上电看看"——二次上电会把小故障扩大成烧件；③ 拍照记录冒烟位置和接线，按症状表定位。<b>一颗钮电容/一个模块几十块，ESP32 几百块——按十步流程走，就是为省这一笔。</b></div>
+<footer>v7 = 830 点单板（63 列）+ 小白逐级上电验证教程 + 电池主供电（USB 临时供电方案已移除，USB 仅用于烧录固件）。信号线对应关系与 v4/v6 一致，变的只是插孔位置与上电方式。</footer>
+</div></body></html>
+</div></body></html>

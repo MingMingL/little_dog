@@ -25,3 +25,6 @@ vendor/
 *.tmp
 .DS_Store
 __pycache__/
+
+# ===== 智能体本地工作区（记忆/日志，不属于代码）=====
+.workbuddy/

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>机器狗 V1 · 硬件接线方案 v11（元件 7/8/9 全部接入 · 按键 + MP1584EN 降压 + 电源区 · 连通性校验）</title>
+<style>
+:root{--primary:#3F51B5;--primary-light:#E8EAF6;--surface:#F7F8FA;--border:#E0E0E0;--text:#212121;--text2:#616161;--new:#2E7D32;--new-bg:#E8F5E9;--todo:#EF6C00;--todo-bg:#FFF3E0;--warn:#C62828}
+*{box-sizing:border-box}body{margin:0;padding:0 24px 70px;font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;background:#fff;color:var(--text);line-height:1.7}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:26px;margin:0 0 6px}h2{font-size:20px;margin:40px 0 14px;padding-left:12px;border-left:4px solid var(--primary)}
+h3{font-size:16px;margin:24px 0 10px;color:var(--primary)}p,li{font-size:14.5px}
+code{background:var(--surface);padding:1px 5px;border-radius:3px;font-size:13px;font-family:Consolas,Monaco,monospace}
+header{padding:34px 0 20px;border-bottom:2px solid var(--primary);margin-bottom:26px}
+.sub{color:var(--text2);font-size:13.5px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12.5px}
+th,td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--primary-light);font-weight:600}tr:nth-child(even) td{background:#FAFAFA}
+figure{margin:20px 0;text-align:center}figcaption{font-size:13px;color:var(--text2);margin-top:8px}
+svg{max-width:100%;height:auto}
+.note{background:var(--todo-bg);border-left:4px solid var(--todo);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.danger{background:#FFEBEE;border-left:4px solid var(--warn);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.ok{background:var(--new-bg);border-left:4px solid var(--new);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.newbox{border:2px solid var(--new);background:var(--new-bg);border-radius:8px;padding:12px 16px;margin:14px 0}
+.newbox>*:first-child{margin-top:0}.newbox>*:last-child{margin-bottom:0}
+footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--border);color:var(--text2);font-size:13px}
+</style></head><body><div class="wrap">
+<header>
+<h1>机器狗 V1 · 硬件接线方案 v11</h1>
+<div class="sub">v11 = <b>元件 7（模式按键）+ 元件 8（MP1584EN 降压，身份由用户更正）+ 元件 9（电源区，含 7 根轨组短跳线）接入，9/9 项全部落地</b> · 面包板 Z（双 830 拼接 28 行 × 63 列）元件接入总表 · 引脚级 · 与 <code>docs/source/breadboard-z.svg</code> 一一对应</div>
+</header>
+
+<div class="newbox">
+<b>v11 相对 v10 的变化（本版绿框标出）：</b><br>
+① <b>元件 7/9 接入：模式按键 + 10kΩ 上拉（GPIO9）</b>。GPIO9 网原本只剩 l46 一个孔可用（k46 是 ESP32 针、m46/n46/o46 被 MAX98357A 本体挡死），按键 + 上拉要占两个孔插不下 → 用元件 9 的 GPIO9 扩展跳线把该网搬到列 29，按键跨中隔槽插 o29/p29、上拉横跨 n29←n27；位置为此重排三次才定案（详见 4.7）；<br>
+② <b>元件 8/9 身份更正：不是"电池分压电阻"，而是 MP1584EN 降压模块</b>（用户 2026-10-19 决策）。系统供电 = 7.4V 电池 → MP1584EN → ESP32 5V 脚（k52）与 5V 轨；电机 VM 直取 7.4V 不经降压。原计划的 GPIO8 电池监测分压退出 9 项计划，GPIO8 留空闲（详见 4.8）；<br>
+③ <b>元件 9/9 电源区接入：16 根网线（9 根馈线 + 7 根轨组短跳线）</b>。轨功能定为 X 上内轨 = 3V3 / X 上外轨 = GND / Y 下内轨 = 5V / Y 下外轨 = GND；每条轨 x=82.55 断开左右两段，3V3/GND 各两根馈线；MAX98357A 的 VIN 按用户决策<b>改接 5V 网</b>（3V3 只带小电流，功放峰值 0.4–1A 不压 ESP32 LDO）；<br>
+④ <b>新增 <code>tools/net_check.py</code> 连通性校验，当场抓出 4 处"图画了、电不通"</b>——面包板电源轨印成连续红线，金属条却是 <b>5 孔一小组</b>（组间 5.1mm 空隙）：3V3 馈线落 35 而 OLED 的 Vin/3v3 落 36/38、GND 馈线落 36 而 OLED Gnd 落 35、MP1584 的 OUT+ 落 28 而 5V 负载落 41/42（<b>整机不上电</b>）、五个"地"分落 5 组（<b>没有共地</b>）。这类错误 wire_check 查不出（它只查几何净空），已由 7 根轨组短跳线修复并固化为断言（当前 <b>0 处断网/短接</b>）；<br>
+⑤ 面包板图图例改为<b>数据驱动 + 自动换行</b>：旧图例逐行手写坐标不换行，实测最长一行右缘 330.4mm、画布右缘只有 173.1mm，<code>&lt;img&gt;</code> 内嵌时行尾一直被裁；现在按可用宽度折行、末行回算画布高度（286.66 → 423mm）；<br>
+⑥ 插孔三态账刷新为 <b>occupied 123 / blocked 136 / free 1401</b>（按键新增 4 个针孔、挡 n28 一孔；电源区 30 个落孔，其中 8 个与既有元件落孔共享）。
+</div>
+
+<h2>一、修改历史</h2>
+<table>
+<tr><th style="width:8%">版本</th><th style="width:12%">日期</th><th>变更</th></tr>
+<tr><td>v1</td><td>2026-10-14</td><td>直连端子版初版</td></tr>
+<tr><td>v2</td><td>2026-10-14</td><td>830 点面包板版：功率域/逻辑域分离 + 星形接地</td></tr>
+<tr><td>v3</td><td>2026-10-14</td><td>400 点 + 四足仿生 + 引脚级 + 新手友好化（连通规则描述有误，v7 勘误）</td></tr>
+<tr><td>v4</td><td>2026-10-14</td><td>加配 7 针 SPI OLED 屏幕接口（型号后于 v5 更正）</td></tr>
+<tr><td>v5</td><td>2026-10-14</td><td>USB 临时供电方案（电池未到货）；OLED 型号更正为 1.3 寸 SH1106</td></tr>
+<tr><td>v6</td><td>2026-10-14</td><td>"两个 2WD 电机"措辞澄清（一套底盘 / 两台电机）</td></tr>
+<tr><td>v7</td><td>2026-10-15</td><td>830 点单板修正 + 小白逐级上电教程 + 连通规则勘误 + ESP32 5V 直连 + 烧坏案例表</td></tr>
+<tr><td>v8</td><td>2026-10-16</td><td>面包板 Z 双 830 拼接拓扑（28×63，1660 孔）与 ESP32 骑缝落位；元件 1（INMP441）、元件 2（MAX98357A）接入；GAIN→GND / SD_MODE→VIN 决策</td></tr>
+<tr><td>v9</td><td>2026-10-19</td><td>① 撤销元件 4（TCRT5000×5），GPIO17/18/38/39/40 与对应孔位释放，config.h 删 LINE_SENSOR 宏；② VL53L0X 从"前向测距·窗朝北"改为<b>支架前倾 30° 防跌落 + 近距防撞</b>（d ≈ 1.7h）；③ 补记元件 3（TB6612FNG）逐线明细；④ 插孔三态账刷新为 occupied 86 / blocked 135 / free 1439。</td></tr>
+<tr style="background:var(--new-bg)"><td><b>v11</b></td><td>2026-10-19</td><td><b>本次改动（绿框标出）：</b>① 元件 7 模式按键 + 10kΩ 上拉接入（GPIO9 网经扩展跳线搬到列 29，按键跨中隔槽 o29/p29、上拉 n29←n27，位置三次重排）；② <b>元件 8 身份由用户更正为 MP1584EN 降压模块</b>（原计划电池分压电阻退出计划，GPIO8 留空闲），系统供电 = 7.4V → 5V → ESP32 5V 脚 + 5V 轨，电机 VM 直取 7.4V；③ 元件 9 电源区接入（16 根网线：轨功能四分配 + 每轨东西两段馈线 + 7 根轨组短跳线），MAX98357A 的 VIN 改接 5V 网；④ 新增 <code>tools/net_check.py</code> 连通性校验，查出 4 处"看着接了、实际没接"（轨金属 5 孔一小组）并修复，断言 0 处断网/短接；⑤ 图例改数据驱动 + 自动换行，修掉 330mm 超宽截断；⑥ 三态账刷新为 occupied 123 / blocked 136 / free 1401。</td></tr>
+</table>
+
+<h2>二、面包板 Z 拓扑与连通规则（接线前必读）</h2>
+<div class="ok">
+<b>连通性铁律：</b>终端区金属条是<b>竖条</b>——同一列、同一半区的 5 个孔相通，凹槽断开。X 板行序<code>| - + | a b c d e | f g h i j | + - |</code>，Y 板行序<code>| - + | k l m n o | p q r s t | + - |</code>。例如 Y 板第 38 列：k38–o38 五孔相通，p38–t38 五孔相通，o38 与 p38 被凹槽隔开。<br>
+<b>ESP32 直插安全的原理：</b>44 针各占一列，同列不同针各落不同行、互不短接；信号跳线落孔取"该列 k–o（或 f–i）半区的空闲孔"即与对应 ESP32 针同网。
+</div>
+<table>
+<tr><th style="width:22%">项</th><th>值</th></tr>
+<tr><td>Z 板构成</td><td>X（上板，行 a–j）+ Y（下板，行 k–t）沿电源轨长边拼接，拼接重叠 1.26mm，板面连续</td></tr>
+<tr><td>规模</td><td>28 行 × 63 列 = 1764 终端孔 + 两板各 4 条轨 × 50 孔 = 400 轨孔，合计 1660 孔</td></tr>
+<tr><td>电源轨</td><td>每条轨 50 孔、沿长度方向中间断开（5 孔一组 × 5 组）；<b>拼接缝处两板导轨仅物理相邻、电气不互通</b></td></tr>
+<tr><td>ESP32-S3 N16R8</td><td>双 Type-C、44 针，插拼接缝正中央横跨两板，USB 口朝右；上排 22 针 = J3 → X 板 j 行、下排 22 针 = J1 → Y 板 k 行（均列 32–53，左→右 = 列 32→53）</td></tr>
+<tr><td>J1/J3 判定</td><td>官方 user guide v1.1：J1 = 3V3/RST/GPIO4-14/5V/GND 侧；J3 = GND/TX/RX/GPIO1-2/42-19/GND 侧。USB 朝右时 J1 在下（k 行）、J3 在上（j 行）</td></tr>
+<tr><td>规划图</td><td><code>docs/source/breadboard-z.svg</code>（矢量）；生成器 <code>tools/gen_breadboard_z.py</code>，每次改动重跑并过 <code>validate()</code> 与 <code>tools/wire_check.py</code> 净空校验</td></tr>
+</table>
+
+<h2>三、GPIO → Z 板落点总表</h2>
+<p>以 <code>firmware/xiaozhi-esp32/main/boards/ai-dog-s3/config.h</code> 为准；行列换算用 <code>tools/esp32_pin_map.py</code>。</p>
+<table>
+<tr><th style="width:16%">GPIO</th><th style="width:26%">功能（config.h）</th><th style="width:18%">ESP32 针位</th><th>Z 板落孔 / 备注</th></tr>
+<tr><td>GPIO4</td><td>INMP441 WS</td><td>k35（J1）</td><td><b>已接：</b>麦克风 SCK 针 → m35 孔</td></tr>
+<tr><td>GPIO5</td><td>INMP441 SCK</td><td>k36（J1）</td><td><b>已接：</b>麦克风 WS 针 → m36 孔</td></tr>
+<tr><td>GPIO6</td><td>INMP441 DIN(SD)</td><td>k37（J1）</td><td><b>已接：</b>麦克风 R 针 → m37 孔（L 针与 GND 短接=选左声道）</td></tr>
+<tr><td>GPIO7</td><td>MAX98357A DOUT(DIN)</td><td>k38（J1）</td><td><b>已接：</b>功放 DIN 针(q47) → m38 孔</td></tr>
+<tr><td>GPIO15</td><td>MAX98357A BCLK</td><td>k39（J1）</td><td><b>已接：</b>功放 BCLK 针(q46) → m39 孔</td></tr>
+<tr><td>GPIO16</td><td>MAX98357A LRCK</td><td>k40（J1）</td><td><b>已接：</b>功放 LRC 针(q45) → m40 孔</td></tr>
+<tr><td>GPIO8</td><td><s>电池分压 ADC</s> → 已退出计划</td><td>k43（J1）</td><td><b>空闲预留</b>：原"电池分压电阻"计划随元件 8 身份更正（实为 MP1584EN）而撤销；后续若要电量百分比，仍从 k43 引出（该列上半区无占用）</td></tr>
+<tr style="background:var(--new-bg)"><td>GPIO9</td><td>模式键</td><td>k46（J1）→ <b>l29</b></td><td><b>已接（v11）：</b>GPIO9 网经元件 9 的扩展跳线搬到列 29：按键跨中隔槽插 o29/p29、10kΩ 上拉横跨 n29←n27（详见 4.7）</td></tr>
+<tr><td>GPIO10</td><td>TB6612 STBY</td><td>k47（J1）</td><td>已接：→ l47</td></tr>
+<tr><td>GPIO11/12/13</td><td>左电机 PWM/IN1/IN2</td><td>k48/k49/k50</td><td>已接：→ l48/l49/l50</td></tr>
+<tr><td>GPIO14</td><td>右电机 PWM</td><td>k51（J1）</td><td>已接：→ l51</td></tr>
+<tr style="background:#FFF3E0"><td>GPIO17/18</td><td><s>巡线 1/2</s> → 已释放</td><td>k41/k42（J1）</td><td><b>空闲</b>（v9 撤销 TCRT 后释放，可作他用）</td></tr>
+<tr style="background:var(--new-bg)"><td>GPIO1/2</td><td>OLED SCLK/MOSI</td><td>j35/j36（J3）</td><td><b>已接（v10）：</b>OLED Clk → j35、Data → j36</td></tr>
+<tr style="background:var(--new-bg)"><td>GPIO46</td><td>OLED DC</td><td>k45（J1）</td><td><b>已接（v10）：</b>OLED DC → k45（跨拼接缝，橙线）</td></tr>
+<tr style="background:var(--new-bg)"><td>GPIO48</td><td>OLED RES</td><td>j47（J3）</td><td><b>已接（v10）：</b>OLED Rst → j47；CS 接 GND 不占 GPIO</td></tr>
+<tr><td>GPIO41/42</td><td>I²C SDA/SCL（VL53L0X）</td><td>j38/j37（J3）</td><td>已接：→ i38 / i37（同列同网）</td></tr>
+<tr style="background:#FFF3E0"><td>GPIO38/39/40</td><td><s>巡线 3/4/5</s> → 已释放</td><td>j41/j40/j39（J3）</td><td><b>空闲</b>（v9 撤销 TCRT 后释放，可作他用）</td></tr>
+<tr><td>GPIO21/47</td><td>右电机 IN1/IN2</td><td>j49/j48（J3）</td><td>已接：→ i49 / i48</td></tr>
+<tr style="background:var(--new-bg)"><td>5V 针</td><td>整机 5V 输入</td><td>k52（J1）</td><td><b>已接（v11）：</b>电源区 ⑤ 号馈线 bottom_inner_42 → l52 同列直连；5V 由 MP1584EN 从 7.4V 电池降压而来</td></tr>
+<tr style="background:var(--new-bg)"><td>GND 针</td><td>整机 GND</td><td>k53（J1）</td><td><b>已接（v11）：</b>电源区 ⑥ 号馈线 l53 → bottom_outer_44；全机共地经 ESP32 板载地平面 + 5 根轨组短跳线闭合</td></tr>
+</table>
+<div class="newbox">
+<b>释放的 5 个 GPIO 怎么用（v9 起可用）：</b>17/18/38/39/40 现在是完全空闲的普通 GPIO（原计划作巡线数字输入）。
+后续若要加传感器（如超声波 HC-SR04 的 TRIG/ECHO、碰撞开关、红外人体感应），优先从这里取，不必再挤 I²C 总线。
+注意：这几个脚<b>不是</b> strapping 脚，上电电平不影响启动模式，可以放心接下拉/按键。
+</div>
+
+<h2>四、元件接入明细（逐根线）</h2>
+
+<h3>4.1 元件 1：INMP441 数字麦克风（I²S，圆形小板 Ø15mm）</h3>
+<p>两排针<b>骑中隔槽</b>插入：上排 SCK/WS/L → o 行 60–62 列，下排 R/VDD/GND → p 行 60–62 列。</p>
+<table>
+<tr><th style="width:16%">模块针</th><th style="width:18%">接到</th><th style="width:30%">Z 板接法</th><th>备注</th></tr>
+<tr><td>VDD</td><td>3V3</td><td>p61 → m32 孔（k32 为 3V3 针）</td><td>麦克风只能 3.3V</td></tr>
+<tr><td>GND</td><td>GND</td><td>p62 → 下轨外轨 − 第 50 孔</td><td></td></tr>
+<tr><td>SCK / WS / R</td><td>GPIO4 / 5 / 6</td><td>o60 → m35、o61 → m36、o62 → m37</td><td>同列同半区 k–o 同网</td></tr>
+<tr><td>L</td><td>GND</td><td>o62 同排短接到 GND 针</td><td>接地 = 选左声道</td></tr>
+</table>
+
+<h3>4.2 元件 2：MAX98357A I2S 功放 + 4Ω 3W 喇叭</h3>
+<p>7 针单排插 Y 板 <b>q 行 45–51 列</b>（丝印左→右 = LRC/BCLK/DIN/GAIN/SD/GND/VIN），顶部 2P 端子接喇叭。</p>
+<table>
+<tr><th style="width:16%">模块针</th><th style="width:18%">接到</th><th style="width:30%">Z 板接法</th><th>备注</th></tr>
+<tr><td>VIN</td><td>5V</td><td>q51 → 下轨内轨 + 第 41 孔</td><td>~200mA；轨由电源区从 k52 供电</td></tr>
+<tr><td>GND</td><td>GND</td><td>q50 → 下轨外轨 − 第 40 孔</td><td></td></tr>
+<tr><td>LRC / BCLK / DIN</td><td>GPIO16 / 15 / 7</td><td>q45 → m40、q46 → m39、q47 → m38</td><td>同列同半区 k–o 同网</td></tr>
+<tr><td>GAIN</td><td>GND</td><td>q48 → q50（模块内短接）</td><td><b>用户决策</b>，见第五节</td></tr>
+<tr><td>SD_MODE</td><td>VIN</td><td>q49 → q51（模块内短接）</td><td><b>用户决策</b>，见第五节</td></tr>
+<tr><td>输出 VO+/VO−</td><td>喇叭 4Ω 3W</td><td>端子块两颗螺丝 → 喇叭符号</td><td>喇叭无极性，仅示意</td></tr>
+</table>
+
+<h3>4.3 元件 3：TB6612FNG 双路电机驱动（16 针双列）</h3>
+<p>模块本体画在<b>板外</b> y[63,87]、x[92,126]（VM 电源与 1A+ 电机电流绝不上面包板），只有 9 根控制/电源线落孔；AO1/AO2、BO1/BO2 接电机示意符号 M1/M2，VM 接 7.4V 电池。</p>
+<table>
+<tr><th style="width:16%">模块针</th><th style="width:18%">接到</th><th style="width:30%">Z 板接法</th><th>备注</th></tr>
+<tr><td>STBY / PWMA / AIN1 / AIN2 / PWMB</td><td>GPIO10–14</td><td>→ l47 / l48 / l49 / l50 / l51</td><td>m/n/o 行 45–51 列被 MAX 本体挡死，<b>l 行是唯一合法行</b>；斜线压 MAX 本体下沿（白名单）</td></tr>
+<tr><td>BIN1 / BIN2</td><td>GPIO47 / 21</td><td>→ X 板 i48 / i49</td><td>与 j48/j49 同列同网（f–i 半区）</td></tr>
+<tr><td>VCC（逻辑 3.3V）</td><td>3V3</td><td>→ o32 孔</td><td>k32 为 3V3 针，k–o 同网</td></tr>
+<tr><td>GND</td><td>GND</td><td>→ 下轨外轨 − 第 44 孔</td><td></td></tr>
+<tr><td>VM</td><td>7.4V 电池 +</td><td>板外直连（不经面包板）</td><td>红线：大电流不上面包板</td></tr>
+<tr><td>AO1/AO2、BO1/BO2</td><td>电机 M1、M2</td><td>板外直连</td><td>M1 = 左轮、M2 = 右轮</td></tr>
+</table>
+
+<div class="newbox">
+<h3 style="margin-top:4px">4.4 元件 4：TCRT5000×5 巡线阵列 · <span style="color:var(--warn)">已撤销（v9）</span></h3>
+<p><b>为什么要撤：</b></p>
+<ul>
+<li><b>方向不可行</b>：TCRT5000 模块的发射/接收头在 PCB 正面，插进面包板后镜头朝上射向天花板，被测地面在模块背后；</li>
+<li><b>距离不可行</b>：即便倒装朝下，面包板本身厚 9mm、模块又架在板面上，而 TCRT 有效量程只有 0.2–15mm——狗底盘一离地（通常 30mm 起）就彻底超程；</li>
+<li><b>裸装件同样不行</b>：三脚 TCRT5000 直插面包板也是头朝上，要把脚折 180° 才能朝下，折几次就断，不可靠。</li>
+</ul>
+<p><b>撤销影响：</b>GPIO17/18/38/39/40 释放（见第三节）；Y 板 n/o 行 20–36 列、X 板 f 行 37–54 列 与 i 行 39–41 列一带孔位全部回到空闲；面包板图与校验白名单同步清理，账目 occupied 117→86、blocked 269→135。</p>
+<p><b>如果以后真要做巡迹</b>：正确做法是把探头做成<b>独立朝下的小板</b>挂在底盘前缘（离地 5–10mm），5 根杜邦线回 ESP32——探头独立走线，面包板继续当大脑。接线关系（哪个 GPIO）不用变，只是物理位置从"面包板上"挪到"底盘下"。</p>
+<div class="note" style="margin-bottom:0"><b>只保一个 TCRT 行不行？</b>仍然不行——单个探头只能回答"线在不在我正下方"，判断不了线偏左还是偏右；而且它依旧解决不了"插上面包板朝上"的物理问题。巡迹至少要 2–3 个成组才有意义。</div>
+</div>
+
+<div class="newbox">
+<h3 style="margin-top:4px">4.5 元件 5：VL53L0X 激光测距 · <span style="color:var(--new)">改为前倾 30° 防跌落</span></h3>
+<p>Adafruit 板 27.24 × 17.78，底部单排 6 针 VIN/GND/SCL/SDA/GPIO/XSHUT。板高 17.78 超过任一半区行带（10.16）→ 本体悬在板外上方，6 针横躺落 a 行 35–40 列。</p>
+<table>
+<tr><th style="width:16%">模块针</th><th style="width:18%">接到</th><th style="width:30%">Z 板接法</th><th>备注</th></tr>
+<tr><td>VIN</td><td>3V3</td><td>→ top_inner_25 轨孔</td><td><b>v11：已由元件 9 的 ① 号馈线接入 3V3 网</b>（落 _21，与 _25 同组 L4）</td></tr>
+<tr><td>GND</td><td>GND</td><td>→ top_outer_23 轨孔</td><td><b>v11：已由元件 9 的 ③ 号馈线接入 GND 网</b>（落 _24，与 _23 同组 L4）</td></tr>
+<tr><td>SCL</td><td>GPIO42</td><td>a37 → 折线竖带 → i37 孔</td><td>与 j37 同列同网（f–i 半区）</td></tr>
+<tr><td>SDA</td><td>GPIO41</td><td>a38 → 折线竖带 → i38 孔</td><td>与 j38 同列同网；与 SCL 竖带平行距 2.54</td></tr>
+<tr><td>GPIO / XSHUT</td><td>—</td><td>悬空</td><td>板载上拉，默认使能、地址 0x29</td></tr>
+</table>
+<h3>前倾 30° 的几何（v9 核心决策）</h3>
+<p>探头不是平着朝前看，而是<b>装在支架上整体前倾 30°</b>（俯视），光束打到狗身前方的桌面/地板：</p>
+<table>
+<tr><th style="width:20%">参数</th><th style="width:18%">公式 / 取值</th><th>说明</th></tr>
+<tr><td>触发距离 d</td><td><code>d = h / tan30° ≈ 1.7h</code></td><td>h = 探头离地高度</td></tr>
+<tr><td>h = 60mm</td><td>d ≈ 102mm</td><td>桌沿进 ~10cm 刹车（偏保守）</td></tr>
+<tr><td>h = 80mm</td><td>d ≈ 139mm</td><td><b>推荐装配高度</b>：留足刹车距离又不过早停</td></tr>
+<tr><td>h = 100mm</td><td>d ≈ 173mm</td><td>狗身较高时的取值</td></tr>
+</table>
+<div class="ok" style="margin-bottom:0"><b>为什么不选更小倾角（如 15°）：</b>d 会拉到 3–4 倍 h，桌沿很早就触发，狗在远处频繁急停，实用性差；而且光束抬得太高，前方地面反而看不清。
+<b>为什么不垂直朝下：</b>只看脚下，前向障碍完全放弃，近距防撞也没了。30° 是"防跌落余量"与"近距防撞"的折中。</div>
+</div>
+
+<div class="newbox">
+<h3 style="margin-top:4px">4.6 元件 6：OLED 1.3" SH1106（SPI）· 本体放板外 + 9 根飞线</h3>
+<p><b>模块真实针序（实测 <code>docs/source/OLED.svg</code>，Fritzing breadboard，缩放 0.3531 mm/单位）：</b>板身 35.04 × 35.54，<b>单排 9 针</b>（不是 7 针），针距 2.54，位于板身上缘内侧 3.08mm；左→右丝印 = <code>Gnd Vin 3v3 CS Rst SA0 Clk Data DC</code>（右侧 4 个大焊盘是安装孔）。</p>
+<div class="danger"><b>为什么本体插不进面包板（几何刚性结论）：</b><code>Rst</code> 是<b>正中第 5 针</b>，而 config.h 的 GPIO48(Rst) 落在 j47、GPIO1/2(Clk/Data) 落在 j35/j36 —— 首尾跨 <b>12 列 = 30.5mm</b>，而模块 9 针全长只有 <b>20.3mm</b>。无论从哪一列起针、无论正插还是翻转，都装不下。唯一出路：<b>本体放板外</b>（用户 2026-10-19 决策），9 根飞线把焊盘接到目标孔，屏幕朝上便于查看。</div>
+<table>
+<tr><th style="width:14%">模块针</th><th style="width:16%">接到</th><th style="width:30%">Z 板落点</th><th>备注</th></tr>
+<tr><td>Gnd</td><td>GND</td><td>→ <code>zx.top_outer_35</code>（x=110.49）</td><td>113.03 是轨孔空档，直落到轨间再西行</td></tr>
+<tr><td>Vin</td><td>3V3</td><td>→ <code>zx.top_inner_36</code>（x=115.57）</td><td>正下方是外轨孔 36（非目标），换道东缝 116.84</td></tr>
+<tr><td>3v3</td><td>3V3</td><td>→ <code>zx.top_inner_38</code>（x=120.65）</td><td>换道东缝 119.38；与 Vin 同在内轨 = 3V3 网</td></tr>
+<tr><td>CS</td><td>GND</td><td>→ <code>zx.top_outer_38</code>（x=120.65）</td><td>接地 = 片选恒有效（总线上唯一从设备），直落</td></tr>
+<tr><td>Rst</td><td>GPIO48</td><td>→ <code>zx.j47</code></td><td>缝 121.92 竖下，j 行带北侧空档（y=−13.34）西行一孔</td></tr>
+<tr><td>SA0</td><td>GND</td><td>→ <code>zx.top_outer_40</code>（x=125.73）</td><td>接地固定地址；正下方即目标，直落</td></tr>
+<tr><td>Clk</td><td>GPIO1</td><td>→ <code>zx.j35</code></td><td>缝 127.00 竖下，j 行带南侧空档（y=−10.80）一路西行</td></tr>
+<tr><td>Data</td><td>GPIO2</td><td>→ <code>zx.j36</code></td><td>缝 129.54 竖下，走 j 行与下内轨之间空档（y=−9.50）</td></tr>
+<tr><td>DC</td><td>GPIO46</td><td>→ <code>zy.k45</code></td><td>缝 132.08 竖下，跨拼接缝到 Y 板（橙线）</td></tr>
+</table>
+<h3>飞线为什么必须"换道"（v10 核心布线规则）</h3>
+<p>本体在板外北面（y[−94.6, −59.0]），而所有目标孔都在两条上轨以南 —— 9 根线<b>必须自上而下穿过 top_outer(−47.63) / top_inner(−45.09)</b>。轨孔与列孔共用 2.54 栅格（每 5 孔一组、组间有空档），直接沿焊盘所在列竖落会<b>穿过轨孔造成"这根线插进了电源轨"的误读</b>。规则：</p>
+<ul>
+<li>正下方<b>有</b>轨孔的线：在外轨以北空档（y=−49.04，离轨孔 1.41mm）横移 1.27mm 到<b>列间缝</b>，沿缝穿过两条轨（离两侧轨孔各 1.27mm &gt; 接触阈值 1.05mm）；</li>
+<li>正下方<b>没有</b>轨孔（落在组间空档）的线：直落，不换道；</li>
+<li>目标<b>就是</b>正下方外轨孔的线（CS / SA0）：直落，终点即目标，不算穿越。</li>
+</ul>
+<div class="note" style="margin-bottom:0"><b>一处已论证的交叉：</b>Data 的入孔竖段（x=93.98）与 Clk 的西行横档（y=−10.80）相交 1 处。两者都是绝缘跳线，互不相通。全图交叉由 <code>wire_check.py</code> 统计（当前 141 处，绝大多数是既有 INMP/MAX/TB 扇形出线互跨 + 本轮新增电源区横档互跨），而更严重的"两根不同网络共线重叠 = 假短路"已由检测<b>归零</b>。</div>
+</div>
+
+<div class="newbox">
+<h3 style="margin-top:4px">4.7 元件 7：模式按键 + 10kΩ 上拉（GPIO9）</h3>
+<p><b>为什么 GPIO9 网要"搬列"：</b>GPIO9 的 ESP32 针在 k46，该网可落孔只剩 <code>l46</code> 一个——k46 是针本身，m46/n46/o46 被 MAX98357A 本体（q 行 45–51 列）挡死。按键要占 2 个孔（跨中隔槽一动一静）、上拉电阻也要 2 个孔，原列 46 插不下。解法由元件 9 的 <b>⑦ 号 GPIO9 扩展跳线</b>（l46 → l29）实现：把 GPIO9 网平移到空列 29，按键与上拉就地取材。</p>
+<table>
+<tr><th style="width:16%">器件</th><th style="width:18%">接到</th><th style="width:30%">Z 板落点</th><th>备注</th></tr>
+<tr><td>按键上针（动）</td><td>GPIO9</td><td>o29 孔（列 29 上半区）</td><td>与 l46 同列同网；按键跨中隔槽插入</td></tr>
+<tr><td>按键下针（静）</td><td>GND</td><td>p29 孔（列 29 下半区）</td><td>经元件 9 的 <b>⑨ 号 GND 扩展线</b>并入 GND 网</td></tr>
+<tr><td>10kΩ 上拉电阻</td><td>GPIO9 ↔ 3V3</td><td>n29 ← n27 横跨两列</td><td>轴向电阻本体（8.2×2mm）骑 n 行 27–29 列；3V3 端由元件 9 的 <b>⑧ 号 3V3 扩展线</b>（l32 → l27）就近供电</td></tr>
+</table>
+<p><b>位置三次重排才定案（2026-10-19）：</b></p>
+<ul>
+<li><b>列 41–43</b>：被 INMP441 的三根信号弧线压住——它们自东向西横扫 n/o 行，最西只到 m32（x=82.55），列 41–43 正在弧线走廊里；</li>
+<li><b>列 31</b>：与电源区的横档丝印相撞；</li>
+<li><b>列 27–29（定案）</b>：l/p 行 27–29 列全空，电阻本体长度 8.2mm 正好覆盖"针跨距"，且上拉电阻 3V3 端（l27）离 3V3 源 l32 只差 5 列，扩展线最短。</li>
+</ul>
+<div class="note" style="margin-bottom:0"><b>挡孔明细：</b>按键本体 6×6mm（x[71.93,77.93] y[24.30,30.30]）悬在 o/p 行孔心列间隔的空区，<b>挡 0 孔</b>；只有电阻本体挡 1 孔（n28）。按键针 o29/p29/n29/n27 计入 occupied。</div>
+</div>
+
+<div class="newbox">
+<h3 style="margin-top:4px">4.8 元件 8：MP1584EN 降压模块（7.4V → 5V · 3A）· <span style="color:var(--warn)">身份更正</span></h3>
+<div class="danger"><b>身份更正（用户 2026-10-19 决策）：</b>本元件<b>不是</b>原计划的"电池分压电阻"（GPIO8 ADC 分压方案退出 9 项计划），而是 <b>MP1584EN 降压模块</b>——系统供电链的关键一环：7.4V 电池 → MP1584EN → 5V → ESP32 5V 脚（k52）与 5V 轨。<b>电机 VM 仍直取 7.4V</b>，不经降压（TB6612 的 VM 耐压 15V，见 4.3）。电池监测若以后要做，从 GPIO8（k43，该列上半区空闲）重新设计。</div>
+<p><b>为什么本体放板外：</b>模块 22.2×17.5mm，带大电感、走 1–3A 大电流——既占不满也绝不允许电流爬过面包板触点（MB-102 触点额定 ~1A 且接触电阻大）。本体画在板外南面 <b>x[70,92] y[76,93.5]</b>：西邻电池（x≈30）、东邻 TB6612 框（x≥92）、下方是图例文字（y≥98），是唯一同时靠近电池与两条下轨的位置。只把 4 根线接入面包板网。</p>
+<table>
+<tr><th style="width:16%">模块针</th><th style="width:18%">接到</th><th style="width:30%">Z 板接法</th><th>备注</th></tr>
+<tr><td>IN+</td><td>7.4V 电池 +</td><td>板外：从电池正极引线分接点 (32,73) 南下入左沿针</td><td>与 TB6612 的 VM <b>同源并联</b>于电池正极</td></tr>
+<tr><td>IN−</td><td>电池 −</td><td>板外：从电池负极短片下端 (30.2,77) 南下入左沿针</td><td>与模块内地直通</td></tr>
+<tr><td>OUT+</td><td>5V 轨</td><td>列 29/30 缝（x=76.20）北上 → <b>t 行与下内轨间空档 y=43.81</b> 东行 → 落 <code>zy.bottom_inner_38</code>（东段）</td><td>落点两次调整：25（西段，电气不通）→ 31（擦 TB6612 VCC 贝塞尔线）→ 28（只跨 1 组但桥压 TB VCC 线）→ <b>38（定案）</b>：与负载 41/42 同东段，只跨 1 个组界，桥线全避开 TB VCC</td></tr>
+<tr><td>OUT−</td><td>GND 轨</td><td>列 33/34 缝（x=86.36）北上 → <b>两下轨间空档 y=47.62</b> 东行 → 落 <code>zy.bottom_outer_35</code></td><td>落点从 34 移到 35：TB6612 的 PWMB 斜线从 34 孔擦过；35 与按键地线的 47.62 横档还隔 1.27mm 不重叠</td></tr>
+</table>
+<div class="ok" style="margin-bottom:0"><b>IN− 与 OUT− 在模块内部直通（共地）</b>，电池负极经模块自动并入系统地，无需额外跳线。这是"板外模块自带共地"的便利，但也在 <code>net_check.py</code> 里显式登记（BAT- / 7V4 两个板外互网）。</div>
+</div>
+
+<div class="newbox">
+<h3 style="margin-top:4px">4.9 元件 9：电源区（4 条轨 → 3V3 / 5V / GND 三网）</h3>
+<p><b>轨功能四分配（用户决策）：</b>X 板上内轨 = <b>3V3</b>（只带小电流：VL53 ~20mA + OLED ~20mA）；X 板上外轨 = <b>GND</b>；Y 板下内轨 = <b>5V</b>（MAX98357A 功放，峰值 0.4–1A 不压 ESP32 板载 LDO）；Y 板下外轨 = <b>GND</b>。Y 板上轨与 X 板下轨被 ESP32 板身遮住，不可用。</p>
+<p><b>本元件没有本体</b>——是一组网定义跳线：<b>9 根馈线</b>（①–⑨）+ <b>7 根轨组短跳线</b>，全部落在既有孔上，不另占元件本体。</p>
+<h3>9 根馈线（逐根走向）</h3>
+<table>
+<tr><th style="width:10%">编号</th><th style="width:16%">网 / 段</th><th style="width:40%">走向</th><th>负载</th></tr>
+<tr><td>①</td><td>3V3 → X 上内轨<b>西段</b></td><td>n32 → y=19.68 横档西行 → x=78.74 竖廊北上 → 轨间空档 y=−46.36 西行 → 落 <code>zx.top_inner_21</code></td><td>VL53 VIN（_25，同组 L4）</td></tr>
+<tr><td>②</td><td>3V3 → X 上内轨<b>东段</b></td><td>o32 → y=22.22 横档西行 → x=76.20 竖廊北上 → X 板 f/g 行间 y=−20.96 一路东行到 x=111.76 → 北上穿两上轨间 → 落 <code>zx.top_inner_35</code></td><td>OLED Vin（_36）/ 3v3（_38）</td></tr>
+<tr><td>③</td><td>GND → X 上外轨<b>西段</b></td><td>i32 → y=−15.88 横档西行 → x=73.66 竖廊北上 → <b>外轨以北空档 y=−49.04</b> 东行 → 落 <code>zx.top_outer_24</code></td><td>VL53 GND（_23，同组 L4）</td></tr>
+<tr><td>④</td><td>GND → X 上外轨<b>东段</b></td><td>h32 → y=−18.42 横档东行 → x=114.30 竖廊北上到 y=−49.04 → 东行 1.27 → 落 <code>zx.top_outer_36</code></td><td>OLED Gnd/CS/SA0（_35/_38/_40）</td></tr>
+<tr><td>⑤</td><td><b>5V → ESP32 5V 脚</b></td><td><code>zy.bottom_inner_42</code> → <code>zy.l52</code> 同列直连（m52–t52 全空孔）</td><td>ESP32 5V 脚（k52 同列同网）</td></tr>
+<tr><td>⑥</td><td><b>GND → ESP32 GND 针</b></td><td>l53 南下到 y=43.81 → 东行到 x=137.16（列 53/54 缝）→ 南下穿两下轨间 y=47.62 → 落 <code>zy.bottom_outer_44</code></td><td>TB6612 GND（同孔同网）+ ESP32 GND 针</td></tr>
+<tr><td>⑦</td><td>GPIO9 扩展</td><td>l46 → 沿 <b>y=14.60 板身南边界</b> 西行 → l29（全图唯一压板身的电源线：l46 南北都被堵死）</td><td>按键 o29（见 4.7）</td></tr>
+<tr><td>⑧</td><td>3V3 扩展</td><td>l32 → y=17.14 横档西行 → l27</td><td>上拉电阻 n27（见 4.7）</td></tr>
+<tr><td>⑨</td><td>GND 扩展</td><td>p29 → 西行到 x=71.12 → 南下到 y=47.62 → 东行 → 落 <code>zy.bottom_outer_26</code>（东段）</td><td>按键 p29（见 4.7）</td></tr>
+</table>
+<h3>7 根轨组短跳线（本轮最关键的发现）</h3>
+<div class="danger">
+<b>"轨印线连续 ≠ 金属条连通"：</b>每条导轨的金属是 <b>5 孔一小组</b>（组距 15.24mm = 6 列，组间 5.08mm 空隙），x=82.55 处还把轨分成左右两段。上面 9 根馈线各自落进自己的小组后，逐组查账发现 <b>4 处"图画了、电不通"</b>（这类错误 <code>wire_check.py</code> 的净空规则查不出来，因为它只看线压不压孔）：<br>
+① <code>zx.top_inner</code> 东段：3V3 馈线落 35（第 2 组）、OLED 的 Vin/3v3 落 36/38（第 3 组）→ OLED 没进 3V3 网；<br>
+② <code>zx.top_outer</code> 东段：GND 馈线落 36（第 3 组）、OLED 的 Gnd 落 35（第 2 组）→ OLED 没进 GND 网；<br>
+③ <code>zy.bottom_inner</code>：MP1584 的 OUT+ 落 28（第 1 组）、MAX 的 VIN（41）与 ESP32 5V 脚（42）落第 4 组 → <b>降压输出根本没接到功放和板子，整机不会上电</b>；<br>
+④ <code>zy.bottom_outer</code>：按键地（26）/ OUT−（35）/ 功放地（40）/ 电机地+板子地（44）/ 麦克风地（46,50）散落 5 个小组 → <b>5 个"地"互不相通，等于没有共地</b>。<br>
+<b>修法 = 实物面包板的标准操作：短跳线桥接相邻轨组。</b>清单：<code>zx.top_inner 35→36</code>、<code>zx.top_outer 35→36</code>、<code>zy.bottom_inner 40→41</code>、<code>zy.bottom_outer 30→31</code>、<code>35→36</code>、<code>40→41</code>、<code>45→46</code>（共 7 根，各 5.08mm，两端都画出落孔彩环）。OUT+ 落点从 28 改到 38 也是为此：只需 1 根桥（40→41）就接到负载所在的第 4 组，且桥线避开 TB6612 VCC 贝塞尔线的必经之路。
+</div>
+<h3>地网走向（net_check.py 断言固化的结论）</h3>
+<p>全机 GND <b>26 个节点、面包板层面 2 个分量</b>——X 板一块 9 个节点（VL53 的 GND 针 a36 + i32/h32 + <code>top_outer</code> 的 6 个轨孔 <code>_23/_24/_35/_36/_38/_40</code>）；Y 板一块 17 个节点（l53 + <code>bottom_outer</code> 的 11 个轨孔 <code>_26/_30/_31/_35/_36/_40/_41/_44/_45/_46/_50</code> + 麦克风 o62/p62 + 功放 q48/q50 + 按键 p29）；<b>整机层面合成 1 个分量</b>——合并只靠 ESP32 板载地平面（4 个 GND 针内部共地），图上没有任何跨板地线。这是有意设计：电机回流在 Y 板内闭环，不爬过拼接缝。</p>
+<div class="note" style="margin-bottom:0"><b>本轮的校验升级：</b>新增 <code>tools/net_check.py</code>，把"电气连通性"固化成断言——每个网 1 个分量（空网除外）、不同网不得共占一个分量、GND 两层分量数（面包板 2 / 整机 1）、MP1584 板载共地（4×GND / 2×3V3 / 1×5V 直连）。当前输出：<b>0 处断网/短接</b>。它与 <code>wire_check.py</code>（净空）互补：后者管"线别压坏东西"，前者管"电要真的通"。</div>
+</div>
+
+<h2>五、GAIN / SD_MODE 决策（v8 起沿用）</h2>
+<div class="ok">
+按用户 2026-10-16 决策：<b>SD_MODE 接 VIN、GAIN 接 GND</b>。<br>
+① <b>SD_MODE</b>（低有效关断）：接 VIN 恒为高 → 功放常开，不需要时分复用 GPIO 去拉它；<br>
+② <b>GAIN</b>：接 GND = 9dB 固定增益（悬空 12dB、接 VIN 15dB）。喇叭只有 3W，模拟增益留小、数字音量留头，避免削顶失真；<br>
+③ 固件 <code>config.h</code> 无需改动（两脚都不是 GPIO）。
+</div>
+
+<h2>六、插孔三态账（每轮接入后核对，总数守恒 1660）</h2>
+<table>
+<tr><th style="width:20%">状态</th><th style="width:14%">个数</th><th>构成</th></tr>
+<tr style="background:var(--new-bg)"><td>occupied（占用）</td><td>123</td><td>ESP32 44 针 + 元件针孔与跳线落孔 87（INMP441 11 + MAX98357A 12 + TB6612FNG 9 + VL53L0X 10 + OLED 9 + <b>按键 4 + MP1584EN 2 + 电源区 30</b>）− <b>组件间共享 8</b></td></tr>
+<tr><td>blocked（板身遮挡）</td><td>136</td><td>ESP32 靠缝 4 轨 72 孔 + INMP441 本体 10 孔 + MAX98357A 本体 35 孔 + VL53L0X 本体 18 孔 + <b>上拉电阻本体 1 孔（n28）</b>（OLED 与 MP1584EN 本体整块在板外，不挡孔）</td></tr>
+<tr style="background:var(--new-bg)"><td>free（空闲可插）</td><td>1401</td><td>1660 − 123 − 136</td></tr>
+</table>
+<div class="note">对比 v10：occupied 95 → 123（+28），blocked 135 → 136（+1 = 电阻挡 n28），free 1430 → 1401。<b>共享 8 孔</b>（被两个以上组件同时计占用的落孔，union 去重后只算一次）：<code>zx.top_inner_36</code>、<code>zx.top_outer_35</code>（OLED Vin/Gnd 恰为轨组桥端点）、<code>zy.bottom_inner_41</code>、<code>zy.bottom_outer_35</code>、<code>zy.bottom_outer_40</code>、<code>zy.bottom_outer_44</code>（电源区馈线与原元件同孔）、<code>zy.o32</code>、<code>zy.p29</code>（元件 9 扩展线端点与按键/3V3 源同孔）。28 个新增占孔明细可通过 <code>component_hole_marks()</code> 逐元件复算。</div>
+
+<h2>七、元件接入总览（9/9 全部完成）</h2>
+<table>
+<tr><th style="width:8%">序号</th><th style="width:26%">元件</th><th style="width:26%">占用 GPIO</th><th>要点</th></tr>
+<tr><td>1/9</td><td>INMP441 数字麦克风</td><td>4/5/6</td><td><b>v7 已接入</b>：骑中隔槽 o/p 行 60–62 列；L 接 GND 选左声道（见 4.1）</td></tr>
+<tr><td>2/9</td><td>MAX98357A 功放 + 喇叭</td><td>7/15/16</td><td><b>v7 已接入</b>：q 行 45–51 列；GAIN→GND、SD_MODE→VIN（见 4.2 与第五节）；<b>v11：VIN 由元件 9 接入 5V 轨</b></td></tr>
+<tr><td>3/9</td><td>TB6612FNG 电机驱动</td><td>10–14 / 47 / 21</td><td><b>v7 已接入</b>：本体板外，9 线落孔；VM 直取 7.4V 大电流（见 4.3）</td></tr>
+<tr><td>4/9</td><td>TCRT5000 巡线 ×5</td><td><s>17/18/38/39/40</s></td><td><b>v9 已撤销</b>：物理上照不到地板；GPIO 释放</td></tr>
+<tr><td>5/9</td><td>VL53L0X 激光测距</td><td>41/42</td><td><b>v9 已接入</b>：支架前倾 30° 防跌落 + 近距防撞（见 4.5）；v11 轨已接入 3V3/GND 网</td></tr>
+<tr><td>6/9</td><td>SH1106 OLED</td><td>1/2/46/48</td><td><b>v10 已接入</b>：本体放板外、屏幕朝上，9 根飞线直连（见 4.6）</td></tr>
+<tr style="background:var(--new-bg)"><td><b>7/9</b></td><td>模式按键 + 10kΩ 上拉</td><td>9</td><td><b>v11 已接入</b>：GPIO9 网经扩展跳线搬到列 29，按键跨中隔槽 o29/p29（见 4.7）</td></tr>
+<tr style="background:var(--new-bg)"><td><b>8/9</b></td><td><s>电池分压电阻</s> → <b>MP1584EN 降压</b></td><td>—（GPIO8 释放）</td><td><b>v11 已接入</b>：用户决策更正身份；7.4V → 5V → ESP32 5V 脚 + 5V 轨（见 4.8）</td></tr>
+<tr style="background:var(--new-bg)"><td><b>9/9</b></td><td>电源区</td><td>5V/GND 针（k52/k53）</td><td><b>v11 已接入</b>：4 条轨 → 3V3/5V/GND 三网，9 根馈线 + 7 根轨组短跳线（见 4.9）</td></tr>
+</table>
+<div class="note"><b>后续可选（非 9 项计划内）：</b>电池电量百分比监测（GPIO8 空闲预留，需重新设计分压且与 MP1584EN 降压的输入/输出侧量测点一并考虑）；VL53L0X 的第二颗（I²C 地址冲突，可换 XSHUT 分时）；更多传感器从释放的 GPIO17/18/38/39/40 取。</div>
+<div class="danger"><b>红线不变：</b>INMP441 / OLED / VL53L0X 只能 3.3V；电池 7.4V 绝不直接碰 ESP32 针脚；电机大电流不走面包板。逐级上电防烧流程以 v7 第二节为准。</div>
+
+<figure>
+<img src="../source/breadboard-z.svg" alt="面包板 Z 规划图（双 830 拼接 + ESP32 + INMP441 + MAX98357A + TB6612FNG + VL53L0X 前倾 30° + OLED 板外飞线 + 模式按键 + MP1584EN 降压 + 电源区 9 根馈线与 7 根轨组短跳线）" style="max-width:100%;border:1px solid var(--border);border-radius:6px">
+<figcaption>面包板 Z 当前状态（2026-10-19，<b>元件 9/9 全部接入</b>）：ESP32-S3 骑缝 + INMP441 + MAX98357A（VIN 入 5V 轨）+ TB6612FNG（板外，VM 直取 7.4V）+ VL53L0X（前倾 30°）+ OLED 1.3" SH1106（本体悬于板外上方、屏幕朝上，9 根飞线直连）+ 模式按键（跨中隔槽 o29/p29，10k 上拉 n29←n27）+ MP1584EN（板外 x[70,92] y[76,93.5]）+ 电源区（4 轨 → 3V3/5V/GND 三网，9 根馈线 + 7 根轨组短跳线）；左下角侧视小图为 VL53 前倾 30° 的防跌落几何。TCRT 阵列已移除。</figcaption>
+</figure>
+
+<footer>
+机器狗 V1 · 硬件接线方案 v11 · 2026-10-19 · 与面包板 Z 生成器（tools/gen_breadboard_z.py）同源维护：改图必改文档，改文档必改图。<br>
+上一版：<code>docs/硬件接线方案-v10.html</code>（保留不覆盖）。本版校验：<code>python tools/wire_check.py</code> → 净空 15 根基线问题（既有 INMP/MAX 压本体先例）、<b>假短路 0 处</b>、交叉 141 处；<code>python tools/net_check.py</code> → <b>0 处断网/短接</b>（3V3/5V/7V4/BAT- 各 1 分量，GND 面包板层面 2 块 / 整机层面 1 块）。
+</footer>
+</div></body></html>

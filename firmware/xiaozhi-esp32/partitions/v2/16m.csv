@@ -1,8 +1,14 @@
 # ESP-IDF Partition Table
 # Name,   Type, SubType, Offset,  Size, Flags
+# 条目必须按 offset 升序排列。
 nvs,      data, nvs,     0x9000,    0x4000,
 otadata,  data, ota,     0xd000,    0x2000,
 phy_init, data, phy,     0xf000,    0x1000,
 ota_0,    app,  ota_0,   0x20000,   0x3f0000,
 ota_1,    app,  ota_1,   ,          0x3f0000,
-assets,   data, spiffs,  0x800000,  8M
+# assets 8M -> 2M，让出 64K 给 doglog。当前 assets.bin 约 0.56M，2M 仍有 3 倍余量；
+# scripts/build_default_assets.py 带 --max_size 兜底，超了会直接报错不会静默截断。
+assets,   data, spiffs,  0x800000,  2M,
+# 设备本地日志（ai-dog-s3 的 DeviceLog）：电池供电时没有串口，掉电前的日志先落这里，
+# 下次插串口启动时自动打到控制台。0x40 = data 分区的自定义 subtype 段。
+doglog,   data, 0x40,    0xA00000,  0x10000,
