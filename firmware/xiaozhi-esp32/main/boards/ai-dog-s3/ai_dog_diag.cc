@@ -316,42 +316,6 @@ void DeviceLog::DumpFlash() {
     printf("===== 设备本地日志结束 =====\n");
 }
 
-const char* DeviceLog::Dump(size_t max_lines) {
-    dump_buffer_[0] = '\0';
-    portENTER_CRITICAL(&spinlock_);
-
-    // 收集有效条目
-    struct Item { uint32_t seq; const RamEntry* entry; };
-    static Item items[kRamEntries];
-    size_t count = 0;
-    uint32_t start = (ram_next_seq_ > kRamEntries) ? (ram_next_seq_ - kRamEntries) : 1;
-    for (uint32_t seq = start; seq < ram_next_seq_; ++seq) {
-        const RamEntry& entry = ram_[seq % kRamEntries];
-        if (entry.seq != seq) continue;
-        items[count].seq = seq;
-        items[count].entry = &entry;
-        count++;
-    }
-    SortBySeq(items, count);
-
-    size_t begin = 0;
-    if (max_lines > 0 && count > max_lines) begin = count - max_lines;
-
-    size_t used = 0;
-    for (size_t i = begin; i < count; ++i) {
-        const RamEntry& e = *items[i].entry;
-        int n = snprintf(dump_buffer_ + used, sizeof(dump_buffer_) - used,
-                         "[%s %6u.%03u] %s\n",
-                         e.level == 2 ? "E" : (e.level == 1 ? "W" : "I"),
-                         static_cast<unsigned int>(e.uptime_ms / 1000),
-                         static_cast<unsigned int>(e.uptime_ms % 1000), e.text);
-        if (n < 0 || static_cast<size_t>(n) >= sizeof(dump_buffer_) - used) break;
-        used += static_cast<size_t>(n);
-    }
-    portEXIT_CRITICAL(&spinlock_);
-    return dump_buffer_;
-}
-
 void DeviceLog::FlushTask(void* arg) {
     auto* self = static_cast<DeviceLog*>(arg);
     // 2 秒轮询 + 外部通知：既不漏掉掉电前的最后几秒，也不会每条日志都写一次 flash

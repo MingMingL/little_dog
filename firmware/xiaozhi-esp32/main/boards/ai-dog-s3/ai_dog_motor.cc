@@ -162,10 +162,4 @@ void MotorDriver::Stop() {
     ApplyOne(false, 0);
 }
 
-void MotorDriver::GetSpeeds(int& left, int& right) const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    left = last_left_;
-    right = last_right_;
-}
-
 }  // namespace aidog

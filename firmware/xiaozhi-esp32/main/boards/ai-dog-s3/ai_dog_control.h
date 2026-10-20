@@ -83,7 +83,6 @@ public:
     void Stop();
 
     // ---- 状态（线程安全） ----
-    Mode GetMode() const;
     /**
      * 切换模式。返回 false 表示被 mode_guard_handler_ 拒绝（例如电量太低不让进巡逻）。
      * 调用方应给 App 回 ok:false + 原因。

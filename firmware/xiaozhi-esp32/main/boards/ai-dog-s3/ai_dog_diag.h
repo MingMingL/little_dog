@@ -31,7 +31,8 @@ struct ResetInfo {
  *
  * 组成：
  *   - esp_log 钩子：所有 ESP_LOGx 输出都进内存环缓冲（不打断原输出）；
- *   - 内存环：最近若干条，供 OLED / 查询；
+ *   - 内存环：只是"待落盘"的暂存（后台任务 2s 刷一次），不对外提供读取接口；
+ *     需要看历史就启动时由 DumpFlash 打上次的 flash 记录，别再引入第二个读取口子；
  *   - flash 环：doglog 分区，256 B 一条定长记录，环形覆盖；
  *   - 启动时先把上次的记录打到串口，再继续正常运行。
  *
@@ -55,9 +56,6 @@ public:
 
     /** 立即把内存环里还没落盘的记录写进 flash（优雅停机前调用） */
     void Flush();
-
-    /** 内存环快照，形如 "[W  12345] 文本"；max_lines=0 表示全部 */
-    const char* Dump(size_t max_lines = 0);
 
     bool persistent_enabled() const { return partition_ != nullptr; }
     size_t persistent_records() const { return valid_records_; }
@@ -111,7 +109,6 @@ private:
     uint32_t persisted_seq_ = 0;  // 已落盘到的最新序号
 
     portMUX_TYPE spinlock_ = portMUX_INITIALIZER_UNLOCKED;
-    char dump_buffer_[4096]{};
 };
 
 }  // namespace aidog

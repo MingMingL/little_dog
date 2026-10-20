@@ -102,7 +102,18 @@ function Invoke-Ninja {
     param([int]$Jobs)
     Push-Location (Join-Path $Project "build")
     try {
-        & ninja -j $Jobs all
+        # Same trap as Invoke-Idf: when CMake re-runs during the build it writes
+        # Kconfig NOTEs to stderr ("... is not a valid bool value ... treated as
+        # 'n'"). With $ErrorActionPreference = "Stop" that note becomes a
+        # NativeCommandError and kills the script mid-build - a false failure.
+        # Flip to Continue for the child call, then check the real exit code.
+        $previousPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            & ninja -j $Jobs all
+        } finally {
+            $ErrorActionPreference = $previousPreference
+        }
         if ($LASTEXITCODE -ne 0) {
             throw "ninja failed (exit $LASTEXITCODE)"
         }
