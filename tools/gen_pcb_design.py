@@ -573,6 +573,48 @@ def draw_bottom_svg():
     return "\n".join(S)
 
 
+# ---------------------------------------------------------------- DXF 板框
+def write_dxf(path):
+    """导出板框 DXF（mm，R12 ASCII）：外轮廓 R3 圆角矩形 + 4 个安装孔。
+    嘉立创EDA Pro：文件 → 导入 → DXF，选 Top 层作板框，再手动指定安装孔。"""
+    W, H = BOARD["w"], BOARD["h"]
+    r = 3.0
+    out = ["0", "SECTION", "2", "ENTITIES"]
+
+    # 文档坐标 y 向下、DXF 的 y 向上 → 统一翻成 y' = H - y，导入后与布局图同向
+    def line(x1, y1, x2, y2):
+        out.extend(["0", "LINE", "8", "OUTLINE", "10", "%.3f" % x1, "20", "%.3f" % (H - y1),
+                    "30", "0.0", "11", "%.3f" % x2, "21", "%.3f" % (H - y2), "31", "0.0"])
+
+    def arc(cx, cy, rad, a0, a1):
+        # 翻转后圆弧起止角互换并取补：(a0,a1) -> (360-a1, 360-a0)
+        out.extend(["0", "ARC", "8", "OUTLINE", "10", "%.3f" % cx, "20", "%.3f" % (H - cy),
+                    "30", "0.0", "40", "%.3f" % rad,
+                    "50", "%.1f" % ((360.0 - a1) % 360.0), "51", "%.1f" % ((360.0 - a0) % 360.0)])
+
+    def circle(cx, cy, rad, layer="HOLES"):
+        out.extend(["0", "CIRCLE", "8", layer, "10", "%.3f" % cx, "20", "%.3f" % (H - cy),
+                    "30", "0.0", "40", "%.3f" % rad])
+
+    # 四边（内缩 r 的直段）
+    line(r, 0, W - r, 0)
+    line(W, r, W, H - r)
+    line(W - r, H, r, H)
+    line(0, H - r, 0, r)
+    # 四角圆弧
+    arc(W - r, r, r, 270, 360)
+    arc(W - r, H - r, r, 0, 90)
+    arc(r, H - r, r, 90, 180)
+    arc(r, r, r, 180, 270)
+    # 安装孔（⌀3.4 = R1.7）
+    for (hx, hy) in HOLES:
+        circle(hx, hy, HOLE_D / 2.0)
+    out.extend(["0", "ENDSEC", "0", "EOF"])
+    with open(path, "w", encoding="ascii", newline="\r\n") as f:
+        f.write("\n".join(out) + "\n")
+    return len(HOLES)
+
+
 # ---------------------------------------------------------------- 输出
 def write_csv(path):
     with open(path, "w", newline="", encoding="utf-8-sig") as f:
@@ -628,10 +670,12 @@ def main():
     with open(os.path.join(SRC_DIR, "pcb-layout-v2-bottom.svg"), "w", encoding="utf-8") as f:
         f.write(bot)
     n = write_csv(os.path.join(OUT_DIR, "PCB网表-v2.csv"))
+    nh = write_dxf(os.path.join(SRC_DIR, "pcb-outline-v2.dxf"))
     data = write_json(os.path.join(SRC_DIR, "pcb-design-baseline-v2.json"))
     print("已生成 docs/source/pcb-layout-v2.svg（%d 字节）" % len(svg))
     print("已生成 docs/source/pcb-layout-v2-bottom.svg（%d 字节）" % len(bot))
     print("已生成 docs/PCB网表-v2.csv（%d 条 pin-net）" % n)
+    print("已生成 docs/source/pcb-outline-v2.dxf（板框 + %d 个安装孔，R12 ASCII/mm）" % nh)
     print("已生成 docs/source/pcb-design-baseline-v2.json（%d 个网络）" % len(set(x["net"] for x in data["nets"])))
 
 
