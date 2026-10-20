@@ -76,8 +76,8 @@
 #define MOTOR_RIGHT_IN2_GPIO  GPIO_NUM_47
 #define MOTOR_STANDBY_GPIO    GPIO_NUM_10
 
-// 模式切换按键（待机/聊天/巡逻/看门）
-#define MODE_BUTTON_GPIO GPIO_NUM_9
+// GPIO9 已释放（原模式切换按键，2026-10-20 移除）：模式切换只走 App POST /api/mode，
+// PCB 与面包板均不再焊该按键；GPIO9 留给后续传感器/测试点。
 
 /* ===== OLED 屏幕（1.3 寸，128x64，9 针 SPI 版本）=====
  *
