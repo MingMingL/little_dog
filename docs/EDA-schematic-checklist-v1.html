@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>机器狗 V1 · EDA 原理图建图顺序表</title>
+<style>
+ body{font-family:system-ui,-apple-system,"PingFang SC","Noto Sans CJK SC",sans-serif;margin:0;background:#f8fafc;color:#0f172a;line-height:1.6}
+ .wrap{max-width:1080px;margin:0 auto;padding:26px 20px 60px}
+ header{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:18px 22px;margin-bottom:16px}
+ h1{font-size:21px;margin:0 0 6px} h2{font-size:16px;margin:24px 0 8px;padding-left:10px;border-left:4px solid #2563eb}
+ h3{font-size:14px;margin:16px 0 6px}
+ .meta{color:#475569;font-size:13px}
+ table{border-collapse:collapse;width:100%;background:#fff;font-size:12.5px;margin:8px 0 14px}
+ th,td{border:1px solid #e2e8f0;padding:5px 7px;text-align:left;vertical-align:top}
+ th{background:#f1f5f9;position:sticky;top:0;z-index:1}
+ code{background:#f1f5f9;padding:1px 4px;border-radius:4px;font-size:12px}
+ .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px;margin-bottom:14px}
+ .warn{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:9px 12px;font-size:13px;margin:8px 0}
+ .ok{background:#dcfce7;border-left:4px solid #16a34a;padding:8px 12px;border-radius:0 8px 8px 0;font-size:13px}
+ ol,ul{margin:6px 0 10px;padding-left:22px} li{margin:3px 0}
+ input[type=checkbox]{width:16px;height:16px}
+ @media print{body{background:#fff}.card,header{border:none;padding:0}}
+</style></head><body><div class="wrap">
+<header>
+ <h1>机器狗 V1 · EDA 原理图建图顺序表 <span style="font-size:12px;background:#dbeafe;color:#1e3a8a;padding:1px 8px;border-radius:999px">照此顺序点</span></h1>
+ <div class="meta">对应工程：<code>tools/gen_pcb_design.py</code>（单一事实源）· 网表：<code>docs/PCB网表-v2.csv</code> ·
+ 共 <b>36</b> 个网络 / <b>108</b> 个引脚连接 · 生成于 2026-10-20。改网表后重跑生成器，本表自动同步。</div>
+</header>
+
+<div class="card">
+ <h2 style="margin-top:0">0. 开图前 3 分钟</h2>
+ <ol>
+  <li>新建工程（名称 <code>ai-dog-v1</code>）→ 原理图页 1 张；单位 mm，栅格 1.27（按 2.54 布针脚）。</li>
+  <li>库：优先「立创商城」（有库存与价格），搜不到的用「系统库」；模块类没有现成符号 → 一律用 2.54 排母座自建，针名按模块丝印。</li>
+  <li>先画<b>开发板两排 22 针</b>（J1/J3），把它们当"总线端子"，后面所有连线都从这两排出发。</li>
+ </ol>
+</div>
+
+<div class="card">
+ <h2 style="margin-top:0">1. 元件清单（按这个顺序放）</h2>
+ <table>
+  <tr><th style="width:70px">位号</th><th>器件</th><th style="width:24%">EDA 里搜什么</th><th style="width:14%">封装</th><th style="width:44px">数量</th><th>放置要点</th></tr>
+  <tr><td><b>U1</b></td><td>2x22P 2.54 排母座</td><td>排母 2.54 1×22P ×2</td><td>直插 2.54</td><td>2</td><td>开发板直插：放 J1/J3 两排，针名按 22 针表逐个命名</td></tr>
+  <tr><td><b>U3</b></td><td>FS5080E</td><td>FS5080E</td><td>ESOP-8（带散热焊盘）</td><td>1</td><td>物理脚号按 datasheet；Iset 电阻待定</td></tr>
+  <tr><td><b>L1</b></td><td>4.7uH 功率电感</td><td>4.7uH 功率电感 10×10</td><td>CD54/CD75</td><td>1</td><td>FS5080E 的 SW 节点，走线要短粗</td></tr>
+  <tr><td><b>D1</b></td><td>SS34 肖特基</td><td>SS34</td><td>SMA (DO-214AC)</td><td>1</td><td>阳极朝 MP1584EN 输出，阴极朝 5V</td></tr>
+  <tr><td><b>SW1</b></td><td>拨动开关 2 档</td><td>拨动开关 2 档 侧拨</td><td>SS-12D00 类</td><td>1</td><td>串在 5V 与 FS5080E IN 之间</td></tr>
+  <tr><td><b>R1</b></td><td>100kΩ</td><td>100kΩ 0603</td><td>0603</td><td>1</td><td>分压上臂</td></tr>
+  <tr><td><b>R2</b></td><td>47kΩ</td><td>47kΩ 0603</td><td>0603</td><td>1</td><td>分压下臂</td></tr>
+  <tr><td><b>R3</b></td><td>1kΩ</td><td>1kΩ 0603</td><td>0603</td><td>1</td><td>ADC 串保护</td></tr>
+  <tr><td><b>R4</b></td><td>100kΩ</td><td>100kΩ 0603</td><td>0603</td><td>1</td><td>Q1 栅极</td></tr>
+  <tr><td><b>R10</b></td><td>1kΩ</td><td>1kΩ 0603</td><td>0603</td><td>1</td><td>LED 限流</td></tr>
+  <tr><td><b>C1</b></td><td>100nF</td><td>100nF 0603</td><td>0603</td><td>1</td><td>分压滤波</td></tr>
+  <tr><td><b>C3/C4</b></td><td>10uF+100nF</td><td>10µF + 100nF 0603</td><td>0603</td><td>2</td><td>3V3 去耦，贴开发板 3V3 脚</td></tr>
+  <tr><td><b>C5/C6</b></td><td>22uF</td><td>22µF 0805</td><td>0805</td><td>2</td><td>FS5080E 输入/输出</td></tr>
+  <tr><td><b>Q1</b></td><td>AO3401A PMOS</td><td>AO3401A</td><td>SOT-23</td><td>1</td><td>S=电池侧，D=7V4 侧，G 经 100k 回 S</td></tr>
+  <tr><td><b>J3</b></td><td>XT30 母座 2P</td><td>XT30 母座 2P</td><td>直插</td><td>1</td><td>1=+，2=−（丝印必标极性）</td></tr>
+  <tr><td><b>J4/J5</b></td><td>XH2.54-2P 直针</td><td>—</td><td>THT</td><td>2</td><td>电机 M1/M2</td></tr>
+  <tr><td><b>J6</b></td><td>XH2.54-2P 直针</td><td>XH2.54-2P 直针</td><td>直插</td><td>1</td><td>4Ω3W 喇叭</td></tr>
+  <tr><td><b>U8</b></td><td>2.54 直针 9P</td><td>排针 2.54 1×9P</td><td>直插</td><td>1</td><td>OLED 9 针：Gnd/Vin/3v3/CS/Rst/SA0/Clk/Data/DC</td></tr>
+  <tr><td><b>U9</b></td><td>2.54 直针 4P</td><td>排针 2.54 1×4P</td><td>直插</td><td>1</td><td>VL53：VIN/GND/SCL/SDA</td></tr>
+  <tr><td><b>TP1-TP6</b></td><td>测试点 Ø1.5 焊盘</td><td>测试点 Ø1.5</td><td>焊盘/TP</td><td>6</td><td>TX/RX/3V3/5V/GND/ADC_BAT</td></tr>
+  <tr><td><b>LED1</b></td><td>LED 绿</td><td>LED 绿 0805</td><td>0805</td><td>1</td><td>电源指示</td></tr>
+ </table>
+ <div class="warn"><b>模块符号的做法</b>：TB6612 / MP1584EN / MAX98357A / INMP441 都是成品模块，EDA 里没有对应符号。
+ 正确做法是放 <b>2.54 排母座</b>（1×4 / 1×7 / 2×5 / 1×6），双击改针名为模块丝印上的名字（STBY、PWMA…），
+ 这样原理图与实物、与 PCB 焊盘三处同名，后面查线不用翻译。</div>
+</div>
+
+<div class="card">
+ <h2 style="margin-top:0">2. 连线顺序表（共 36 个网络 / 108 个连接）</h2>
+ <p style="font-size:13px;margin:4px 0">顺序是刻意的：<b>先电源、再地、再总线、最后控制</b>。电源与地连完就能用万用表验，后面任何一根控制线接错都会立刻显形。</p>
+ <table>
+  <tr><th style="width:120px">阶段</th><th style="width:130px">网络</th><th style="width:56px">成员</th><th>成员（位号.针名(针号) → …）</th><th style="width:40px">✓</th></tr>
+  <tr><td>① 电源主干</td><td><code>3V3</code></td><td>8</td><td>U1.3V3(J1-32) → U7.VDD(5) → U4.VCC(6) → U8.Vin(2) → U8.3v3(3) → U9.VIN(1) → R10.R10-1(1) → TP3.TP3(1)</td><td><input type="checkbox"></td></tr>
+  <tr><td>① 电源主干</td><td><code>5V_BUCK</code></td><td>2</td><td>U5.OUT+(1) → D1.A(A)</td><td><input type="checkbox"></td></tr>
+  <tr><td>① 电源主干</td><td><code>5V</code></td><td>6</td><td>D1.K(K) → U1.5V(J1-52) → U6.VIN(7) → U6.SD_MODE(5) → SW1.1(1) → TP6.TP6(1)</td><td><input type="checkbox"></td></tr>
+  <tr><td>① 电源主干</td><td><code>CHG_IN</code></td><td>2</td><td>SW1.2(2) → U3.IN(IN)</td><td><input type="checkbox"></td></tr>
+  <tr><td>① 电源主干</td><td><code>7V4</code></td><td>4</td><td>U4.VM(10) → U5.IN+(3) → Q1.D(D) → R1.R1-1(1)</td><td><input type="checkbox"></td></tr>
+  <tr><td>① 电源主干</td><td><code>BAT+</code></td><td>2</td><td>J3.1(1) → Q1.S(S)</td><td><input type="checkbox"></td></tr>
+  <tr><td>① 电源主干</td><td><code>FS_SW</code></td><td>2</td><td>U3.SW(SW) → L1.L1-1(1)</td><td><input type="checkbox"></td></tr>
+  <tr><td>① 电源主干</td><td><code>8V4</code></td><td>3</td><td>U3.BAT(BAT) → L1.L1-2(2) → J3.2(2)</td><td><input type="checkbox"></td></tr>
+  <tr><td>② 地</td><td><code>GND</code></td><td>17</td><td>U1.GND(J1-53) → U5.IN-(4) → U5.OUT-(2) → U4.GND(9) → U3.GND(GND) → U6.GND(6) → U6.GAIN(4) → U7.GND(6) → U7.L/R(3) → U8.Gnd(1) → U8.CS(4) → U8.SA0(6) → U9.GND(2) → R2.R2-2(2) → C1.C1-2(2) → TP4.TP4(1) → LED1.LED1-K(LED1-K)</td><td><input type="checkbox"></td></tr>
+  <tr><td>③ 电池监测</td><td><code>ADC_BAT</code></td><td>6</td><td>R1.R1-2(2) → R3.R3-1(1) → R2.R2-1(1) → C1.C1-1(1) → U1.GPIO8(J1-43) → TP5.TP5(1)</td><td><input type="checkbox"></td></tr>
+  <tr><td>④ I2S 麦克风</td><td><code>GPIO4_SCK</code></td><td>2</td><td>U1.GPIO4(J1-35) → U7.SCK(1)</td><td><input type="checkbox"></td></tr>
+  <tr><td>④ I2S 麦克风</td><td><code>GPIO5_WS</code></td><td>2</td><td>U1.GPIO5(J1-36) → U7.WS(2)</td><td><input type="checkbox"></td></tr>
+  <tr><td>④ I2S 麦克风</td><td><code>GPIO6_SD</code></td><td>2</td><td>U1.GPIO6(J1-37) → U7.SD(4)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑤ I2S 功放 + 喇叭</td><td><code>GPIO7_DIN</code></td><td>2</td><td>U1.GPIO7(J1-38) → U6.DIN(3)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑤ I2S 功放 + 喇叭</td><td><code>GPIO15_BCLK</code></td><td>2</td><td>U1.GPIO15(J1-39) → U6.BCLK(2)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑤ I2S 功放 + 喇叭</td><td><code>GPIO16_LRC</code></td><td>2</td><td>U1.GPIO16(J1-40) → U6.LRC(1)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑤ I2S 功放 + 喇叭</td><td><code>SPK+</code></td><td>2</td><td>U6.VO+(8) → J6.1(1)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑤ I2S 功放 + 喇叭</td><td><code>SPK-</code></td><td>2</td><td>U6.VO-(9) → J6.2(2)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑥ 电机控制 + 输出</td><td><code>GPIO10</code></td><td>2</td><td>U1.GPIO10(J1-47) → U4.STBY(1)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑥ 电机控制 + 输出</td><td><code>GPIO11</code></td><td>2</td><td>U1.GPIO11(J1-48) → U4.PWMA(2)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑥ 电机控制 + 输出</td><td><code>GPIO12</code></td><td>2</td><td>U1.GPIO12(J1-49) → U4.AIN1(3)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑥ 电机控制 + 输出</td><td><code>GPIO13</code></td><td>2</td><td>U1.GPIO13(J1-50) → U4.AIN2(4)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑥ 电机控制 + 输出</td><td><code>GPIO14</code></td><td>2</td><td>U1.GPIO14(J1-51) → U4.PWMB(5)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑥ 电机控制 + 输出</td><td><code>GPIO47</code></td><td>2</td><td>U1.GPIO47(J3-48) → U4.BIN1(7)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑥ 电机控制 + 输出</td><td><code>GPIO21</code></td><td>2</td><td>U1.GPIO21(J3-49) → U4.BIN2(8)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑥ 电机控制 + 输出</td><td><code>MOTO_A</code></td><td>4</td><td>U4.AO1(11) → U4.AO2(12) → J4.1(1) → J4.2(2)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑥ 电机控制 + 输出</td><td><code>MOTO_B</code></td><td>4</td><td>U4.BO1(13) → U4.BO2(14) → J5.1(1) → J5.2(2)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑦ I2C（VL53）</td><td><code>GPIO42_SCL</code></td><td>2</td><td>U1.GPIO42(J3-37) → U9.SCL(3)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑦ I2C（VL53）</td><td><code>GPIO41_SDA</code></td><td>2</td><td>U1.GPIO41(J3-38) → U9.SDA(4)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑧ SPI（OLED）</td><td><code>GPIO48_RES</code></td><td>2</td><td>U1.GPIO48(J3-47) → U8.Rst(5)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑧ SPI（OLED）</td><td><code>GPIO1_SCLK</code></td><td>2</td><td>U1.GPIO1(J3-35) → U8.Clk(7)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑧ SPI（OLED）</td><td><code>GPIO2_MOSI</code></td><td>2</td><td>U1.GPIO2(J3-36) → U8.Data(8)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑧ SPI（OLED）</td><td><code>GPIO46_DC</code></td><td>2</td><td>U1.GPIO46(J1-45) → U8.DC(9)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑨ 调试 / 指示</td><td><code>GPIO43_TX</code></td><td>2</td><td>U1.GPIO43(J3-33) → TP1.TP1(1)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑨ 调试 / 指示</td><td><code>GPIO44_RX</code></td><td>2</td><td>U1.GPIO44(J3-34) → TP2.TP2(1)</td><td><input type="checkbox"></td></tr>
+  <tr><td>⑨ 调试 / 指示</td><td><code>LED1</code></td><td>2</td><td>R10.R10-2(2) → LED1.LED1-A(LED1-A)</td><td><input type="checkbox"></td></tr>
+ </table>
+</div>
+
+<div class="card">
+ <h2 style="margin-top:0">3. 连完自检（必须全绿才转 PCB）</h2>
+ <ul>
+  <li>「设计 → 检查 DRC」：<b>未连接引脚 = 0</b>、重复位号 = 0、单端网络 = 0。</li>
+  <li>网络数应 = <b>36</b>；逐个点网络看高亮成员数是否与上表"成员"列一致（不一致就是漏连/多连）。</li>
+  <li>把原理图与 <code>docs/PCB网表-v2.csv</code> 并排：CSV 的 108 行应能一一对上。</li>
+  <li>GND 网络成员最多（17 个），最容易漏；点 GND 高亮，数一遍。</li>
+  <li>最后：设计 → 更新/转换到 PCB，飞线数应为 108 条（每条 pin-net 一根）。</li>
+ </ul>
+</div>
+
+<div class="card">
+ <h2 style="margin-top:0">4. 这 8 个地方最容易点错</h2>
+ <table><tr><th style="width:36px">#</th><th style="width:34%">易错点</th><th>为什么 / 怎么点</th></tr><tr><td>1</td><td><b>GPIO9 不接任何东西</b></td><td>模式按键已从 PCB 与面包板移除，网络表里没有 GPIO9 网——EDA 里别手痒补上。</td></tr><tr><td>2</td><td><b>5V 必须经 D1(SS34)</b></td><td>MP1584EN 的 OUT+ 不能直连开发板 5V 脚；中间串 SS34，否则插 USB 时倒灌。</td></tr><tr><td>3</td><td><b>SW1 在 FS5080E 的 IN 之前</b></td><td>顺序是 5V → SW1 → U3.IN。接反等于开关失效，电池会自己给自己充电。</td></tr><tr><td>4</td><td><b>电机 VM 走 7V4 不是 5V</b></td><td>U4.VM 接 7V4；接 5V 会让 MP1584EN 峰值 3.67A 超载。</td></tr><tr><td>5</td><td><b>MAX98357A：GAIN→GND、SD→VIN</b></td><td>模块上这两根是模块内短接的等效；VIN 是 5V。</td></tr><tr><td>6</td><td><b>INMP441：L/R→GND</b></td><td>选左声道；悬空会出双声道叠加的噪声。</td></tr><tr><td>7</td><td><b>OLED：CS/SA0→GND，Vin 与 3v3 都→3V3</b></td><td>CS 固定片选、SA0 固定地址；Vin/3v3 同时给 3V3（模块内部 LDO 直通）。</td></tr><tr><td>8</td><td><b>开发板 3V3 是输出</b></td><td>J1-32/33 是板载 LDO 输出，往传感器送电；别当成需要外部供电的输入。</td></tr></table>
+</div>
+
+<div class="card">
+ <h2 style="margin-top:0">5. 画完之后</h2>
+ <ol>
+  <li>原理图 → PCB：导入 <code>docs/source/pcb-outline-v2.dxf</code> 作板框（y 已翻转，方向与布局图一致）。</li>
+  <li>按 <code>docs/source/pcb-layout-v2.svg</code> 摆件（坐标、焊盘、1 脚方标都在图上）。</li>
+  <li>按 PCB 文档 §4.1 的 7 条通道布线 → 底层铺 GND → DRC 0/0 → JLCDFM → Gerber。</li>
+ </ol>
+ <div class="ok"><b>一句话：</b>这张表把"画原理图"变成"按 36 行顺序点 108 次"——顺序对了，错只会在最后一步暴露，而不是在打样之后。</div>
+</div>
+</div></body></html>

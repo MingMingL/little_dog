@@ -614,6 +614,184 @@ def write_dxf(path):
         f.write("\n".join(out) + "\n")
     return len(HOLES)
 
+# ---------------------------------------------------------------- EDA 建图清单
+# EDA 里"搜什么 / 怎么建"：模块没有现成符号，一律用 2.54 单排座 + 自定义针名
+EDA_SEARCH = {
+    "U1": ("排母 2.54 1×22P ×2", "直插 2.54", "开发板直插：放 J1/J3 两排，针名按 22 针表逐个命名"),
+    "U3": ("FS5080E", "ESOP-8（带散热焊盘）", "物理脚号按 datasheet；Iset 电阻待定"),
+    "L1": ("4.7uH 功率电感 10×10", "CD54/CD75", "FS5080E 的 SW 节点，走线要短粗"),
+    "D1": ("SS34", "SMA (DO-214AC)", "阳极朝 MP1584EN 输出，阴极朝 5V"),
+    "SW1": ("拨动开关 2 档 侧拨", "SS-12D00 类", "串在 5V 与 FS5080E IN 之间"),
+    "Q1": ("AO3401A", "SOT-23", "S=电池侧，D=7V4 侧，G 经 100k 回 S"),
+    "J3": ("XT30 母座 2P", "直插", "1=+，2=−（丝印必标极性）"),
+    "J4": ("XH2.54-2P 直针", "直插", "M1 左轮"),
+    "J5": ("XH2.54-2P 直针", "直插", "M2 右轮"),
+    "J6": ("XH2.54-2P 直针", "直插", "4Ω3W 喇叭"),
+    "U8": ("排针 2.54 1×9P", "直插", "OLED 9 针：Gnd/Vin/3v3/CS/Rst/SA0/Clk/Data/DC"),
+    "U9": ("排针 2.54 1×4P", "直插", "VL53：VIN/GND/SCL/SDA"),
+    "U4": ("排母 2.54 2×5P", "直插", "TB6612 模块 10 针：STBY/PWMA/AIN1/AIN2/PWMB/VCC/BIN1/BIN2/GND/VM"),
+    "U5": ("排母 2.54 1×4P", "直插", "MP1584EN：OUT+/OUT-/IN+/IN-"),
+    "U6": ("排母 2.54 1×7P + 2 焊盘", "直插", "MAX98357A：LRC/BCLK/DIN/GAIN/SD/GND/VIN，另 VO+/VO- 两个焊盘"),
+    "U7": ("排母 2.54 1×6P", "直插", "INMP441：SCK/WS/L/R/SD/VDD/GND"),
+    "R1": ("100kΩ 0603", "0603", "分压上臂"), "R2": ("47kΩ 0603", "0603", "分压下臂"),
+    "R3": ("1kΩ 0603", "0603", "ADC 串保护"), "R4": ("100kΩ 0603", "0603", "Q1 栅极"),
+    "R10": ("1kΩ 0603", "0603", "LED 限流"),
+    "C1": ("100nF 0603", "0603", "分压滤波"),
+    "C3/C4": ("10µF + 100nF 0603", "0603", "3V3 去耦，贴开发板 3V3 脚"),
+    "C5/C6": ("22µF 0805", "0805", "FS5080E 输入/输出"),
+    "LED1": ("LED 绿 0805", "0805", "电源指示"),
+    "TP1-TP6": ("测试点 Ø1.5", "焊盘/TP", "TX/RX/3V3/5V/GND/ADC_BAT"),
+}
+
+# 连线顺序：先电源、再地、再总线、最后控制（连错能立刻被地网/电源网暴露）
+NET_GROUPS = [
+    ("① 电源主干", ["3V3", "5V_BUCK", "5V", "CHG_IN", "7V4", "BAT+", "FS_SW", "8V4"]),
+    ("② 地", ["GND"]),
+    ("③ 电池监测", ["ADC_BAT"]),
+    ("④ I2S 麦克风", ["GPIO4_SCK", "GPIO5_WS", "GPIO6_SD"]),
+    ("⑤ I2S 功放 + 喇叭", ["GPIO7_DIN", "GPIO15_BCLK", "GPIO16_LRC", "SPK+", "SPK-"]),
+    ("⑥ 电机控制 + 输出", ["GPIO10", "GPIO11", "GPIO12", "GPIO13", "GPIO14",
+                          "GPIO47", "GPIO21", "MOTO_A", "MOTO_B"]),
+    ("⑦ I2C（VL53）", ["GPIO42_SCL", "GPIO41_SDA"]),
+    ("⑧ SPI（OLED）", ["GPIO48_RES", "GPIO1_SCLK", "GPIO2_MOSI", "GPIO46_DC"]),
+    ("⑨ 调试 / 指示", ["GPIO43_TX", "GPIO44_RX", "LED1"]),
+]
+
+PITFALLS = [
+    ("GPIO9 不接任何东西", "模式按键已从 PCB 与面包板移除，网络表里没有 GPIO9 网——EDA 里别手痒补上。"),
+    ("5V 必须经 D1(SS34)", "MP1584EN 的 OUT+ 不能直连开发板 5V 脚；中间串 SS34，否则插 USB 时倒灌。"),
+    ("SW1 在 FS5080E 的 IN 之前", "顺序是 5V → SW1 → U3.IN。接反等于开关失效，电池会自己给自己充电。"),
+    ("电机 VM 走 7V4 不是 5V", "U4.VM 接 7V4；接 5V 会让 MP1584EN 峰值 3.67A 超载。"),
+    ("MAX98357A：GAIN→GND、SD→VIN", "模块上这两根是模块内短接的等效；VIN 是 5V。"),
+    ("INMP441：L/R→GND", "选左声道；悬空会出双声道叠加的噪声。"),
+    ("OLED：CS/SA0→GND，Vin 与 3v3 都→3V3", "CS 固定片选、SA0 固定地址；Vin/3v3 同时给 3V3（模块内部 LDO 直通）。"),
+    ("开发板 3V3 是输出", "J1-32/33 是板载 LDO 输出，往传感器送电；别当成需要外部供电的输入。"),
+]
+
+
+def _members(net):
+    out = []
+    for n, ref, pin in NETS:
+        if n != net:
+            continue
+        no = pin_no(ref, pin)
+        out.append("%s.%s%s" % (ref, pin, ("(%s)" % no) if no else ""))
+    return out
+
+
+def write_checklist(path):
+    """生成《EDA 原理图建图顺序表》：元件清单（搜什么）+ 按序连线表 + 自检点 + 易错点。"""
+    rows_bom = []
+    for ref, name, fp, qty, note in BOM_SELF:
+        search, foot, tip = EDA_SEARCH.get(ref, ("—", fp, note))
+        rows_bom.append("<tr><td><b>%s</b></td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>"
+                        % (ref, name, search, foot, qty, tip))
+
+    rows_net, total_nets, total_members = [], 0, 0
+    for group, nets in NET_GROUPS:
+        for net in nets:
+            mem = _members(net)
+            if not mem:
+                continue
+            total_nets += 1
+            total_members += len(mem)
+            rows_net.append(
+                "<tr><td>%s</td><td><code>%s</code></td><td>%d</td><td>%s</td><td><input type=\"checkbox\"></td></tr>"
+                % (group, net, len(mem), " → ".join(mem)))
+
+    rows_pit = "".join("<tr><td>%d</td><td><b>%s</b></td><td>%s</td></tr>" % (i + 1, a, b)
+                       for i, (a, b) in enumerate(PITFALLS))
+
+    html = """<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>机器狗 V1 · EDA 原理图建图顺序表</title>
+<style>
+ body{font-family:system-ui,-apple-system,"PingFang SC","Noto Sans CJK SC",sans-serif;margin:0;background:#f8fafc;color:#0f172a;line-height:1.6}
+ .wrap{max-width:1080px;margin:0 auto;padding:26px 20px 60px}
+ header{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:18px 22px;margin-bottom:16px}
+ h1{font-size:21px;margin:0 0 6px} h2{font-size:16px;margin:24px 0 8px;padding-left:10px;border-left:4px solid #2563eb}
+ h3{font-size:14px;margin:16px 0 6px}
+ .meta{color:#475569;font-size:13px}
+ table{border-collapse:collapse;width:100%%;background:#fff;font-size:12.5px;margin:8px 0 14px}
+ th,td{border:1px solid #e2e8f0;padding:5px 7px;text-align:left;vertical-align:top}
+ th{background:#f1f5f9;position:sticky;top:0;z-index:1}
+ code{background:#f1f5f9;padding:1px 4px;border-radius:4px;font-size:12px}
+ .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px 18px;margin-bottom:14px}
+ .warn{background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:9px 12px;font-size:13px;margin:8px 0}
+ .ok{background:#dcfce7;border-left:4px solid #16a34a;padding:8px 12px;border-radius:0 8px 8px 0;font-size:13px}
+ ol,ul{margin:6px 0 10px;padding-left:22px} li{margin:3px 0}
+ input[type=checkbox]{width:16px;height:16px}
+ @media print{body{background:#fff}.card,header{border:none;padding:0}}
+</style></head><body><div class="wrap">
+<header>
+ <h1>机器狗 V1 · EDA 原理图建图顺序表 <span style="font-size:12px;background:#dbeafe;color:#1e3a8a;padding:1px 8px;border-radius:999px">照此顺序点</span></h1>
+ <div class="meta">对应工程：<code>tools/gen_pcb_design.py</code>（单一事实源）· 网表：<code>docs/PCB网表-v2.csv</code> ·
+ 共 <b>%d</b> 个网络 / <b>%d</b> 个引脚连接 · 生成于 2026-10-20。改网表后重跑生成器，本表自动同步。</div>
+</header>
+
+<div class="card">
+ <h2 style="margin-top:0">0. 开图前 3 分钟</h2>
+ <ol>
+  <li>新建工程（名称 <code>ai-dog-v1</code>）→ 原理图页 1 张；单位 mm，栅格 1.27（按 2.54 布针脚）。</li>
+  <li>库：优先「立创商城」（有库存与价格），搜不到的用「系统库」；模块类没有现成符号 → 一律用 2.54 排母座自建，针名按模块丝印。</li>
+  <li>先画<b>开发板两排 22 针</b>（J1/J3），把它们当"总线端子"，后面所有连线都从这两排出发。</li>
+ </ol>
+</div>
+
+<div class="card">
+ <h2 style="margin-top:0">1. 元件清单（按这个顺序放）</h2>
+ <table>
+  <tr><th style="width:70px">位号</th><th>器件</th><th style="width:24%%">EDA 里搜什么</th><th style="width:14%%">封装</th><th style="width:44px">数量</th><th>放置要点</th></tr>
+  %s
+ </table>
+ <div class="warn"><b>模块符号的做法</b>：TB6612 / MP1584EN / MAX98357A / INMP441 都是成品模块，EDA 里没有对应符号。
+ 正确做法是放 <b>2.54 排母座</b>（1×4 / 1×7 / 2×5 / 1×6），双击改针名为模块丝印上的名字（STBY、PWMA…），
+ 这样原理图与实物、与 PCB 焊盘三处同名，后面查线不用翻译。</div>
+</div>
+
+<div class="card">
+ <h2 style="margin-top:0">2. 连线顺序表（共 %d 个网络 / %d 个连接）</h2>
+ <p style="font-size:13px;margin:4px 0">顺序是刻意的：<b>先电源、再地、再总线、最后控制</b>。电源与地连完就能用万用表验，后面任何一根控制线接错都会立刻显形。</p>
+ <table>
+  <tr><th style="width:120px">阶段</th><th style="width:130px">网络</th><th style="width:56px">成员</th><th>成员（位号.针名(针号) → …）</th><th style="width:40px">✓</th></tr>
+  %s
+ </table>
+</div>
+
+<div class="card">
+ <h2 style="margin-top:0">3. 连完自检（必须全绿才转 PCB）</h2>
+ <ul>
+  <li>「设计 → 检查 DRC」：<b>未连接引脚 = 0</b>、重复位号 = 0、单端网络 = 0。</li>
+  <li>网络数应 = <b>%d</b>；逐个点网络看高亮成员数是否与上表"成员"列一致（不一致就是漏连/多连）。</li>
+  <li>把原理图与 <code>docs/PCB网表-v2.csv</code> 并排：CSV 的 108 行应能一一对上。</li>
+  <li>GND 网络成员最多（19 个），最容易漏；点 GND 高亮，数一遍。</li>
+  <li>最后：设计 → 更新/转换到 PCB，飞线数应为 108 条（每条 pin-net 一根）。</li>
+ </ul>
+</div>
+
+<div class="card">
+ <h2 style="margin-top:0">4. 这 8 个地方最容易点错</h2>
+ <table><tr><th style="width:36px">#</th><th style="width:34%%">易错点</th><th>为什么 / 怎么点</th></tr>%s</table>
+</div>
+
+<div class="card">
+ <h2 style="margin-top:0">5. 画完之后</h2>
+ <ol>
+  <li>原理图 → PCB：导入 <code>docs/source/pcb-outline-v2.dxf</code> 作板框（y 已翻转，方向与布局图一致）。</li>
+  <li>按 <code>docs/source/pcb-layout-v2.svg</code> 摆件（坐标、焊盘、1 脚方标都在图上）。</li>
+  <li>按 PCB 文档 §4.1 的 7 条通道布线 → 底层铺 GND → DRC 0/0 → JLCDFM → Gerber。</li>
+ </ol>
+ <div class="ok"><b>一句话：</b>这张表把"画原理图"变成"按 36 行顺序点 108 次"——顺序对了，错只会在最后一步暴露，而不是在打样之后。</div>
+</div>
+</div></body></html>""" % (total_nets, total_members, "\n  ".join(rows_bom), total_nets, total_members,
+                            "\n  ".join(rows_net), total_nets, rows_pit)
+
+    html = html.replace("GND 网络成员最多（19 个）",
+                        "GND 网络成员最多（%d 个）" % len(_members("GND")))
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(html)
+    return total_nets, total_members
+
 
 # ---------------------------------------------------------------- 输出
 def write_csv(path):
@@ -671,11 +849,13 @@ def main():
         f.write(bot)
     n = write_csv(os.path.join(OUT_DIR, "PCB网表-v2.csv"))
     nh = write_dxf(os.path.join(SRC_DIR, "pcb-outline-v2.dxf"))
+    nn, nm = write_checklist(os.path.join(OUT_DIR, "EDA-schematic-checklist-v1.html"))
     data = write_json(os.path.join(SRC_DIR, "pcb-design-baseline-v2.json"))
     print("已生成 docs/source/pcb-layout-v2.svg（%d 字节）" % len(svg))
     print("已生成 docs/source/pcb-layout-v2-bottom.svg（%d 字节）" % len(bot))
     print("已生成 docs/PCB网表-v2.csv（%d 条 pin-net）" % n)
     print("已生成 docs/source/pcb-outline-v2.dxf（板框 + %d 个安装孔，R12 ASCII/mm）" % nh)
+    print("已生成 docs/EDA-schematic-checklist-v1.html（%d 网 / %d 连接）" % (nn, nm))
     print("已生成 docs/source/pcb-design-baseline-v2.json（%d 个网络）" % len(set(x["net"] for x in data["nets"])))
 
 
