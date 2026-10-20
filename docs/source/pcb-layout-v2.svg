@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 124" width="104mm" height="124mm">
+<rect x="0" y="0" width="104" height="124" fill="#ffffff"/>
+<g transform="translate(6 10)">
+<text x="0" y="-5.5" font-size="3.2" fill="#0f172a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">机器狗 V1 · PCB 顶层布局  v2（开发板直插）</text>
+<text x="80" y="-5.5" font-size="2.2" fill="#475569" text-anchor="end" font-family="system-ui,sans-serif">80×70mm · 2层 · y=0 为板北缘(车头/前缘)</text>
+<rect x="54" y="4" width="26" height="43" fill="#eff6ff" stroke="#cbd5e1" stroke-width="0.1"/>
+<text x="54.8" y="6.2" font-size="1.6" fill="#94a3b8" text-anchor="start" font-family="system-ui,sans-serif">射频/音频</text>
+<rect x="26" y="61.15" width="28" height="10.85" fill="#fee2e2" stroke="#cbd5e1" stroke-width="0.1"/>
+<text x="26.8" y="63.35" font-size="1.6" fill="#94a3b8" text-anchor="start" font-family="system-ui,sans-serif">USB 插线净空</text>
+<rect x="0" y="72" width="80" height="18" fill="#fef3c7" stroke="#cbd5e1" stroke-width="0.1"/>
+<text x="0.8" y="74.2" font-size="1.6" fill="#94a3b8" text-anchor="start" font-family="system-ui,sans-serif">电源区(底层)</text>
+<rect x="54" y="47" width="26" height="15" fill="#f0fdf4" stroke="#cbd5e1" stroke-width="0.1"/>
+<text x="54.8" y="49.2" font-size="1.6" fill="#94a3b8" text-anchor="start" font-family="system-ui,sans-serif">人机区</text>
+<rect x="24" y="0" width="32" height="12" fill="none" stroke="#dc2626" stroke-width="0.35" stroke-dasharray="1.4 1"/>
+<text x="25" y="11.2" font-size="1.5" fill="#dc2626" text-anchor="start" font-family="system-ui,sans-serif">WROOM 天线 keepout（顶层净空）</text>
+<rect x="0" y="0" width="80" height="90" fill="none" stroke="#0f172a" stroke-width="0.5"/>
+<circle cx="6" cy="6" r="1.7" fill="#ffffff" stroke="#0f172a" stroke-width="0.3"/>
+<circle cx="6" cy="6" r="3.5" fill="none" stroke="#dc2626" stroke-width="0.12" stroke-dasharray="0.8 0.6"/>
+<circle cx="74" cy="6" r="1.7" fill="#ffffff" stroke="#0f172a" stroke-width="0.3"/>
+<circle cx="74" cy="6" r="3.5" fill="none" stroke="#dc2626" stroke-width="0.12" stroke-dasharray="0.8 0.6"/>
+<circle cx="6" cy="84" r="1.7" fill="#ffffff" stroke="#0f172a" stroke-width="0.3"/>
+<circle cx="6" cy="84" r="3.5" fill="none" stroke="#dc2626" stroke-width="0.12" stroke-dasharray="0.8 0.6"/>
+<circle cx="74" cy="84" r="1.7" fill="#ffffff" stroke="#0f172a" stroke-width="0.3"/>
+<circle cx="74" cy="84" r="3.5" fill="none" stroke="#dc2626" stroke-width="0.12" stroke-dasharray="0.8 0.6"/>
+<text x="40" y="93.4" font-size="2.2" fill="#64748b" text-anchor="middle" font-family="system-ui,sans-serif">80.00</text>
+<line x1="0" y1="92.6" x2="80" y2="92.6" stroke="#64748b" stroke-width="0.15"/><line x1="0" y1="91.6" x2="0" y2="93.6" stroke="#64748b" stroke-width="0.15"/><line x1="80" y1="91.6" x2="80" y2="93.6" stroke="#64748b" stroke-width="0.15"/>
+<text x="83.4" y="45" font-size="2.2" fill="#64748b" text-anchor="middle" transform="rotate(-90 83.4 45)" font-family="system-ui,sans-serif">70.00</text>
+<line x1="82.6" y1="0" x2="82.6" y2="90" stroke="#64748b" stroke-width="0.15"/><line x1="81.6" y1="0" x2="83.6" y2="0" stroke="#64748b" stroke-width="0.15"/><line x1="81.6" y1="90" x2="83.6" y2="90" stroke="#64748b" stroke-width="0.15"/>
+<rect x="28" y="20" width="22.2" height="17.5" rx="0.4" fill="#f4f8fe" stroke="#2563eb" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<text x="28.8" y="22.2" font-size="1.9" fill="#1e3a8a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">U5 MP1584EN 模块</text>
+<text x="28.8" y="36.9" font-size="1.35" fill="#1e3a8a" text-anchor="start" font-family="system-ui,sans-serif">7.4V-&gt;5V 3A(插座内侧空档)</text>
+<rect x="28" y="39" width="4.5" height="2.5" rx="0.4" fill="#f4fef7" stroke="#16a34a" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<text x="28.8" y="41.2" font-size="1.9" fill="#14532d" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">D1 SS34 肖特基</text>
+<text x="28.8" y="40.9" font-size="1.35" fill="#14532d" text-anchor="start" font-family="system-ui,sans-serif">防 USB 5V 与电池 5V 互灌</text>
+<rect x="30" y="42" width="12" height="12" rx="0.4" fill="#f4fef7" stroke="#16a34a" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<text x="30.8" y="44.2" font-size="1.9" fill="#14532d" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">U3 FS5080E 2S充电</text>
+<text x="30.8" y="53.4" font-size="1.35" fill="#14532d" text-anchor="start" font-family="system-ui,sans-serif">ESOP8+L1 4.7uH, 5V-&gt;8.4V/1A</text>
+<rect x="10" y="63" width="34" height="24" rx="0.4" fill="#f4f8fe" stroke="#2563eb" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<text x="10.8" y="65.2" font-size="1.9" fill="#1e3a8a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">U4 TB6612FNG 模块</text>
+<text x="10.8" y="86.4" font-size="1.35" fill="#1e3a8a" text-anchor="start" font-family="system-ui,sans-serif">双电机 1.2A/路, VM=7.4V</text>
+<rect x="0" y="62" width="8" height="10.5" rx="0.4" fill="#bbbec4" stroke="#0f172a" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<text x="0.8" y="64.2" font-size="1.9" fill="#f8fafc" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">J3 XT30 母座</text>
+<text x="0.8" y="71.9" font-size="1.35" fill="#f8fafc" text-anchor="start" font-family="system-ui,sans-serif">电池 7.4V 输入 西缘</text>
+<rect x="50" y="80" width="5" height="5" rx="0.4" fill="#bbbec4" stroke="#0f172a" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<text x="50.8" y="82.2" font-size="1.9" fill="#f8fafc" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">J4 XH2.54-2P M1</text>
+<text x="50.8" y="84.4" font-size="1.35" fill="#f8fafc" text-anchor="start" font-family="system-ui,sans-serif">左轮电机 南缘</text>
+<rect x="58" y="80" width="5" height="5" rx="0.4" fill="#bbbec4" stroke="#0f172a" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<text x="58.8" y="82.2" font-size="1.9" fill="#f8fafc" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">J5 XH2.54-2P M2</text>
+<text x="58.8" y="84.4" font-size="1.35" fill="#f8fafc" text-anchor="start" font-family="system-ui,sans-serif">右轮电机 南缘</text>
+<rect x="26.03" y="4" width="27.94" height="57.15" rx="0.4" fill="#dbeafe" stroke="#2563eb" stroke-width="0.45"/>
+<text x="26.83" y="6.2" font-size="1.9" fill="#1e3a8a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">U1 ESP32-S3 开发板座 2x22P</text>
+<text x="26.83" y="60.55" font-size="1.35" fill="#1e3a8a" text-anchor="start" font-family="system-ui,sans-serif">排母可插拔, USB 端朝南(车尾)</text>
+<rect x="56" y="10" width="17.78" height="19.09" rx="0.4" fill="#dbeafe" stroke="#2563eb" stroke-width="0.45"/>
+<text x="56.8" y="12.2" font-size="1.9" fill="#1e3a8a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">U6 MAX98357A 模块</text>
+<text x="56.8" y="28.49" font-size="1.35" fill="#1e3a8a" text-anchor="start" font-family="system-ui,sans-serif">I2S 功放 5V</text>
+<rect x="54" y="30" width="15" height="15" rx="0.4" fill="#dbeafe" stroke="#2563eb" stroke-width="0.45"/>
+<text x="54.8" y="32.2" font-size="1.9" fill="#1e3a8a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">U7 INMP441</text>
+<text x="54.8" y="44.4" font-size="1.35" fill="#1e3a8a" text-anchor="start" font-family="system-ui,sans-serif">I2S 麦克风 Ø15</text>
+<rect x="56" y="48" width="6" height="6" rx="0.4" fill="#e2e8f0" stroke="#475569" stroke-width="0.45"/>
+<text x="56.8" y="50.2" font-size="1.9" fill="#0f172a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">K3 模式按键</text>
+<text x="56.8" y="53.4" font-size="1.35" fill="#0f172a" text-anchor="start" font-family="system-ui,sans-serif">GPIO9 低有效</text>
+<rect x="64" y="46" width="6" height="3" rx="0.4" fill="#f1f5f9" stroke="#64748b" stroke-width="0.45"/>
+<text x="64.8" y="48.2" font-size="1.9" fill="#334155" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">R1/R2/R3 电池分压 100k/47k/1k</text>
+<text x="64.8" y="48.4" font-size="1.35" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">ADC_BAT@GPIO8 + C1 100nF</text>
+<rect x="64" y="51" width="6" height="3" rx="0.4" fill="#f1f5f9" stroke="#64748b" stroke-width="0.45"/>
+<text x="64.8" y="53.2" font-size="1.9" fill="#334155" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">C1-C6 去耦电容组</text>
+<text x="64.8" y="53.4" font-size="1.35" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">10uF/100nF 若干</text>
+<rect x="56" y="57" width="4" height="4" rx="0.4" fill="#f1f5f9" stroke="#64748b" stroke-width="0.45"/>
+<text x="56.8" y="59.2" font-size="1.9" fill="#334155" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">LED1/R10 电源指示灯</text>
+<text x="56.8" y="60.4" font-size="1.35" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">3V3-&gt;1k-&gt;LED-&gt;GND</text>
+<rect x="64" y="57" width="3" height="2.5" rx="0.4" fill="#dcfce7" stroke="#16a34a" stroke-width="0.45"/>
+<text x="64.8" y="59.2" font-size="1.9" fill="#14532d" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">Q1 AO3401 PMOS</text>
+<text x="64.8" y="58.9" font-size="1.35" fill="#14532d" text-anchor="start" font-family="system-ui,sans-serif">电池反接保护(可选)</text>
+<rect x="71" y="35" width="9" height="5" rx="0.4" fill="#e2e8f0" stroke="#475569" stroke-width="0.45"/>
+<text x="71.8" y="37.2" font-size="1.9" fill="#0f172a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">SW1 充电开关</text>
+<text x="71.8" y="39.4" font-size="1.35" fill="#0f172a" text-anchor="start" font-family="system-ui,sans-serif">拨到充电位才给 FS5080E 供电（东缘侧拨）</text>
+<rect x="75" y="41" width="5" height="5" rx="0.4" fill="#1e293b" stroke="#0f172a" stroke-width="0.45"/>
+<text x="75.8" y="43.2" font-size="1.9" fill="#f8fafc" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">J6 XH2.54-2P 喇叭</text>
+<text x="75.8" y="45.4" font-size="1.35" fill="#f8fafc" text-anchor="start" font-family="system-ui,sans-serif">4Ω3W 喇叭 东缘</text>
+<rect x="12" y="4" width="8" height="5" rx="0.4" fill="#f1f5f9" stroke="#64748b" stroke-width="0.45"/>
+<text x="12.8" y="6.2" font-size="1.9" fill="#334155" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">TP1-TP6 测试点</text>
+<text x="12.8" y="8.4" font-size="1.35" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">TX/RX/3V3/5V/GND/ADC</text>
+<rect x="77.5" y="26" width="2.5" height="7.62" rx="0.4" fill="#1e293b" stroke="#0f172a" stroke-width="0.45"/>
+<text x="76.5" y="29.81" font-size="1.5" fill="#f8fafc" text-anchor="end" transform="rotate(-90 76.5 29.81)" font-family="system-ui,sans-serif">U9→VL53L0X</text>
+<rect x="77.5" y="48" width="2.5" height="23.3" rx="0.4" fill="#1e293b" stroke="#0f172a" stroke-width="0.45"/>
+<text x="76.5" y="59.65" font-size="1.5" fill="#f8fafc" text-anchor="end" transform="rotate(-90 76.5 59.65)" font-family="system-ui,sans-serif">U8→OLED</text>
+<rect x="28" y="20" width="22.2" height="17.5" rx="0.4" fill="none" stroke="#2563eb" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<rect x="28" y="39" width="4.5" height="2.5" rx="0.4" fill="none" stroke="#16a34a" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<rect x="30" y="42" width="12" height="12" rx="0.4" fill="none" stroke="#16a34a" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<rect x="10" y="63" width="34" height="24" rx="0.4" fill="none" stroke="#2563eb" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<rect x="0" y="62" width="8" height="10.5" rx="0.4" fill="none" stroke="#0f172a" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<rect x="50" y="80" width="5" height="5" rx="0.4" fill="none" stroke="#0f172a" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<rect x="58" y="80" width="5" height="5" rx="0.4" fill="none" stroke="#0f172a" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>
+<line x1="74" y1="30" x2="80.5" y2="30" stroke="#0891b2" stroke-width="0.4" stroke-dasharray="1.5 1"/>
+<line x1="73" y1="17" x2="80.5" y2="17" stroke="#0891b2" stroke-width="0.4" stroke-dasharray="1.5 1"/>
+<text x="81.5" y="30" font-size="1.5" fill="#0891b2" text-anchor="start" font-family="system-ui,sans-serif">OLED 9P 排线</text>
+<text x="81.5" y="17" font-size="1.5" fill="#0891b2" text-anchor="start" font-family="system-ui,sans-serif">VL53 4P 排线(前倾30°支架)</text>
+</g>
+<text x="0" y="102" font-size="2.4" fill="#0f172a" text-anchor="start" font-weight="bold" font-family="system-ui,sans-serif">图例</text>
+<rect x="0" y="103.4" width="3.0" height="2.0" rx="0.4" fill="#2563eb" fill-opacity="0.9" stroke="#2563eb" stroke-width="0.4"/>
+<text x="4" y="105" font-size="1.9" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">现有模块（平躺直焊 2.54 焊盘）</text>
+<rect x="0" y="106.6" width="3.0" height="2.0" rx="0.4" fill="#16a34a" fill-opacity="0.9" stroke="#16a34a" stroke-width="0.4"/>
+<text x="4" y="108.2" font-size="1.9" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">自研 IC / 分立件</text>
+<rect x="0" y="109.8" width="3.0" height="2.0" rx="0.4" fill="#0f172a" fill-opacity="0.9" stroke="#0f172a" stroke-width="0.4"/>
+<text x="4" y="111.4" font-size="1.9" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">连接器（贴板缘）</text>
+<rect x="0" y="113" width="3.0" height="2.0" rx="0.4" fill="#475569" fill-opacity="0.9" stroke="#475569" stroke-width="0.4"/>
+<text x="4" y="114.6" font-size="1.9" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">轻触按键</text>
+<rect x="0" y="116.2" width="3.0" height="2.0" rx="0.4" fill="#64748b" fill-opacity="0.9" stroke="#64748b" stroke-width="0.4"/>
+<text x="4" y="117.8" font-size="1.9" fill="#334155" text-anchor="start" font-family="system-ui,sans-serif">无源/测试点区域</text>
+<text x="52" y="105" font-size="1.7" fill="#475569" text-anchor="start" font-family="system-ui,sans-serif">虚线框 = 底层元件；实线框 = 顶层元件；跨层叠放由底盘高度兜底（见文档 §5）。</text>
+<text x="52" y="108.2" font-size="1.7" fill="#475569" text-anchor="start" font-family="system-ui,sans-serif">底层 = GND 铺铜 + 电源区辅助铜；顶层 = 信号 + 局部电源。电源主干：7V4≥2.0mm / 5V≥1.0mm / 3V3≥0.6mm。</text>
+<text x="52" y="111.4" font-size="1.7" fill="#475569" text-anchor="start" font-family="system-ui,sans-serif">U8/U9 为壳上器件（OLED 屏幕朝上、VL53 前倾30°），经排线连板，不占板面。</text>
+<text x="52" y="114.6" font-size="1.7" fill="#475569" text-anchor="start" font-family="system-ui,sans-serif">针脚圆 = 平躺直焊焊盘（2.54 等距）。测试点 TP1-TP6：TX/RX/3V3/5V/GND/ADC_BAT。</text>
+<text x="0" y="122.5" font-size="1.6" fill="#94a3b8" text-anchor="start" font-family="system-ui,sans-serif">docs/PCB设计方案-v2.html · 本图由 tools/gen_pcb_design.py 生成 · 2026-10-20</text>
+</svg>

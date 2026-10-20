@@ -1,0 +1,1064 @@
+{
+  "version": "v2",
+  "date": "2026-10-20",
+  "board": {
+    "name": "ai-dog-v1",
+    "w": 80.0,
+    "h": 90.0,
+    "thk": 1.6,
+    "layers": 2,
+    "edge_clear": 1.5
+  },
+  "holes": [
+    [
+      6.0,
+      6.0
+    ],
+    [
+      74.0,
+      6.0
+    ],
+    [
+      6.0,
+      84.0
+    ],
+    [
+      74.0,
+      84.0
+    ]
+  ],
+  "rf_keepout": {
+    "x0": 24.0,
+    "x1": 56.0,
+    "y0": 0.0,
+    "y1": 12.0
+  },
+  "components": [
+    {
+      "ref": "U1",
+      "name": "ESP32-S3 开发板座 2x22P",
+      "kind": "module",
+      "side": "top",
+      "x": 26.03,
+      "y": 4.0,
+      "w": 27.94,
+      "h": 57.15,
+      "note": "排母可插拔, USB 端朝南(车尾)"
+    },
+    {
+      "ref": "U6",
+      "name": "MAX98357A 模块",
+      "kind": "module",
+      "side": "top",
+      "x": 56.0,
+      "y": 10.0,
+      "w": 17.78,
+      "h": 19.09,
+      "note": "I2S 功放 5V"
+    },
+    {
+      "ref": "U7",
+      "name": "INMP441",
+      "kind": "module",
+      "side": "top",
+      "x": 54.0,
+      "y": 30.0,
+      "w": 15.0,
+      "h": 15.0,
+      "note": "I2S 麦克风 Ø15"
+    },
+    {
+      "ref": "K3",
+      "name": "模式按键",
+      "kind": "key",
+      "side": "top",
+      "x": 56.0,
+      "y": 48.0,
+      "w": 6.0,
+      "h": 6.0,
+      "note": "GPIO9 低有效"
+    },
+    {
+      "ref": "R1/R2/R3",
+      "name": "电池分压 100k/47k/1k",
+      "kind": "pass",
+      "side": "top",
+      "x": 64.0,
+      "y": 46.0,
+      "w": 6.0,
+      "h": 3.0,
+      "note": "ADC_BAT@GPIO8 + C1 100nF"
+    },
+    {
+      "ref": "C1-C6",
+      "name": "去耦电容组",
+      "kind": "pass",
+      "side": "top",
+      "x": 64.0,
+      "y": 51.0,
+      "w": 6.0,
+      "h": 3.0,
+      "note": "10uF/100nF 若干"
+    },
+    {
+      "ref": "LED1/R10",
+      "name": "电源指示灯",
+      "kind": "pass",
+      "side": "top",
+      "x": 56.0,
+      "y": 57.0,
+      "w": 4.0,
+      "h": 4.0,
+      "note": "3V3->1k->LED->GND"
+    },
+    {
+      "ref": "Q1",
+      "name": "AO3401 PMOS",
+      "kind": "ic",
+      "side": "top",
+      "x": 64.0,
+      "y": 57.0,
+      "w": 3.0,
+      "h": 2.5,
+      "note": "电池反接保护(可选)"
+    },
+    {
+      "ref": "U9",
+      "name": "VL53L0X 4P 排针",
+      "kind": "conn",
+      "side": "chassis",
+      "x": 77.5,
+      "y": 26.0,
+      "w": 2.5,
+      "h": 7.62,
+      "note": "壳上支架前倾30°"
+    },
+    {
+      "ref": "U8",
+      "name": "OLED 9P 排针",
+      "kind": "conn",
+      "side": "chassis",
+      "x": 77.5,
+      "y": 48.0,
+      "w": 2.5,
+      "h": 23.3,
+      "note": "壳上屏幕朝上"
+    },
+    {
+      "ref": "SW1",
+      "name": "充电开关",
+      "kind": "key",
+      "side": "top",
+      "x": 71.0,
+      "y": 35.0,
+      "w": 9.0,
+      "h": 5.0,
+      "edge_ok": true,
+      "note": "拨到充电位才给 FS5080E 供电（东缘侧拨）"
+    },
+    {
+      "ref": "J6",
+      "name": "XH2.54-2P 喇叭",
+      "kind": "conn",
+      "side": "top",
+      "x": 75.0,
+      "y": 41.0,
+      "w": 5.0,
+      "h": 5.0,
+      "note": "4Ω3W 喇叭 东缘"
+    },
+    {
+      "ref": "TP1-TP6",
+      "name": "测试点",
+      "kind": "pass",
+      "side": "top",
+      "x": 12.0,
+      "y": 4.0,
+      "w": 8.0,
+      "h": 5.0,
+      "note": "TX/RX/3V3/5V/GND/ADC"
+    },
+    {
+      "ref": "U5",
+      "name": "MP1584EN 模块",
+      "kind": "module",
+      "side": "bottom",
+      "x": 28.0,
+      "y": 20.0,
+      "w": 22.2,
+      "h": 17.5,
+      "note": "7.4V->5V 3A(插座内侧空档)"
+    },
+    {
+      "ref": "D1",
+      "name": "SS34 肖特基",
+      "kind": "ic",
+      "side": "bottom",
+      "x": 28.0,
+      "y": 39.0,
+      "w": 4.5,
+      "h": 2.5,
+      "note": "防 USB 5V 与电池 5V 互灌"
+    },
+    {
+      "ref": "U3",
+      "name": "FS5080E 2S充电",
+      "kind": "ic",
+      "side": "bottom",
+      "x": 30.0,
+      "y": 42.0,
+      "w": 12.0,
+      "h": 12.0,
+      "note": "ESOP8+L1 4.7uH, 5V->8.4V/1A"
+    },
+    {
+      "ref": "U4",
+      "name": "TB6612FNG 模块",
+      "kind": "module",
+      "side": "bottom",
+      "x": 10.0,
+      "y": 63.0,
+      "w": 34.0,
+      "h": 24.0,
+      "note": "双电机 1.2A/路, VM=7.4V"
+    },
+    {
+      "ref": "J3",
+      "name": "XT30 母座",
+      "kind": "conn",
+      "side": "bottom",
+      "x": 0.0,
+      "y": 62.0,
+      "w": 8.0,
+      "h": 10.5,
+      "note": "电池 7.4V 输入 西缘"
+    },
+    {
+      "ref": "J4",
+      "name": "XH2.54-2P M1",
+      "kind": "conn",
+      "side": "bottom",
+      "x": 50.0,
+      "y": 80.0,
+      "w": 5.0,
+      "h": 5.0,
+      "note": "左轮电机 南缘"
+    },
+    {
+      "ref": "J5",
+      "name": "XH2.54-2P M2",
+      "kind": "conn",
+      "side": "bottom",
+      "x": 58.0,
+      "y": 80.0,
+      "w": 5.0,
+      "h": 5.0,
+      "note": "右轮电机 南缘"
+    }
+  ],
+  "nets": [
+    {
+      "net": "3V3",
+      "ref": "U1",
+      "pin": "3V3"
+    },
+    {
+      "net": "3V3",
+      "ref": "U7",
+      "pin": "VDD"
+    },
+    {
+      "net": "3V3",
+      "ref": "U4",
+      "pin": "VCC"
+    },
+    {
+      "net": "3V3",
+      "ref": "U8",
+      "pin": "Vin"
+    },
+    {
+      "net": "3V3",
+      "ref": "U8",
+      "pin": "3v3"
+    },
+    {
+      "net": "3V3",
+      "ref": "U9",
+      "pin": "VIN"
+    },
+    {
+      "net": "3V3",
+      "ref": "R6",
+      "pin": "R6-1"
+    },
+    {
+      "net": "3V3",
+      "ref": "R10",
+      "pin": "R10-1"
+    },
+    {
+      "net": "3V3",
+      "ref": "TP3",
+      "pin": "TP3"
+    },
+    {
+      "net": "5V_BUCK",
+      "ref": "U5",
+      "pin": "OUT+"
+    },
+    {
+      "net": "5V_BUCK",
+      "ref": "D1",
+      "pin": "A"
+    },
+    {
+      "net": "5V",
+      "ref": "D1",
+      "pin": "K"
+    },
+    {
+      "net": "5V",
+      "ref": "U1",
+      "pin": "5V"
+    },
+    {
+      "net": "5V",
+      "ref": "U6",
+      "pin": "VIN"
+    },
+    {
+      "net": "5V",
+      "ref": "U6",
+      "pin": "SD_MODE"
+    },
+    {
+      "net": "5V",
+      "ref": "SW1",
+      "pin": "1"
+    },
+    {
+      "net": "5V",
+      "ref": "TP6",
+      "pin": "TP6"
+    },
+    {
+      "net": "CHG_IN",
+      "ref": "SW1",
+      "pin": "2"
+    },
+    {
+      "net": "CHG_IN",
+      "ref": "U3",
+      "pin": "IN"
+    },
+    {
+      "net": "7V4",
+      "ref": "U4",
+      "pin": "VM"
+    },
+    {
+      "net": "7V4",
+      "ref": "U5",
+      "pin": "IN+"
+    },
+    {
+      "net": "7V4",
+      "ref": "Q1",
+      "pin": "D"
+    },
+    {
+      "net": "7V4",
+      "ref": "R1",
+      "pin": "R1-1"
+    },
+    {
+      "net": "BAT+",
+      "ref": "J3",
+      "pin": "1"
+    },
+    {
+      "net": "BAT+",
+      "ref": "Q1",
+      "pin": "S"
+    },
+    {
+      "net": "GND",
+      "ref": "U1",
+      "pin": "GND"
+    },
+    {
+      "net": "GND",
+      "ref": "U5",
+      "pin": "IN-"
+    },
+    {
+      "net": "GND",
+      "ref": "U5",
+      "pin": "OUT-"
+    },
+    {
+      "net": "GND",
+      "ref": "U4",
+      "pin": "GND"
+    },
+    {
+      "net": "GND",
+      "ref": "U3",
+      "pin": "GND"
+    },
+    {
+      "net": "GND",
+      "ref": "U6",
+      "pin": "GND"
+    },
+    {
+      "net": "GND",
+      "ref": "U6",
+      "pin": "GAIN"
+    },
+    {
+      "net": "GND",
+      "ref": "U7",
+      "pin": "GND"
+    },
+    {
+      "net": "GND",
+      "ref": "U7",
+      "pin": "L/R"
+    },
+    {
+      "net": "GND",
+      "ref": "U8",
+      "pin": "Gnd"
+    },
+    {
+      "net": "GND",
+      "ref": "U8",
+      "pin": "CS"
+    },
+    {
+      "net": "GND",
+      "ref": "U8",
+      "pin": "SA0"
+    },
+    {
+      "net": "GND",
+      "ref": "U9",
+      "pin": "GND"
+    },
+    {
+      "net": "GND",
+      "ref": "K3",
+      "pin": "b"
+    },
+    {
+      "net": "GND",
+      "ref": "R2",
+      "pin": "R2-2"
+    },
+    {
+      "net": "GND",
+      "ref": "C1",
+      "pin": "C1-2"
+    },
+    {
+      "net": "GND",
+      "ref": "TP4",
+      "pin": "TP4"
+    },
+    {
+      "net": "GND",
+      "ref": "LED1",
+      "pin": "LED1-K"
+    },
+    {
+      "net": "FS_SW",
+      "ref": "U3",
+      "pin": "SW"
+    },
+    {
+      "net": "FS_SW",
+      "ref": "L1",
+      "pin": "L1-1"
+    },
+    {
+      "net": "8V4",
+      "ref": "U3",
+      "pin": "BAT"
+    },
+    {
+      "net": "8V4",
+      "ref": "L1",
+      "pin": "L1-2"
+    },
+    {
+      "net": "8V4",
+      "ref": "J3",
+      "pin": "2"
+    },
+    {
+      "net": "ADC_BAT",
+      "ref": "R1",
+      "pin": "R1-2"
+    },
+    {
+      "net": "ADC_BAT",
+      "ref": "R3",
+      "pin": "R3-1"
+    },
+    {
+      "net": "ADC_BAT",
+      "ref": "R2",
+      "pin": "R2-1"
+    },
+    {
+      "net": "ADC_BAT",
+      "ref": "C1",
+      "pin": "C1-1"
+    },
+    {
+      "net": "ADC_BAT",
+      "ref": "U1",
+      "pin": "GPIO8"
+    },
+    {
+      "net": "ADC_BAT",
+      "ref": "TP5",
+      "pin": "TP5"
+    },
+    {
+      "net": "GPIO9",
+      "ref": "U1",
+      "pin": "GPIO9"
+    },
+    {
+      "net": "GPIO9",
+      "ref": "K3",
+      "pin": "a"
+    },
+    {
+      "net": "GPIO9",
+      "ref": "R6",
+      "pin": "R6-2"
+    },
+    {
+      "net": "GPIO4_SCK",
+      "ref": "U1",
+      "pin": "GPIO4"
+    },
+    {
+      "net": "GPIO4_SCK",
+      "ref": "U7",
+      "pin": "SCK"
+    },
+    {
+      "net": "GPIO5_WS",
+      "ref": "U1",
+      "pin": "GPIO5"
+    },
+    {
+      "net": "GPIO5_WS",
+      "ref": "U7",
+      "pin": "WS"
+    },
+    {
+      "net": "GPIO6_SD",
+      "ref": "U1",
+      "pin": "GPIO6"
+    },
+    {
+      "net": "GPIO6_SD",
+      "ref": "U7",
+      "pin": "SD"
+    },
+    {
+      "net": "GPIO7_DIN",
+      "ref": "U1",
+      "pin": "GPIO7"
+    },
+    {
+      "net": "GPIO7_DIN",
+      "ref": "U6",
+      "pin": "DIN"
+    },
+    {
+      "net": "GPIO15_BCLK",
+      "ref": "U1",
+      "pin": "GPIO15"
+    },
+    {
+      "net": "GPIO15_BCLK",
+      "ref": "U6",
+      "pin": "BCLK"
+    },
+    {
+      "net": "GPIO16_LRC",
+      "ref": "U1",
+      "pin": "GPIO16"
+    },
+    {
+      "net": "GPIO16_LRC",
+      "ref": "U6",
+      "pin": "LRC"
+    },
+    {
+      "net": "SPK+",
+      "ref": "U6",
+      "pin": "VO+"
+    },
+    {
+      "net": "SPK+",
+      "ref": "J6",
+      "pin": "1"
+    },
+    {
+      "net": "SPK-",
+      "ref": "U6",
+      "pin": "VO-"
+    },
+    {
+      "net": "SPK-",
+      "ref": "J6",
+      "pin": "2"
+    },
+    {
+      "net": "GPIO10",
+      "ref": "U1",
+      "pin": "GPIO10"
+    },
+    {
+      "net": "GPIO10",
+      "ref": "U4",
+      "pin": "STBY"
+    },
+    {
+      "net": "GPIO11",
+      "ref": "U1",
+      "pin": "GPIO11"
+    },
+    {
+      "net": "GPIO11",
+      "ref": "U4",
+      "pin": "PWMA"
+    },
+    {
+      "net": "GPIO12",
+      "ref": "U1",
+      "pin": "GPIO12"
+    },
+    {
+      "net": "GPIO12",
+      "ref": "U4",
+      "pin": "AIN1"
+    },
+    {
+      "net": "GPIO13",
+      "ref": "U1",
+      "pin": "GPIO13"
+    },
+    {
+      "net": "GPIO13",
+      "ref": "U4",
+      "pin": "AIN2"
+    },
+    {
+      "net": "GPIO14",
+      "ref": "U1",
+      "pin": "GPIO14"
+    },
+    {
+      "net": "GPIO14",
+      "ref": "U4",
+      "pin": "PWMB"
+    },
+    {
+      "net": "GPIO47",
+      "ref": "U1",
+      "pin": "GPIO47"
+    },
+    {
+      "net": "GPIO47",
+      "ref": "U4",
+      "pin": "BIN1"
+    },
+    {
+      "net": "GPIO21",
+      "ref": "U1",
+      "pin": "GPIO21"
+    },
+    {
+      "net": "GPIO21",
+      "ref": "U4",
+      "pin": "BIN2"
+    },
+    {
+      "net": "MOTO_A",
+      "ref": "U4",
+      "pin": "AO1"
+    },
+    {
+      "net": "MOTO_A",
+      "ref": "U4",
+      "pin": "AO2"
+    },
+    {
+      "net": "MOTO_A",
+      "ref": "J4",
+      "pin": "1"
+    },
+    {
+      "net": "MOTO_A",
+      "ref": "J4",
+      "pin": "2"
+    },
+    {
+      "net": "MOTO_B",
+      "ref": "U4",
+      "pin": "BO1"
+    },
+    {
+      "net": "MOTO_B",
+      "ref": "U4",
+      "pin": "BO2"
+    },
+    {
+      "net": "MOTO_B",
+      "ref": "J5",
+      "pin": "1"
+    },
+    {
+      "net": "MOTO_B",
+      "ref": "J5",
+      "pin": "2"
+    },
+    {
+      "net": "GPIO42_SCL",
+      "ref": "U1",
+      "pin": "GPIO42"
+    },
+    {
+      "net": "GPIO42_SCL",
+      "ref": "U9",
+      "pin": "SCL"
+    },
+    {
+      "net": "GPIO41_SDA",
+      "ref": "U1",
+      "pin": "GPIO41"
+    },
+    {
+      "net": "GPIO41_SDA",
+      "ref": "U9",
+      "pin": "SDA"
+    },
+    {
+      "net": "GPIO48_RES",
+      "ref": "U1",
+      "pin": "GPIO48"
+    },
+    {
+      "net": "GPIO48_RES",
+      "ref": "U8",
+      "pin": "Rst"
+    },
+    {
+      "net": "GPIO1_SCLK",
+      "ref": "U1",
+      "pin": "GPIO1"
+    },
+    {
+      "net": "GPIO1_SCLK",
+      "ref": "U8",
+      "pin": "Clk"
+    },
+    {
+      "net": "GPIO2_MOSI",
+      "ref": "U1",
+      "pin": "GPIO2"
+    },
+    {
+      "net": "GPIO2_MOSI",
+      "ref": "U8",
+      "pin": "Data"
+    },
+    {
+      "net": "GPIO46_DC",
+      "ref": "U1",
+      "pin": "GPIO46"
+    },
+    {
+      "net": "GPIO46_DC",
+      "ref": "U8",
+      "pin": "DC"
+    },
+    {
+      "net": "GPIO43_TX",
+      "ref": "U1",
+      "pin": "GPIO43"
+    },
+    {
+      "net": "GPIO43_TX",
+      "ref": "TP1",
+      "pin": "TP1"
+    },
+    {
+      "net": "GPIO44_RX",
+      "ref": "U1",
+      "pin": "GPIO44"
+    },
+    {
+      "net": "GPIO44_RX",
+      "ref": "TP2",
+      "pin": "TP2"
+    },
+    {
+      "net": "LED1",
+      "ref": "R10",
+      "pin": "R10-2"
+    },
+    {
+      "net": "LED1",
+      "ref": "LED1",
+      "pin": "LED1-A"
+    }
+  ],
+  "bom_self": [
+    {
+      "ref": "U1",
+      "name": "2x22P 2.54 排母座",
+      "footprint": "THT 44P",
+      "qty": "2",
+      "note": "开发板可插拔；本体不焊死，坏了一拔就换"
+    },
+    {
+      "ref": "U3",
+      "name": "FS5080E",
+      "footprint": "ESOP-8",
+      "qty": "1",
+      "note": "2S 升压充电 5V->8.4V，1A（Iset 待查表）"
+    },
+    {
+      "ref": "L1",
+      "name": "4.7uH 功率电感",
+      "footprint": "10x10 CD43",
+      "qty": "1",
+      "note": "FS5080E 配套"
+    },
+    {
+      "ref": "D1",
+      "name": "SS34 肖特基",
+      "footprint": "SMA/DO-214AC",
+      "qty": "1",
+      "note": "5V 隔离：电池与 USB 互不倒灌（压降 0.3V）"
+    },
+    {
+      "ref": "SW1",
+      "name": "拨动开关 2 档",
+      "footprint": "THT 侧拨",
+      "qty": "1",
+      "note": "充电位/运行位；不拨就电池自充（见风险表）"
+    },
+    {
+      "ref": "R1",
+      "name": "100kΩ",
+      "footprint": "0603",
+      "qty": "1",
+      "note": "电池分压上臂"
+    },
+    {
+      "ref": "R2",
+      "name": "47kΩ",
+      "footprint": "0603",
+      "qty": "1",
+      "note": "电池分压下臂"
+    },
+    {
+      "ref": "R3",
+      "name": "1kΩ",
+      "footprint": "0603",
+      "qty": "1",
+      "note": "ADC 串保护"
+    },
+    {
+      "ref": "R4",
+      "name": "100kΩ",
+      "footprint": "0603",
+      "qty": "1",
+      "note": "Q1 栅极电阻"
+    },
+    {
+      "ref": "R6",
+      "name": "10kΩ",
+      "footprint": "0603",
+      "qty": "1",
+      "note": "GPIO9 上拉"
+    },
+    {
+      "ref": "R10",
+      "name": "1kΩ",
+      "footprint": "0603",
+      "qty": "1",
+      "note": "LED1 限流"
+    },
+    {
+      "ref": "C1",
+      "name": "100nF",
+      "footprint": "0603",
+      "qty": "1",
+      "note": "分压滤波"
+    },
+    {
+      "ref": "C3/C4",
+      "name": "10uF+100nF",
+      "footprint": "0603",
+      "qty": "2",
+      "note": "3V3 去耦（贴开发板 3V3 脚）"
+    },
+    {
+      "ref": "C5/C6",
+      "name": "22uF",
+      "footprint": "0805",
+      "qty": "2",
+      "note": "FS5080E 输入/输出"
+    },
+    {
+      "ref": "Q1",
+      "name": "AO3401A PMOS",
+      "footprint": "SOT-23",
+      "qty": "1",
+      "note": "电池反接保护（可不装，BAT+ 与 7V4 直连）"
+    },
+    {
+      "ref": "K3",
+      "name": "轻触按键 6x6",
+      "footprint": "THT",
+      "qty": "1",
+      "note": "模式键 GPIO9（低有效）"
+    },
+    {
+      "ref": "J3",
+      "name": "XT30 母座 2P",
+      "footprint": "THT",
+      "qty": "1",
+      "note": "电池输入 7.4V（注意极性丝印）"
+    },
+    {
+      "ref": "J4/J5",
+      "name": "XH2.54-2P 直针",
+      "footprint": "THT",
+      "qty": "2",
+      "note": "电机 M1/M2"
+    },
+    {
+      "ref": "J6",
+      "name": "XH2.54-2P 直针",
+      "footprint": "THT",
+      "qty": "1",
+      "note": "喇叭"
+    },
+    {
+      "ref": "U8",
+      "name": "2.54 直针 9P",
+      "footprint": "THT",
+      "qty": "1",
+      "note": "OLED 排线（屏上壳）"
+    },
+    {
+      "ref": "U9",
+      "name": "2.54 直针 4P",
+      "footprint": "THT",
+      "qty": "1",
+      "note": "VL53L0X 排线（支架前倾30°）"
+    },
+    {
+      "ref": "TP1-TP6",
+      "name": "测试点 Ø1.5 焊盘",
+      "footprint": "-",
+      "qty": "6",
+      "note": "TX/RX/3V3/5V/GND/ADC_BAT"
+    },
+    {
+      "ref": "LED1",
+      "name": "LED 绿",
+      "footprint": "0805",
+      "qty": "1",
+      "note": "3V3 电源指示"
+    }
+  ],
+  "modules": [
+    {
+      "family": "DEV",
+      "name": "ESP32-S3 N16R8 开发板",
+      "qty": "1",
+      "mount": "插 2x22P 排母，USB 端朝南(车尾)"
+    },
+    {
+      "family": "M-INMP441",
+      "name": "INMP441 麦克风",
+      "qty": "7",
+      "mount": "Ø15 2x3 针，平躺直焊 6P"
+    },
+    {
+      "family": "M-MAX98357A",
+      "name": "MAX98357A 功放",
+      "qty": "6",
+      "mount": "7P，平躺直焊"
+    },
+    {
+      "family": "M-TB6612",
+      "name": "TB6612FNG 模块",
+      "qty": "3",
+      "mount": "10P(信号+VM)，平躺直焊"
+    },
+    {
+      "family": "M-MP1584",
+      "name": "MP1584EN 模块",
+      "qty": "5",
+      "mount": "4P(IN+/IN-/OUT+/OUT-)"
+    },
+    {
+      "family": "M-VL53",
+      "name": "VL53L0X 模块",
+      "qty": "9",
+      "mount": "壳上前倾30°，4P 排线"
+    },
+    {
+      "family": "M-OLED",
+      "name": "OLED 1.3寸 SH1106",
+      "qty": "8",
+      "mount": "壳上屏幕朝上，9P 排线"
+    },
+    {
+      "family": "BAT",
+      "name": "18650 x2 串联",
+      "qty": "-",
+      "mount": "机架内，XT30 出线"
+    },
+    {
+      "family": "SPK",
+      "name": "4Ω 3W 喇叭",
+      "qty": "-",
+      "mount": "J6 接线"
+    },
+    {
+      "family": "MOTOR",
+      "name": "N20 电机 x2",
+      "qty": "-",
+      "mount": "J4/J5 接线"
+    }
+  ],
+  "rules": {
+    "layers": 2,
+    "trace_signal": 0.2,
+    "trace_power_min": 0.6,
+    "trace_7v4": 2.0,
+    "trace_5v": 1.0,
+    "trace_3v3": 0.6,
+    "clearance": 0.2,
+    "via": "0.60/0.30",
+    "edge_clear": 1.5,
+    "pour_clear": 0.25,
+    "silk_to_pad": 0.15
+  }
+}

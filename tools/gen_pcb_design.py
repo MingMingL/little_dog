@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""机器狗 V1 · PCB 设计基线生成器（2026-10-19 v1）
+"""机器狗 V1 · PCB 设计基线生成器（2026-10-20 v2：开发板直插）
 =====================================================
 把「80×70mm 承载现有模块的迁移板」的全部设计数据收在这一个文件里（单一事实源）：
 
-  docs/source/pcb-layout-v1.svg  顶层/底层合并布局图（mm 坐标；y=0 = 板北缘/前缘）
-  docs/PCB网表-v1.csv             可导入 EasyEDA / KiCad 的网表（Net,Ref,针名,针号）
-  docs/source/pcb-design-baseline-v1.json  机读设计基线（BOM + 网表 + 布局坐标 + 规则）
+  docs/source/pcb-layout-v2.svg  顶层/底层合并布局图（mm 坐标；y=0 = 板北缘/前缘）
+  docs/PCB网表-v2.csv             可导入 EasyEDA / KiCad 的网表（Net,Ref,针名,针号）
+  docs/source/pcb-design-baseline-v2.json  机读设计基线（BOM + 网表 + 布局坐标 + 规则）
 
 内置校验（与面包板 wire_check 同思路——先算账，后出图）：
   A. 同层元件两两不重叠；跨层叠放记入报告（垂直高度由底盘兜底，但要在文档里声明）
@@ -34,13 +34,13 @@ SRC_DIR = os.path.join(ROOT, "docs", "source")
 BOARD = {
     "name": "ai-dog-v1",
     "w": 80.0,          # mm，东西向（x：0=西缘）
-    "h": 70.0,          # mm，南北向（y：0=北缘=车头/前缘）
+    "h": 90.0,          # mm，南北向（y：0=北缘=车头/前缘）
     "thk": 1.6,         # 板厚（JLC 免费券固定 1.6）
     "layers": 2,
     "edge_clear": 1.5,  # 板边到铜/元件包络（连接器豁免）
 }
 HOLES = [  # M3 安装孔：中心 + ⌀3.4 孔 + ⌀7 keepout
-    (6.0, 6.0), (74.0, 6.0), (6.0, 64.0), (74.0, 64.0),
+    (6.0, 6.0), (74.0, 6.0), (6.0, 84.0), (74.0, 84.0),
 ]
 HOLE_D = 3.4
 HOLE_KEEP = 7.0
@@ -48,74 +48,63 @@ HOLE_KEEP = 7.0
 # WROOM-1 天线端 keepout：天线端朝板北缘（前缘），该带顶层净空。
 # 依据：Espressif WROOM 系列通用准则（天线端建议外探或在板内净空，P1 级，
 # 精确 keepout 尺寸以官方 Hardware Design Guidelines 天线图为准，列为待确认项）。
-RF_KEEPOUT = {"x0": 25.0, "x1": 55.0, "y0": 0.0, "y1": 12.0}
+RF_KEEPOUT = {"x0": 24.0, "x1": 56.0, "y0": 0.0, "y1": 12.0}
 
 # ---------------------------------------------------------------- 元件布局
 # kind: module(现有模块) / ic(自研贴片) / conn(连接器) / key(按键) / pass(无源)
 # side: top / bottom；矩形 (x, y, w, h)；keepout 由组件本体表达（含引脚）
 COMPONENTS = [
-    # ---- 顶层：数字/信号/射频 ----
-    {"ref": "U1", "name": "ESP32-S3-WROOM-1 N16R8", "kind": "module", "side": "top",
-     "x": 27.25, "y": 4.0, "w": 25.5, "h": 18.0, "note": "天线端朝北(前缘)", "pads": "44x1.27 castellated"},
-    {"ref": "U2", "name": "AMS1117-3V3", "kind": "ic", "side": "top",
-     "x": 58.0, "y": 44.0, "w": 6.5, "h": 3.5, "note": "SOT-223 5V->3V3"},
-    {"ref": "U3", "name": "FS5080E 2S充电", "kind": "ic", "side": "bottom",
-     "x": 44.0, "y": 44.0, "w": 12.0, "h": 12.0, "note": "ESOP8+L1 4.7uH, 5V->8.4V/1A"},
-    {"ref": "U4", "name": "TB6612FNG 模块", "kind": "module", "side": "bottom",
-     "x": 10.0, "y": 44.0, "w": 34.0, "h": 24.0, "note": "双电机 1.2A/路"},
-    {"ref": "U5", "name": "MP1584EN 模块", "kind": "module", "side": "bottom",
-     "x": 4.0, "y": 24.0, "w": 22.2, "h": 17.5, "note": "7.4V->5V 3A"},
+    # ---- 顶层：开发板座 + 信号/外设（开发板纵向 57.15mm，USB 端朝南=车尾）----
+    {"ref": "U1", "name": "ESP32-S3 开发板座 2x22P", "kind": "module", "side": "top",
+     "x": 26.03, "y": 4.0, "w": 27.94, "h": 57.15, "note": "排母可插拔, USB 端朝南(车尾)"},
     {"ref": "U6", "name": "MAX98357A 模块", "kind": "module", "side": "top",
-     "x": 45.0, "y": 24.0, "w": 17.78, "h": 19.09, "note": "I2S 功放 5V"},
+     "x": 56.0, "y": 10.0, "w": 17.78, "h": 19.09, "note": "I2S 功放 5V"},
     {"ref": "U7", "name": "INMP441", "kind": "module", "side": "top",
-     "x": 55.0, "y": 7.0, "w": 15.0, "h": 15.0, "note": "I2S 麦克风 Ø15"},
-    {"ref": "U8", "name": "OLED SH1106", "kind": "conn", "side": "chassis",
-     "x": 76.5, "y": 24.0, "w": 2.5, "h": 23.3, "note": "9P排针(壳上,排线回板)"},
-    {"ref": "U9", "name": "VL53L0X", "kind": "conn", "side": "chassis",
-     "x": 74.5, "y": 13.0, "w": 2.5, "h": 10.2, "note": "4P排针(壳上,前倾30°)"},
-    # ---- 连接器（都贴板缘，豁免板边净距）----
-    {"ref": "J1", "name": "USB Type-C 16P", "kind": "conn", "side": "top",
-     "x": 0.0, "y": 12.5, "w": 9.5, "h": 7.5, "note": "原生USB(GPIO19/20) 西缘"},
-    {"ref": "J2", "name": "DC-045 5.5x2.1", "kind": "conn", "side": "top",
-     "x": 71.0, "y": 50.0, "w": 9.0, "h": 9.0, "note": "充电输入5V 东缘"},
-    {"ref": "J3", "name": "XT30 母座", "kind": "conn", "side": "bottom",
-     "x": 46.0, "y": 58.5, "w": 8.0, "h": 10.5, "note": "电池 7.4V 输入"},
-    {"ref": "J4", "name": "XH2.54-2P M1", "kind": "conn", "side": "bottom",
-     "x": 57.0, "y": 61.5, "w": 5.0, "h": 5.0, "note": "左轮电机"},
-    {"ref": "J5", "name": "XH2.54-2P M2", "kind": "conn", "side": "bottom",
-     "x": 65.0, "y": 61.5, "w": 5.0, "h": 5.0, "note": "右轮电机"},
-    {"ref": "J6", "name": "XH2.54-2P 喇叭", "kind": "conn", "side": "top",
-     "x": 0.0, "y": 56.0, "w": 5.0, "h": 5.0, "note": "4Ω3W 喇叭 西缘"},
-    # ---- 按键 ----
-    {"ref": "K1", "name": "RST 按键", "kind": "key", "side": "top",
-     "x": 28.0, "y": 26.0, "w": 6.0, "h": 6.0, "note": "EN 复位"},
-    {"ref": "K2", "name": "BOOT 按键", "kind": "key", "side": "top",
-     "x": 36.0, "y": 26.0, "w": 6.0, "h": 6.0, "note": "GPIO0 下载"},
+     "x": 54.0, "y": 30.0, "w": 15.0, "h": 15.0, "note": "I2S 麦克风 Ø15"},
     {"ref": "K3", "name": "模式按键", "kind": "key", "side": "top",
-     "x": 64.0, "y": 26.0, "w": 6.0, "h": 6.0, "note": "GPIO9 低有效"},
-    # ---- 无源/其他（小件集中区，坐标指该小件区域的代表位置）----
+     "x": 56.0, "y": 48.0, "w": 6.0, "h": 6.0, "note": "GPIO9 低有效"},
     {"ref": "R1/R2/R3", "name": "电池分压 100k/47k/1k", "kind": "pass", "side": "top",
-     "x": 66.0, "y": 43.5, "w": 6.0, "h": 6.0, "note": "ADC_BAT@GPIO8 + C1 100nF"},
-    {"ref": "R4-R9", "name": "上拉/CC/限流电阻组", "kind": "pass", "side": "top",
-     "x": 63.0, "y": 33.0, "w": 6.0, "h": 6.0, "note": "EN/IO0/GPIO9 10k, USB CC 5.1k x2, D+/- 27R"},
+     "x": 64.0, "y": 46.0, "w": 6.0, "h": 3.0, "note": "ADC_BAT@GPIO8 + C1 100nF"},
     {"ref": "C1-C6", "name": "去耦电容组", "kind": "pass", "side": "top",
-     "x": 58.0, "y": 50.5, "w": 6.0, "h": 3.0, "note": "10uF/100nF 若干"},
-    {"ref": "TP1-TP6", "name": "测试点", "kind": "pass", "side": "top",
-     "x": 28.0, "y": 37.0, "w": 8.0, "h": 5.0, "note": "TX/RX/3V3/5V/GND/ADC"},
+     "x": 64.0, "y": 51.0, "w": 6.0, "h": 3.0, "note": "10uF/100nF 若干"},
     {"ref": "LED1/R10", "name": "电源指示灯", "kind": "pass", "side": "top",
-     "x": 39.0, "y": 46.0, "w": 4.0, "h": 4.0, "note": "3V3->1k->LED->GND"},
+     "x": 56.0, "y": 57.0, "w": 4.0, "h": 4.0, "note": "3V3->1k->LED->GND"},
     {"ref": "Q1", "name": "AO3401 PMOS", "kind": "ic", "side": "top",
-     "x": 39.0, "y": 40.5, "w": 3.0, "h": 2.5, "note": "电池反接保护(可选)"},
+     "x": 64.0, "y": 57.0, "w": 3.0, "h": 2.5, "note": "电池反接保护(可选)"},
+    {"ref": "U9", "name": "VL53L0X 4P 排针", "kind": "conn", "side": "chassis",
+     "x": 77.5, "y": 26.0, "w": 2.5, "h": 7.62, "note": "壳上支架前倾30°"},
+    {"ref": "U8", "name": "OLED 9P 排针", "kind": "conn", "side": "chassis",
+     "x": 77.5, "y": 48.0, "w": 2.5, "h": 23.3, "note": "壳上屏幕朝上"},
+    {"ref": "SW1", "name": "充电开关", "kind": "key", "side": "top",
+     "x": 71.0, "y": 35.0, "w": 9.0, "h": 5.0, "edge_ok": True,
+     "note": "拨到充电位才给 FS5080E 供电（东缘侧拨）"},
+    {"ref": "J6", "name": "XH2.54-2P 喇叭", "kind": "conn", "side": "top",
+     "x": 75.0, "y": 41.0, "w": 5.0, "h": 5.0, "note": "4Ω3W 喇叭 东缘"},
+    {"ref": "TP1-TP6", "name": "测试点", "kind": "pass", "side": "top",
+     "x": 12.0, "y": 4.0, "w": 8.0, "h": 5.0, "note": "TX/RX/3V3/5V/GND/ADC"},
+    # ---- 底层：电源（插座针排在 x≈26/54，底层器件必须避开这两列或落在 y>61.15）----
+    {"ref": "U5", "name": "MP1584EN 模块", "kind": "module", "side": "bottom",
+     "x": 28.0, "y": 20.0, "w": 22.2, "h": 17.5, "note": "7.4V->5V 3A(插座内侧空档)"},
+    {"ref": "D1", "name": "SS34 肖特基", "kind": "ic", "side": "bottom",
+     "x": 28.0, "y": 39.0, "w": 4.5, "h": 2.5, "note": "防 USB 5V 与电池 5V 互灌"},
+    {"ref": "U3", "name": "FS5080E 2S充电", "kind": "ic", "side": "bottom",
+     "x": 30.0, "y": 42.0, "w": 12.0, "h": 12.0, "note": "ESOP8+L1 4.7uH, 5V->8.4V/1A"},
+    {"ref": "U4", "name": "TB6612FNG 模块", "kind": "module", "side": "bottom",
+     "x": 10.0, "y": 63.0, "w": 34.0, "h": 24.0, "note": "双电机 1.2A/路, VM=7.4V"},
+    {"ref": "J3", "name": "XT30 母座", "kind": "conn", "side": "bottom",
+     "x": 0.0, "y": 62.0, "w": 8.0, "h": 10.5, "note": "电池 7.4V 输入 西缘"},
+    {"ref": "J4", "name": "XH2.54-2P M1", "kind": "conn", "side": "bottom",
+     "x": 50.0, "y": 80.0, "w": 5.0, "h": 5.0, "note": "左轮电机 南缘"},
+    {"ref": "J5", "name": "XH2.54-2P M2", "kind": "conn", "side": "bottom",
+     "x": 58.0, "y": 80.0, "w": 5.0, "h": 5.0, "note": "右轮电机 南缘"},
 ]
-
 # 顶层功能区底色（x0,y0,x1,y1,name,color）
 ZONES = [
-    (56.0, 0.0, 80.0, 22.0, "射频/传感", "#eff6ff"),
-    (0.0, 44.0, 44.0, 70.0, "电源区", "#fef3c7"),
-    (44.0, 23.0, 80.0, 43.5, "音频区", "#f5f3ff"),
-    (18.0, 23.0, 44.0, 42.5, "人机区", "#f0fdf4"),
+    (54.0, 4.0, 80.0, 47.0, "射频/音频", "#eff6ff"),
+    (26.0, 61.15, 54.0, 72.0, "USB 插线净空", "#fee2e2"),
+    (0.0, 72.0, 80.0, 90.0, "电源区(底层)", "#fef3c7"),
+    (54.0, 47.0, 80.0, 62.0, "人机区", "#f0fdf4"),
 ]
-
 COLORS = {
     "module": {"fill": "#dbeafe", "stroke": "#2563eb", "text": "#1e3a8a"},
     "ic": {"fill": "#dcfce7", "stroke": "#16a34a", "text": "#14532d"},
@@ -128,49 +117,36 @@ COLORS = {
 # 每行 = (网名, 器件位号, 针名)。针号按实物丝印/数据手册导入 EDA 时再对。
 # 3V3/5V/GND = 电源网；GPIOxxx = ESP32 功能名（与 config.h 一致）。
 NETS = [
-    # ---- 3V3（AMS1117 输出：模块 + 小电流传感器）----
-    ("3V3", "U1", "3V3"), ("3V3", "U2", "VOUT"), ("3V3", "U4", "VCC"),
-    ("3V3", "U7", "VDD"), ("3V3", "U8", "Vin"), ("3V3", "U8", "3v3"),
-    ("3V3", "U9", "VIN"), ("3V3", "R6", "R6-1"), ("3V3", "R7", "R7-1"),
-    ("3V3", "R8", "R8-1"), ("3V3", "TP3", "TP3"),
-    # ---- 5V（MP1584EN 输出：功放 + LDO 输入）----
-    ("5V", "U5", "OUT+"), ("5V", "U6", "VIN"), ("5V", "U6", "SD_MODE"),
-    ("5V", "U2", "VIN"), ("5V", "TP6", "TP6"),
-    # ---- 7V4 电池正（经 Q1 反接保护后）----
-    ("7V4", "U4", "VM"), ("7V4", "U5", "IN+"), ("7V4", "Q1", "D"),
-    ("7V4", "R1", "R1-1"),
+    # ---- 3V3：来自开发板板载 LDO（3V3 脚），带小电流传感器 ----
+    ("3V3", "U1", "3V3"), ("3V3", "U7", "VDD"), ("3V3", "U4", "VCC"),
+    ("3V3", "U8", "Vin"), ("3V3", "U8", "3v3"), ("3V3", "U9", "VIN"),
+    ("3V3", "R6", "R6-1"), ("3V3", "R10", "R10-1"), ("3V3", "TP3", "TP3"),
+    # ---- 5V：MP1584EN 输出经 SS34 -> 开发板 5V 脚 / 功放 / 充电开关 ----
+    ("5V_BUCK", "U5", "OUT+"), ("5V_BUCK", "D1", "A"),
+    ("5V", "D1", "K"), ("5V", "U1", "5V"), ("5V", "U6", "VIN"), ("5V", "U6", "SD_MODE"),
+    ("5V", "SW1", "1"), ("5V", "TP6", "TP6"),
+    ("CHG_IN", "SW1", "2"), ("CHG_IN", "U3", "IN"),
+    # ---- 7V4：电池正（经 Q1 反接保护）-> 电机 VM + 降压输入（电机不改 5V）----
+    ("7V4", "U4", "VM"), ("7V4", "U5", "IN+"), ("7V4", "Q1", "D"), ("7V4", "R1", "R1-1"),
     ("BAT+", "J3", "1"), ("BAT+", "Q1", "S"),
     # ---- GND ----
-    ("GND", "U1", "GND"), ("GND", "U2", "GND"), ("GND", "U4", "GND"),
-    ("GND", "U5", "IN-"), ("GND", "U5", "OUT-"),
+    ("GND", "U1", "GND"), ("GND", "U5", "IN-"), ("GND", "U5", "OUT-"),
+    ("GND", "U4", "GND"), ("GND", "U3", "GND"),
     ("GND", "U6", "GND"), ("GND", "U6", "GAIN"),
     ("GND", "U7", "GND"), ("GND", "U7", "L/R"),
     ("GND", "U8", "Gnd"), ("GND", "U8", "CS"), ("GND", "U8", "SA0"),
-    ("GND", "U9", "GND"), ("GND", "J2", "outer"),
-    ("GND", "K1", "b"), ("GND", "K2", "b"), ("GND", "K3", "b"),
+    ("GND", "U9", "GND"), ("GND", "K3", "b"),
     ("GND", "R2", "R2-2"), ("GND", "C1", "C1-2"), ("GND", "TP4", "TP4"),
     ("GND", "LED1", "LED1-K"),
-    # ---- 充电回路（FS5080E：5V -> 8.4V）----
-    ("CHG5V", "J2", "center"), ("CHG5V", "U3", "IN"),
+    # ---- 充电回路（FS5080E：5V -> 8.4V；只有 SW1 拨到充电位才通电）----
     ("FS_SW", "U3", "SW"), ("FS_SW", "L1", "L1-1"),
     ("8V4", "U3", "BAT"), ("8V4", "L1", "L1-2"), ("8V4", "J3", "2"),
     # ---- 电池监测分压 ----
     ("ADC_BAT", "R1", "R1-2"), ("ADC_BAT", "R3", "R3-1"),
     ("ADC_BAT", "R2", "R2-1"), ("ADC_BAT", "C1", "C1-1"),
-    ("ADC_BAT", "U1", "GPIO8"),
-    # ---- USB 原生（GPIO19/20）----
-    ("USB_DM", "U1", "GPIO19"), ("USB_DM", "R11", "R11-1"),
-    ("USB_DM", "J1", "A7"),
-    ("USB_DP", "U1", "GPIO20"), ("USB_DP", "R12", "R12-1"),
-    ("USB_DP", "J1", "A6"),
-    ("USB_CC1", "J1", "A5"), ("USB_CC1", "R13", "R13-1"),
-    ("USB_CC2", "J1", "B5"), ("USB_CC2", "R14", "R14-1"),
-    ("3V3", "R11", "R11-2"), ("3V3", "R12", "R12-2"),
-    ("3V3", "R13", "R13-2"), ("3V3", "R14", "R14-2"),
-    # ---- 复位/下载 ----
-    ("EN", "U1", "EN"), ("EN", "K1", "a"), ("EN", "R7", "R7-2"),
-    ("EN", "C2", "C2-1"),
-    ("GPIO0", "U1", "GPIO0"), ("GPIO0", "K2", "a"), ("GPIO0", "R8", "R8-2"),
+    ("ADC_BAT", "U1", "GPIO8"), ("ADC_BAT", "TP5", "TP5"),
+    # ---- 模式按键 GPIO9（低有效，10k 上拉 3V3）----
+    ("GPIO9", "U1", "GPIO9"), ("GPIO9", "K3", "a"), ("GPIO9", "R6", "R6-2"),
     # ---- I2S 麦克风 ----
     ("GPIO4_SCK", "U1", "GPIO4"), ("GPIO4_SCK", "U7", "SCK"),
     ("GPIO5_WS", "U1", "GPIO5"), ("GPIO5_WS", "U7", "WS"),
@@ -199,47 +175,39 @@ NETS = [
     ("GPIO1_SCLK", "U1", "GPIO1"), ("GPIO1_SCLK", "U8", "Clk"),
     ("GPIO2_MOSI", "U1", "GPIO2"), ("GPIO2_MOSI", "U8", "Data"),
     ("GPIO46_DC", "U1", "GPIO46"), ("GPIO46_DC", "U8", "DC"),
-    # ---- 模式按键 GPIO9（低有效，10k 上拉）----
-    ("GPIO9", "U1", "GPIO9"), ("GPIO9", "K3", "a"), ("GPIO9", "R6", "R6-2"),
-    # ---- 调试/测试 ----
+    # ---- 调试/指示 ----
     ("GPIO43_TX", "U1", "GPIO43"), ("GPIO43_TX", "TP1", "TP1"),
     ("GPIO44_RX", "U1", "GPIO44"), ("GPIO44_RX", "TP2", "TP2"),
-    ("ADC_BAT", "TP5", "TP5"),
-    # ---- 电源指示 ----
-    ("3V3", "R10", "R10-1"), ("LED1", "R10", "R10-2"), ("LED1", "LED1", "LED1-A"),
+    ("LED1", "R10", "R10-2"), ("LED1", "LED1", "LED1-A"),
 ]
-
 # BOM：自研部分（现有模块不重复列，见 HTML 文档）
 BOM_SELF = [
-    ("U1", "ESP32-S3-WROOM-1 N16R8", "模组 18x25.5 SMD", "1", "主控 16M Flash+8M PSRAM，天线端朝板北缘"),
-    ("U2", "AMS1117-3V3", "SOT-223", "1", "5V->3V3，≥100mm2 铺铜散热"),
-    ("U3", "FS5080E", "ESOP-8", "1", "2S 升压充电 5V->8.4V，1A（可调）"),
+    ("U1", "2x22P 2.54 排母座", "THT 44P", "2", "开发板可插拔；本体不焊死，坏了一拔就换"),
+    ("U3", "FS5080E", "ESOP-8", "1", "2S 升压充电 5V->8.4V，1A（Iset 待查表）"),
     ("L1", "4.7uH 功率电感", "10x10 CD43", "1", "FS5080E 配套"),
+    ("D1", "SS34 肖特基", "SMA/DO-214AC", "1", "5V 隔离：电池与 USB 互不倒灌（压降 0.3V）"),
+    ("SW1", "拨动开关 2 档", "THT 侧拨", "1", "充电位/运行位；不拨就电池自充（见风险表）"),
     ("R1", "100kΩ", "0603", "1", "电池分压上臂"),
     ("R2", "47kΩ", "0603", "1", "电池分压下臂"),
     ("R3", "1kΩ", "0603", "1", "ADC 串保护"),
-    ("R4", "100kΩ", "0603", "1", "Q1 栅极电阻(反接保护)"),
-    ("R6/R7/R8", "10kΩ", "0603", "3", "GPIO9/EN/GPIO0 上拉"),
-    ("R11/R12", "27Ω", "0603", "2", "USB D+/D- 串阻"),
-    ("R13/R14", "5.1kΩ", "0603", "2", "USB CC 下拉(Rd)"),
+    ("R4", "100kΩ", "0603", "1", "Q1 栅极电阻"),
+    ("R6", "10kΩ", "0603", "1", "GPIO9 上拉"),
     ("R10", "1kΩ", "0603", "1", "LED1 限流"),
     ("C1", "100nF", "0603", "1", "分压滤波"),
-    ("C2", "1uF", "0603", "1", "EN 延时"),
-    ("C3/C4", "10uF+100nF", "0603", "2", "3V3 去耦(贴 U1)"),
+    ("C3/C4", "10uF+100nF", "0603", "2", "3V3 去耦（贴开发板 3V3 脚）"),
     ("C5/C6", "22uF", "0805", "2", "FS5080E 输入/输出"),
-    ("Q1", "AO3401A PMOS", "SOT-23", "1", "电池反接保护(可选，默认贴装)"),
-    ("K1-K3", "轻触按键 6x6", "THT", "3", "RST/BOOT/模式"),
-    ("J1", "USB Type-C 16P", "SMD/THT", "1", "原生 USB(数据+烧录)"),
-    ("J2", "DC-045 5.5x2.1", "THT", "1", "充电输入 5V"),
-    ("J3", "XT30 母座 2P", "THT", "1", "电池输入 7.4V"),
+    ("Q1", "AO3401A PMOS", "SOT-23", "1", "电池反接保护（可不装，BAT+ 与 7V4 直连）"),
+    ("K3", "轻触按键 6x6", "THT", "1", "模式键 GPIO9（低有效）"),
+    ("J3", "XT30 母座 2P", "THT", "1", "电池输入 7.4V（注意极性丝印）"),
     ("J4/J5", "XH2.54-2P 直针", "THT", "2", "电机 M1/M2"),
     ("J6", "XH2.54-2P 直针", "THT", "1", "喇叭"),
-    ("J8-OL", "2.54 直针 9P", "THT", "1", "OLED 排线(壳上模块)"),
-    ("J9-VL", "2.54 直针 4P", "THT", "1", "VL53L0X 排线(壳上模块)"),
+    ("U8", "2.54 直针 9P", "THT", "1", "OLED 排线（屏上壳）"),
+    ("U9", "2.54 直针 4P", "THT", "1", "VL53L0X 排线（支架前倾30°）"),
     ("TP1-TP6", "测试点 Ø1.5 焊盘", "-", "6", "TX/RX/3V3/5V/GND/ADC_BAT"),
-    ("LED1", "LED 绿", "0805", "1", "电源指示"),
+    ("LED1", "LED 绿", "0805", "1", "3V3 电源指示"),
 ]
 MODULES_EXISTING = [
+    ("DEV", "ESP32-S3 N16R8 开发板", "1", "插 2x22P 排母，USB 端朝南(车尾)"),
     ("M-INMP441", "INMP441 麦克风", "7", "Ø15 2x3 针，平躺直焊 6P"),
     ("M-MAX98357A", "MAX98357A 功放", "6", "7P，平躺直焊"),
     ("M-TB6612", "TB6612FNG 模块", "3", "10P(信号+VM)，平躺直焊"),
@@ -250,6 +218,7 @@ MODULES_EXISTING = [
     ("SPK", "4Ω 3W 喇叭", "-", "J6 接线"),
     ("MOTOR", "N20 电机 x2", "-", "J4/J5 接线"),
 ]
+
 
 # ---------------------------------------------------------------- 校验
 def rect_of(c):
@@ -285,7 +254,7 @@ def run_checks():
                               % (a["ref"], a["side"], b["ref"], b["side"], ox, oy))
     for c in comps:
         x, y, w, h = rect_of(c)
-        if c["kind"] == "conn":
+        if c["kind"] == "conn" or c.get("edge_ok"):
             if x < -0.01 or y < -0.01 or x + w > BOARD["w"] + 0.01 or y + h > BOARD["h"] + 0.01:
                 problems += 1
                 report.append("!! 连接器越板 %s" % c["ref"])
@@ -344,7 +313,7 @@ def draw_svg():
     S.append('<rect x="0" y="0" width="%s" height="%s" fill="#ffffff"/>' % (fmt(vw), fmt(vh)))
     S.append('<g transform="translate(%s %s)">' % (fmt(pad_l), fmt(pad_t)))
     # 标题
-    S.append(t(0, -5.5, "机器狗 V1 · PCB 顶层布局  v1", 3.2, "#0f172a", bold=True))
+    S.append(t(0, -5.5, "机器狗 V1 · PCB 顶层布局  v2（开发板直插）", 3.2, "#0f172a", bold=True))
     S.append(t(W, -5.5, "80×70mm · 2层 · y=0 为板北缘(车头/前缘)", 2.2, "#475569", anchor="end"))
     # 功能区底色
     for (x0, y0, x1, y1, name, color) in ZONES:
@@ -369,7 +338,7 @@ def draw_svg():
              % (fmt(W + 2.6), fmt(W + 2.6), fmt(H), fmt(W + 1.6), fmt(W + 3.6), fmt(W + 1.6), fmt(H), fmt(W + 3.6), fmt(H)))
 
     # 元件：本体 → 标签 → 针脚 → 流向箭头
-    for side in ("top", "bottom", "chassis"):
+    for side in ("bottom", "top", "chassis"):
         for c in COMPONENTS:
             if c["side"] != side:
                 continue
@@ -405,6 +374,14 @@ def draw_svg():
             else:
                 S.append(t(x - 1.0, y + h / 2, "%s→%s" % (c["ref"], c["name"].split(" ")[0]), 1.5,
                            col["text"], anchor="end", rotate=-90))
+    # 底层器件再补一层虚线轮廓（填充已被顶层盖住时仍可见）
+    for c in COMPONENTS:
+        if c["side"] != "bottom":
+            continue
+        col = COLORS[c["kind"]]
+        x, y, w, h = rect_of(c)
+        S.append('<rect x="%s" y="%s" width="%s" height="%s" rx="0.4" fill="none" stroke="%s" stroke-width="0.35" stroke-dasharray="1.2 0.8"/>'
+                 % (fmt(x), fmt(y), fmt(w), fmt(h), col["stroke"]))
     # 壳上器件的引出箭头
     for ref, x1, y1 in (("U8", 74.0, 30.0), ("U9", 73.0, 17.0)):
         S.append('<line x1="%s" y1="%s" x2="80.5" y2="%s" stroke="#0891b2" stroke-width="0.4" stroke-dasharray="1.5 1"/>' % (fmt(x1), fmt(y1), fmt(y1)))
@@ -437,7 +414,7 @@ def draw_svg():
     ny = ly
     for i, s in enumerate(notes):
         S.append(t(52.0, ly + i * 3.2, s, 1.7, "#475569"))
-    S.append(t(0, ny + 17.5, "docs/PCB设计方案-v1.html · 本图由 tools/gen_pcb_design.py 生成 · 2026-10-19", 1.6, "#94a3b8"))
+    S.append(t(0, ny + 17.5, "docs/PCB设计方案-v2.html · 本图由 tools/gen_pcb_design.py 生成 · 2026-10-20", 1.6, "#94a3b8"))
     S.append('</svg>')
     return "\n".join(S)
 
@@ -454,8 +431,8 @@ def write_csv(path):
 
 def write_json(path):
     data = {
-        "version": "v1",
-        "date": "2026-10-19",
+        "version": "v2",
+        "date": "2026-10-20",
         "board": BOARD,
         "holes": HOLES,
         "rf_keepout": RF_KEEPOUT,
@@ -489,13 +466,13 @@ def main():
     if not os.path.isdir(SRC_DIR):
         os.makedirs(SRC_DIR)
     svg = draw_svg()
-    with open(os.path.join(SRC_DIR, "pcb-layout-v1.svg"), "w", encoding="utf-8") as f:
+    with open(os.path.join(SRC_DIR, "pcb-layout-v2.svg"), "w", encoding="utf-8") as f:
         f.write(svg)
-    n = write_csv(os.path.join(OUT_DIR, "PCB网表-v1.csv"))
-    data = write_json(os.path.join(SRC_DIR, "pcb-design-baseline-v1.json"))
-    print("已生成 docs/source/pcb-layout-v1.svg（%d 字节）" % len(svg))
-    print("已生成 docs/PCB网表-v1.csv（%d 条 pin-net）" % n)
-    print("已生成 docs/source/pcb-design-baseline-v1.json（%d 个网络）" % len(set(x["net"] for x in data["nets"])))
+    n = write_csv(os.path.join(OUT_DIR, "PCB网表-v2.csv"))
+    data = write_json(os.path.join(SRC_DIR, "pcb-design-baseline-v2.json"))
+    print("已生成 docs/source/pcb-layout-v2.svg（%d 字节）" % len(svg))
+    print("已生成 docs/PCB网表-v2.csv（%d 条 pin-net）" % n)
+    print("已生成 docs/source/pcb-design-baseline-v2.json（%d 个网络）" % len(set(x["net"] for x in data["nets"])))
 
 
 if __name__ == "__main__":
