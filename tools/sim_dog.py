@@ -37,7 +37,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 BOOT_TIME = time.monotonic()
 STATE = {"mode": "idle"}
-STATS = {"moves": 0, "first": None, "last": None, "last_dir": None, "last_speed": None}
+# moves=累计指令数；first=本轮"按住"的起始时间（用来算按住时长）；last_dir 供 /api/status 报 moving
+STATS = {"moves": 0, "first": None, "last_dir": None}
+
+
+def end_hold():
+    """结束一轮"按住"：固件在任何停车/换模式时都会停电机，计时起点随之作废"""
+    STATS["first"] = None
+    STATS["last_dir"] = "stop"
 
 # ---------------------------------------------------------------------------
 # V1.5 召唤仿真（SW-004）——参数与 main/Kconfig.projbuild 的 AI Dog Summon 菜单一致
@@ -689,8 +696,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             if mode != STATE["mode"]:
                 # 切模式时固件会停车；再次进入 remote 不能沿用上一轮的 moving 状态。
-                STATS["last_dir"] = "stop"
-                STATS["first"] = None
+                end_hold()
             STATE["mode"] = mode
             print("[mode] -> %s" % mode, flush=True)
             self._json({"ok": True, "mode": mode})
@@ -698,8 +704,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if self.path.startswith("/api/stop"):
             STATE["mode"] = "idle"
-            STATS["last_dir"] = "stop"
-            STATS["first"] = None
+            end_hold()
             SUMMON.update({"phase": "idle", "message": "已停止"})
             print("[stop] 急停：回到 idle（召唤中止）", flush=True)
             self._json({"ok": True})
@@ -774,12 +779,10 @@ class Handler(BaseHTTPRequestHandler):
             now = time.time()
             if STATS["first"] is None:
                 STATS["first"] = now
-            STATS["last"] = now
             STATS["last_dir"] = d
-            STATS["last_speed"] = speed
-            hold = (now - STATS["first"]) if STATS["first"] is not None else 0.0
+            hold = now - STATS["first"]
             if d == "stop":
-                STATS["first"] = None
+                end_hold()
             print("[move] #%-3d %-13s speed=%-3s  按住 %.2fs" % (STATS["moves"], d, speed, hold), flush=True)
             self._json({"ok": True})
             return

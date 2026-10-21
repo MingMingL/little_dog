@@ -24,7 +24,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="设备：未设置"
+                android:text="@string/device_unset"
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
 
@@ -48,7 +48,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:text="状态"
+            android:text="@string/section_status"
             android:textColor="@color/primary"
             android:textSize="16sp"
             android:textStyle="bold" />
@@ -165,7 +165,7 @@
                         android:id="@+id/text_fault"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="无" />
+                        android:text="@string/value_none" />
                 </LinearLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -438,7 +438,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:text="遥控"
+            android:text="@string/section_remote"
             android:textColor="@color/primary"
             android:textSize="16sp"
             android:textStyle="bold" />
@@ -557,7 +557,6 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:gravity="end"
-                        android:text="60%"
                         android:textStyle="bold" />
                 </LinearLayout>
 

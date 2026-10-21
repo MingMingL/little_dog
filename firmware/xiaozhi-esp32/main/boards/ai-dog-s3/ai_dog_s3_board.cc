@@ -7,6 +7,8 @@
 #include "config.h"
 #include "led/led.h"
 #include "ai_dog_control.h"
+#include "ai_dog_battery.h"
+#include "ai_dog_diag.h"
 #include "ai_dog_mcp_tool.h"
 #include "ai_dog_motor.h"
 
@@ -26,6 +28,9 @@
 #include <esp_lcd_panel_ops.h>
 #include <esp_lcd_panel_vendor.h>
 #include <esp_lcd_panel_sh1106.h>
+#include <esp_sleep.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <utility>
 
 #define TAG "AiDogS3Board"
@@ -33,7 +38,7 @@
 /**
  * AI Dog V1 板级实现
  *
- * - 屏幕：0.96" SSD1306 OLED（7 针 SPI，GPIO1/2/46/48，CS 接 GND）
+ * - 屏幕：1.3" SH1106 OLED（9 针 SPI，GPIO1/2/46/48，CS 接 GND）
  * - 无普通 LED：官方 DevKitC-1 的 GPIO48 是 WS2812（v1.1 改到 GPIO38），先不驱动
  * - BOOT 键（GPIO0）：未配网时进入配网；已配网时切换语音对话（对应 PRD FR-17）
  *
@@ -106,13 +111,13 @@ private:
         });
         control.SetModeChangedHandler([](aidog::Mode mode) {
             aidog::MotorDriver::GetInstance().Stop();
-            ESP_LOGI(TAG, "模式切换 -> %s，电机已停止", aidog::ModeToString(mode));
 #ifdef CONFIG_AI_DOG_ENABLE_SUMMON
             if (mode != aidog::Mode::Summon) {
-                // 离开召唤（急停/被抢/到达切 Chat）：停 DOA 消费让出 CPU
+                // 离开召唤（急停/被抢/到达切 Chat）：停 DOA 释放 CPU
                 aidog::DoaEngine::GetInstance().SetActive(false);
             }
 #endif
+            ESP_LOGI(TAG, "模式切换 -> %s，电机已停止", aidog::ModeToString(mode));
         });
         control.SetEmergencyStopHandler([]() {
             aidog::MotorDriver::GetInstance().Stop();
@@ -125,11 +130,11 @@ private:
 
 #ifdef CONFIG_AI_DOG_ENABLE_SUMMON
     /**
-     * 初始化 V1.5 召唤栈（SW-204）。顺序有讲究：
+     * 初始化 V1.5 召唤栈（SW-204）。顺序有技验：
      *   1) AiDogVision 先建 SPI2 总线（带 MISO）——OLED 后建时跳过总线初始化，
      *      否则 OLED 先建的总线没有 MISO，摄像头读不了数据（T2 共存关键）；
      *   2) 然后才是阵列/DOA/口令/状态机。
-     * 失败不致命： summon 不可用，语音/遥控/显示全部照常（V1 行为）。
+     * 失败不致命： 召唤不可用，语音/遥控/显示照常。
      */
     void InitializeSummon() {
         if (aidog::AiDogSummon::GetInstance().Initialize() != ESP_OK) {
@@ -144,22 +149,46 @@ private:
 #endif
         ESP_LOGI(TAG, "召唤栈就绪（唤醒词 + 口令 + DOA 寻声 + 视觉确认）");
     }
-#endif
 
-    // SSD1306 OLED（SPI）：句柄与显示对象在 InitDisplay() 里创建
+#ifdef CONFIG_AI_DOG_VISION_ENABLE
+    /**
+     * SW-304 软件兜底：OLED CS 未飞线（接 GND）时，摄像头抓帧的 SPI 字节会串到
+     * OLED（同总线无片选），屏幕显示乱码。飞线方案（Kconfig
+     * AI_DOG_OLED_CS_GPIO45）下两个从设各有片选，无需本函数；未飞线时摄像头用完
+     * 重初始化一次屏幕。代价：召唤过程中屏幕会闪一下。
+     */
+    void ReinitOledAfterCamera() {
+#ifdef CONFIG_AI_DOG_OLED_CS_GPIO45
+        return;  // 已飞线：片选隔离，不需要兜底
+#else
+        if (panel_ == nullptr || display_ == nullptr) {
+            return;
+        }
+        ESP_LOGI(TAG, "OLED CS 未飞线：摄像头用后重初始化屏幕（软件兜底）");
+        esp_lcd_panel_reset(panel_);
+        esp_lcd_panel_init(panel_);
+        esp_lcd_panel_invert_color(panel_, false);
+        esp_lcd_panel_disp_on_off(panel_, true);
+        display_->UpdateStatusBar(true);
+#endif
+    }
+#endif  // CONFIG_AI_DOG_VISION_ENABLE
+#endif  // CONFIG_AI_DOG_ENABLE_SUMMON
+
+    // SH1106 OLED（SPI）：句柄与显示对象在 InitDisplay() 里创建
     esp_lcd_panel_io_handle_t panel_io_ = nullptr;
     esp_lcd_panel_handle_t panel_ = nullptr;
     Display* display_ = nullptr;
     bool display_init_done_ = false;
 
     /**
-     * 初始化 1.3 寸 OLED 屏（128x64，7 针 SPI）。
+     * 初始化 1.3 寸 OLED 屏（128x64，9 针 SPI）。
      *
      * 驱动 IC 是 SH1106（丝印常写 SSD1106）——注意 0.96 寸屏才是 SSD1306，两者命令集不同。
      * ID F v6.1 内置 esp_lcd 只有 SSD1306；SH1106 由组件 tny-robotics/sh1106-esp-idf 提供
      * （main/idf_component.yml 已声明，全项目可用）。
      *
-     * 与官方面包板的区别：官方用 I2C 接口（4 针），我们手上的屏是 SPI 接口（7 针），
+     * 与官方面包板的区别：官方用 I2C 接口（4 针），我们手上的屏是 SPI 接口（9 针），
      * 所以这里自己建 SPI 总线和 panel_io。
      *
      * 引脚见 config.h：SCLK=GPIO1、MOSI=GPIO2、DC=GPIO46、RES=GPIO48、CS 接 GND。
@@ -169,8 +198,6 @@ private:
         display_init_done_ = true;
 
         // 1) SPI 总线：只发不收，MOSI 单数据线
-        //    召唤开启时摄像头已先建好同一条总线（带 MISO），此时 initialize 返回
-        //    ESP_ERR_INVALID_STATE —— 复用即可，这正是 T2 总线共存的实现方式。
         spi_bus_config_t buscfg = {};
         buscfg.mosi_io_num = DISPLAY_SPI_MOSI_PIN;
         buscfg.miso_io_num = GPIO_NUM_NC;
@@ -178,7 +205,9 @@ private:
         buscfg.quadwp_io_num = GPIO_NUM_NC;
         buscfg.quadhd_io_num = GPIO_NUM_NC;
         buscfg.max_transfer_sz = DISPLAY_WIDTH * DISPLAY_HEIGHT / 8 + 16;
-        esp_err_t bus_err = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
+        // 开关召唤时摄像头已经建好同一条 SPI2 总线（带 MISO），
+        // 此时 initialize 会返回 ESP_ERR_INVALID_STATE ——复用即可（T2 总线共存关键）。
+        const esp_err_t bus_err = spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_CH_AUTO);
         if (bus_err != ESP_OK && bus_err != ESP_ERR_INVALID_STATE) {
             ESP_LOGE(TAG, "OLED SPI 总线初始化失败，屏幕不可用");
             display_ = new NoDisplay();
@@ -242,30 +271,6 @@ private:
 #endif
     }
 
-#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
-    /**
-     * SW-304 软件兜底：OLED CS 未飞线（接 GND）时，摄像头抓帧的 SPI 字节会串到
-     * OLED（同总线无片选），屏幕显示乱码。飞线方案（Kconfig AI_DOG_OLED_CS_GPIO45）
-     * 下两个从设备各有片选，无需本函数；未飞线时摄像头用完调用一次，重初始化面板。
-     * 代价：召唤过程中屏幕会闪一下（方案 §3.1 备注的可接受降级）。
-     */
-    void ReinitOledAfterCamera() {
-#ifdef CONFIG_AI_DOG_OLED_CS_GPIO45
-        return;  // 已飞线：片选隔离，不需要兜底
-#else
-        if (panel_ == nullptr || display_ == nullptr) {
-            return;
-        }
-        ESP_LOGI(TAG, "OLED CS 未飞线：摄像头用后重初始化屏幕（软件兜底）");
-        esp_lcd_panel_reset(panel_);
-        esp_lcd_panel_init(panel_);
-        esp_lcd_panel_invert_color(panel_, false);
-        esp_lcd_panel_disp_on_off(panel_, true);
-        display_->UpdateStatusBar(true);
-#endif
-    }
-#endif  // CONFIG_AI_DOG_ENABLE_SUMMON
-
     /**
      * 控制服务只在 STA 连上路由器后启动；进入配网热点前必须停掉，
      * 否则会和热点自带的 captive portal 抢 80 端口。
@@ -275,6 +280,9 @@ private:
         switch (event) {
             case NetworkEvent::Connected:
                 control.Start();
+                // 重连成功就清掉断网时挂的故障。以前这行写在回调包装里，
+                // Connected 的处理被拆成两处，加逻辑时容易只改一边。
+                control.ClearFault();
                 break;
             case NetworkEvent::WifiConfigModeEnter:
                 // 进配网热点前先停车：热点模式下 App 连不上，狗不该继续跑
@@ -304,16 +312,110 @@ private:
         });
     }
 
+    /**
+     * 电池监测：把读数送进 /api/status，按档位做保护和提示。
+     *
+     * 这套东西是为"电池供电时反复重新初始化"做的：以前电量掉下去没有任何反应，
+     * 一路跑到 5V 轨崩掉、被 brownout 打重启；现在会在崩之前先告警、再限制动作、
+     * 最后主动停机，并且每次都写进设备本地日志，插上串口就能看到当时发生了什么。
+     */
+    void InitializeBattery() {
+        auto& battery = aidog::BatteryMonitor::GetInstance();
+        auto& control = aidog::ControlServer::GetInstance();
+        auto& diag = aidog::DeviceLog::GetInstance();
+
+        battery.SetOnLevelChanged([this, &control, &diag](aidog::BatteryMonitor::Level level,
+                                                          float volts, int percent) {
+            control.SetBatteryPercent(percent);
+            control.SetBatteryVoltage(volts);
+            control.SetBatteryLevelText(aidog::BatteryLevelText(level));
+
+            switch (level) {
+                case aidog::BatteryMonitor::Level::Normal:
+                    control.ClearFault();
+                    break;
+
+                case aidog::BatteryMonitor::Level::Warn:
+                    ESP_LOGW(TAG, "电池电压低：%.2fV（%d%%），该充电了", static_cast<double>(volts), percent);
+                    diag.Warn("电池电压低 %.2fV (%d%%)，建议充电", static_cast<double>(volts), percent);
+                    control.SetFault("电池电压低");
+                    Notify("电池电压低，请充电");
+                    break;
+
+                case aidog::BatteryMonitor::Level::Restrict:
+                    ESP_LOGW(TAG, "电池电压 %.2fV（%d%%）：禁止进入巡逻/看门/遥控",
+                             static_cast<double>(volts), percent);
+                    diag.Warn("电池 %.2fV (%d%%)，已禁止巡逻/看门/遥控", static_cast<double>(volts), percent);
+                    control.SetFault("电池电压低，仅待机/聊天");
+                    // 已经在跑运动模式的话立刻拉回待机，避免带着速度耗电
+                    control.RequestEmergencyStop();
+                    Notify("电量低，已限制运动");
+                    break;
+
+                case aidog::BatteryMonitor::Level::Cutoff:
+                    // 到了这里 5V 轨随时可能崩，继续跑有写坏 flash 的风险。
+                    // 先停、先落盘、再睡，日志才能在下次启动时读出来。
+                    ESP_LOGE(TAG, "电池电压 %.2fV（%d%%）低于截止值 %.2fV，停机",
+                             static_cast<double>(volts), percent,
+                             static_cast<double>(DOG_BATTERY_CUTOFF_V));
+                    diag.Error("电池 %.2fV 低于截止电压 %.2fV，主动停机（避免掉压复位）",
+                               static_cast<double>(volts), static_cast<double>(DOG_BATTERY_CUTOFF_V));
+                    aidog::MotorDriver::GetInstance().Stop();
+                    control.SetFault("电池电压过低，已停机");
+                    diag.Flush();  // 关键：落盘后再睡，否则白记
+                    Notify("电量耗尽，停机", 6000);
+                    vTaskDelay(pdMS_TO_TICKS(6000));
+                    diag.Flush();
+                    esp_deep_sleep_start();
+                    break;
+
+                case aidog::BatteryMonitor::Level::Unknown:
+                default:
+                    control.SetBatteryLevelText("unknown");
+                    break;
+            }
+        });
+
+        // 电量到 Restrict/Cutoff 时，禁止再切进会动电机的模式。
+        // 急停和这里的自停走另一条路，不受闸门影响，别改成走闸门。
+        control.SetModeGuardHandler([](aidog::Mode mode) {
+            auto level = aidog::BatteryMonitor::GetInstance().level();
+            if (level != aidog::BatteryMonitor::Level::Restrict &&
+                level != aidog::BatteryMonitor::Level::Cutoff) {
+                return true;
+            }
+            if (mode == aidog::Mode::Patrol || mode == aidog::Mode::Guard ||
+                mode == aidog::Mode::Remote) {
+                ESP_LOGW(TAG, "电量受限，拒绝切到 %s", aidog::ModeToString(mode));
+                return false;
+            }
+            return true;
+        });
+
+        battery.Init();
+    }
+
+    /** OLED 提示；屏幕还没被 Application 取走（display_ 为空）时就跳过 */
+    void Notify(const char* text, int duration_ms = 4000) {
+        if (display_ != nullptr) {
+            display_->ShowNotification(text, duration_ms);
+        }
+    }
+
 public:
     AiDogS3Board() : boot_button_(BOOT_BUTTON_GPIO) {
+        // 顺序有讲究：DeviceLog 最先起，后面所有人的 ESP_LOG 才进得了本地日志；
+        // 电池监测最后起，起的时候控制服务和电机都已经就位。
+        aidog::DeviceLog::GetInstance().Init();
         InitializeButtons();
         InitializeTools();
         InitializeMotor();
 #ifdef CONFIG_AI_DOG_ENABLE_SUMMON
-        // 召唤栈（含摄像头 SPI 总线初始化，必须在 GetDisplay() 之前）
+        // 召唤栈（含摄像头 SPI 总线）必须在 GetDisplay() 前起来
         InitializeSummon();
 #endif
-        ESP_LOGI(TAG, "AI Dog S3 board ready (voice: xiaozhi-esp32, OLED + LAN control + 语音模式切换 + 遥控)");
+        InitializeBattery();
+        ESP_LOGI(TAG, "AI Dog S3 board ready (voice: xiaozhi-esp32, OLED + LAN control + 语音模式切换 + 遥控 + 电池监测)");
     }
 
     virtual Led* GetLed() override {
@@ -358,9 +460,6 @@ public:
         user_network_callback_ = std::move(callback);
         WifiBoard::SetNetworkEventCallback([this](NetworkEvent event, const std::string& data) {
             HandleNetworkEvent(event);
-            if (event == NetworkEvent::Connected) {
-                aidog::ControlServer::GetInstance().ClearFault();
-            }
             if (user_network_callback_) {
                 user_network_callback_(event, data);
             }

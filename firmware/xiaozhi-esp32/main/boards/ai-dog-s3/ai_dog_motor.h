@@ -4,11 +4,7 @@
 #include <cstdint>
 #include <mutex>
 
-#include <sdkconfig.h>
-
-#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
 #include <esp_timer.h>
-#endif
 
 namespace aidog {
 
@@ -41,27 +37,20 @@ public:
 
     bool IsEnabled() const { return enabled_; }
 
-    /** 当前左右轮速度（供状态/调试用） */
-    void GetSpeeds(int& left, int& right) const;
-
-    /** 是否正在动（SW-205 状态上报：/api/status 的 moving） */
-    bool IsMoving() const { return last_left_ != 0 || last_right_ != 0; }
-
 #ifdef CONFIG_AI_DOG_ENABLE_SUMMON
     // ---- Summon 寻声专用（SW-205；V1 遥控不用）----
 
     /**
      * 低速巡航档：双轮同速前进，duty_percent 0..100（内部按 8bit 换算）。
-     * 约 0.2m/s（Kconfig AI_DOG_SUMMON_CRUISE_DUTY 标定值）。
-     * 传 0 表示停车。
+     * 约 0.2m/s（Kconfig AI_DOG_SUMMON_CRUISE_DUTY 标定值）。传 0 表示停车。
      */
     void CruiseForward(int duty_percent);
 
     /**
      * 点动纠偏：原地差速短脉冲。dir < 0 左转 / dir > 0 右转；
-     * 脉冲宽度 Kconfig AI_DOG_MOTOR_NUDGE_MS，到点自动停（内部定时器兜底，
-     * 即使调用方卡住也不会一直转——安全设计）。
-     * 返回本次脉冲剩余毫秒数（供调用方节拍对齐），失败返回 -1。
+     * 脉冲宽度由调用方给（Kconfig AI_DOG_MOTOR_NUDGE_MS），到点自动停
+     * （内部一次性定时器兜底，即使调用方卡住也不会一直转——安全设计）。
+     * 返回本次脉冲时长（毫秒），失败返回 -1。
      */
     int NudgeTurn(int dir, int duty_percent, int duration_ms);
 
@@ -77,6 +66,11 @@ private:
     /** 单轮输出：先定方向 IN1/IN2，再给 PWM 占空比 */
     void ApplyOne(bool is_left, int speed);
 
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+    /** 点动到点兜底停车的定时器回调 */
+    static void NudgeTimerCallback(void* arg);
+#endif
+
     mutable std::mutex mutex_;
     bool initialized_ = false;
     bool enabled_ = false;
@@ -84,10 +78,10 @@ private:
     int last_right_ = 0;
 
 #ifdef CONFIG_AI_DOG_ENABLE_SUMMON
-    // 点动脉冲兜底定时器（SW-205）：到点强制停车，调用方卡死也不一直转
+    /** 召唤链路的当前占空比（0..100）；普通遥控不用这个值 */
+    int cruise_duty_ = 0;
+    /** 点动兜底停车的一次性定时器 */
     esp_timer_handle_t nudge_timer_ = nullptr;
-    static void NudgeTimerCallback(void* arg);
-    int cruise_duty_ = 0;  // 当前巡航/点动占空比（0..100）
 #endif
 };
 

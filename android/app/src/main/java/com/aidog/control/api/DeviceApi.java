@@ -6,10 +6,9 @@ import android.util.Log;
 
 import com.aidog.control.model.DeviceStatus;
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.google.gson.JsonSyntaxException;
 
 import java.util.concurrent.TimeUnit;
 
@@ -34,6 +33,8 @@ public class DeviceApi {
     private static final String TAG = "DeviceApi";
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
     private static final long POLL_INTERVAL_MS = 2000L;
+    /** 没配 IP 时所有接口的错误文案；以前三个方法各写一遍字面量，改一处会漏两处 */
+    private static final String MSG_NO_IP = "未设置设备 IP";
 
     public interface StatusCallback {
         void onStatus(DeviceStatus status);
@@ -78,10 +79,20 @@ public class DeviceApi {
     // 状态获取
     // ------------------------------------------------------------------
 
-    /** 单次查询状态 */
-    public void getStatus(StatusCallback callback) {
-        if (baseUrl == null) {
-            callback.onError("未设置设备 IP");
+    /** 没配 IP 时所有接口都走同一句报错；判空只在 ipReady() 一处 */
+    private boolean ipReady() {
+        return baseUrl != null;
+    }
+
+    /** 读响应体；空体按空串处理，调用方统一当成"设备没说话" */
+    private static String readBody(Response response) throws java.io.IOException {
+        return response.body() != null ? response.body().string() : "";
+    }
+
+    /** 单次查询状态。只给降级轮询用（对外只暴露 startStatusPush），收为私有避免两套接法 */
+    private void getStatus(StatusCallback callback) {
+        if (!ipReady()) {
+            callback.onError(MSG_NO_IP);
             return;
         }
         Request request = new Request.Builder()
@@ -102,8 +113,7 @@ public class DeviceApi {
                         postError(callback, "设备返回 " + response.code());
                         return;
                     }
-                    String body = response.body() != null ? response.body().string() : "";
-                    DeviceStatus status = gson.fromJson(body, DeviceStatus.class);
+                    DeviceStatus status = gson.fromJson(readBody(response), DeviceStatus.class);
                     mainHandler.post(() -> callback.onStatus(status));
                 } catch (Exception e) {
                     postError(callback, "解析失败：" + e.getMessage());
@@ -232,8 +242,8 @@ public class DeviceApi {
      * 停车指令例外：保留一条待发送的 stop，等在途请求结束后优先下发。
      */
     public void move(String dir, int speed, SimpleCallback callback) {
-        if (baseUrl == null) {
-            callback.onResult(false, "未设置设备 IP");
+        if (!ipReady()) {
+            callback.onResult(false, MSG_NO_IP);
             return;
         }
         if (moveInFlight) {
@@ -248,31 +258,7 @@ public class DeviceApi {
         json.addProperty("dir", dir);
         json.addProperty("speed", speed);
 
-        Request request = new Request.Builder()
-                .url(baseUrl + "/api/move")
-                .post(RequestBody.create(json.toString(), JSON))
-                .build();
-
-        client.newCall(request).enqueue(new okhttp3.Callback() {
-            @Override
-            public void onFailure(okhttp3.Call call, java.io.IOException e) {
-                mainHandler.post(() -> finishMove(callback, false, "连接失败：" + e.getMessage()));
-            }
-
-            @Override
-            public void onResponse(okhttp3.Call call, Response response) {
-                try {
-                    String respBody = response.body() != null ? response.body().string() : "";
-                    boolean ok = response.isSuccessful() && !respBody.contains("\"ok\":false");
-                    String msg = respBody.isEmpty() ? ("HTTP " + response.code()) : respBody;
-                    mainHandler.post(() -> finishMove(callback, ok, msg));
-                } catch (Exception e) {
-                    mainHandler.post(() -> finishMove(callback, false, "解析失败：" + e.getMessage()));
-                } finally {
-                    response.close();
-                }
-            }
-        });
+        enqueuePost("/api/move", json.toString(), (ok, message) -> finishMove(callback, ok, message));
     }
 
     private void finishMove(SimpleCallback callback, boolean ok, String message) {
@@ -294,26 +280,44 @@ public class DeviceApi {
         json.addProperty("password", password);
         post("/api/wifi", json.toString(), (ok, message) -> {
             if (ok) {
-                try {
-                    JSONObject resp = new JSONObject(message);
-                    String newIp = resp.optString("ip", "");
-                    if (!newIp.isEmpty()) {
-                        callback.onResult(true, newIp);
-                        return;
-                    }
-                } catch (JSONException ignored) {
-                    // 设备没回 IP 也当作成功
+                String newIp = parseResponseIp(message);
+                if (!newIp.isEmpty()) {
+                    callback.onResult(true, newIp);
+                    return;
                 }
             }
             callback.onResult(ok, message);
         });
     }
 
+    /**
+     * 从响应体里取 ip 字段：{"ok":true,"ip":"192.168.1.50"}。
+     * 解析失败或字段缺失都返回空串——设备没回 IP 也算下发成功，由调用方按原样提示。
+     * 用 Gson 而不是再引一个 org.json：整个类只有这一处要取字段，两套 JSON 库并存是纯负担。
+     */
+    private String parseResponseIp(String body) {
+        try {
+            JsonObject resp = gson.fromJson(body, JsonObject.class);
+            if (resp == null) {
+                return "";
+            }
+            JsonElement ip = resp.get("ip");
+            return (ip == null || ip.isJsonNull()) ? "" : ip.getAsString();
+        } catch (JsonSyntaxException e) {
+            return "";
+        }
+    }
+
     private void post(String path, String body, SimpleCallback callback) {
-        if (baseUrl == null) {
-            callback.onResult(false, "未设置设备 IP");
+        if (!ipReady()) {
+            callback.onResult(false, MSG_NO_IP);
             return;
         }
+        enqueuePost(path, body, callback);
+    }
+
+    /** 真正发 POST 的地方：成功判定和回调上主线程只有这一份，别再复制一份给 /api/move */
+    private void enqueuePost(String path, String body, SimpleCallback callback) {
         Request request = new Request.Builder()
                 .url(baseUrl + path)
                 .post(RequestBody.create(body, JSON))
@@ -328,7 +332,7 @@ public class DeviceApi {
             @Override
             public void onResponse(okhttp3.Call call, Response response) {
                 try {
-                    String respBody = response.body() != null ? response.body().string() : "";
+                    String respBody = readBody(response);
                     boolean ok = response.isSuccessful() && !respBody.contains("\"ok\":false");
                     String msg = respBody.isEmpty() ? ("HTTP " + response.code()) : respBody;
                     mainHandler.post(() -> callback.onResult(ok, msg));

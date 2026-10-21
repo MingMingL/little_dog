@@ -28,47 +28,44 @@ constexpr int64_t kMoveTimeoutUs = 1500 * 1000;
 // 看门狗检查周期
 constexpr uint64_t kWatchdogPeriodUs = 200 * 1000;
 
+// 模式名的唯一清单：ModeToString / ModeFromString 都查这张表。
+// 以前两个函数各列一遍字符串，加模式时漏改一处就会出现"能解析进来、
+// 但状态里报成 idle"这种半同步错误。
+constexpr struct { aidog::Mode mode; const char* name; } kModeNames[] = {
+    {aidog::Mode::Idle,   "idle"},
+    {aidog::Mode::Chat,   "chat"},
+    {aidog::Mode::Patrol, "patrol"},
+    {aidog::Mode::Guard,  "guard"},
+    {aidog::Mode::Remote, "remote"},
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+    {aidog::Mode::Summon, "summon"},
+#endif
+};
+
+// 所有 POST 接口解析失败时回同一句话，别在四个 handler 里各写一遍字面量
+constexpr char kErrInvalidJson[] = "invalid json";
+
 }  // namespace
 
 namespace aidog {
 
 const char* ModeToString(Mode mode) {
-    switch (mode) {
-        case Mode::Idle:   return "idle";
-        case Mode::Chat:   return "chat";
-        case Mode::Patrol: return "patrol";
-        case Mode::Guard:  return "guard";
-        case Mode::Remote: return "remote";
-#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
-        case Mode::Summon: return "summon";
-#endif
-        default:           return "idle";
+    for (const auto& entry : kModeNames) {
+        if (entry.mode == mode) {
+            return entry.name;
+        }
     }
+    return "idle";  // 兜底：未知枚举按待机报，别把空指针写进 JSON
 }
 
 bool ModeFromString(const std::string& text, Mode& out) {
-    if (text == "idle")        { out = Mode::Idle;   return true; }
-    if (text == "chat")        { out = Mode::Chat;   return true; }
-    if (text == "patrol")      { out = Mode::Patrol; return true; }
-    if (text == "guard")       { out = Mode::Guard;  return true; }
-    if (text == "remote")      { out = Mode::Remote; return true; }
-#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
-    if (text == "summon")      { out = Mode::Summon; return true; }
-#endif
-    return false;
-}
-
-const char* MoveDirectionToString(MoveDirection dir) {
-    switch (dir) {
-        case MoveDirection::Stop:         return "stop";
-        case MoveDirection::Forward:      return "forward";
-        case MoveDirection::Backward:     return "backward";
-        case MoveDirection::Left:         return "left";
-        case MoveDirection::Right:        return "right";
-        case MoveDirection::RotateLeft:   return "rotate_left";
-        case MoveDirection::RotateRight:  return "rotate_right";
-        default:                          return "stop";
+    for (const auto& entry : kModeNames) {
+        if (text == entry.name) {
+            out = entry.mode;
+            return true;
+        }
     }
+    return false;
 }
 
 bool MoveDirectionFromString(const std::string& text, MoveDirection& out) {
@@ -91,17 +88,17 @@ ControlServer& ControlServer::GetInstance() {
 // 状态读写
 // ---------------------------------------------------------------------------
 
-Mode ControlServer::GetMode() const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    return mode_;
-}
-
-void ControlServer::SetMode(Mode mode) {
+bool ControlServer::SetMode(Mode mode) {
     ModeChangedHandler handler;
     {
         std::lock_guard<std::mutex> lock(mutex_);
         if (mode_ == mode) {
-            return;
+            return true;
+        }
+        // 闸门在持锁状态下调用：回调只读自己的状态，不会再回头调 ControlServer
+        if (mode_guard_handler_ && !mode_guard_handler_(mode)) {
+            ESP_LOGW(TAG, "模式切换被拒绝：%s（当前 %s）", ModeToString(mode), ModeToString(mode_));
+            return false;
         }
         mode_ = mode;
         moving_ = false;  // 模式切换后运动状态失效，由运动模块重新上报
@@ -114,6 +111,7 @@ void ControlServer::SetMode(Mode mode) {
     if (handler) {
         handler(mode);
     }
+    return true;
 }
 
 void ControlServer::RequestEmergencyStop() {
@@ -141,9 +139,26 @@ void ControlServer::SetBatteryPercent(int percent) {
     battery_percent_ = percent;
 }
 
+void ControlServer::SetBatteryVoltage(float volts) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    battery_volts_ = volts;
+}
+
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
 int ControlServer::GetBatteryPercent() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return battery_percent_;
+}
+
+Mode ControlServer::GetMode() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return mode_;
+}
+#endif
+
+void ControlServer::SetBatteryLevelText(const char* level) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    battery_level_ = level ? level : "unknown";
 }
 
 void ControlServer::SetCharging(bool charging) {
@@ -174,6 +189,11 @@ void ControlServer::SetEmergencyStopHandler(EmergencyStopHandler handler) {
 void ControlServer::SetMoveCommandHandler(MoveCommandHandler handler) {
     std::lock_guard<std::mutex> lock(mutex_);
     move_command_handler_ = std::move(handler);
+}
+
+void ControlServer::SetModeGuardHandler(ModeGuardHandler handler) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    mode_guard_handler_ = std::move(handler);
 }
 
 // ---------------------------------------------------------------------------
@@ -235,13 +255,8 @@ void ControlServer::WatchdogCallback(void* arg) {
     }
 
     if (handler) {
-        // 用显式构造：MoveCommand 带默认成员初始值，聚合初始化在 C++17 里虽然合法，
-        // 但显式写更直白，也不会踩编译器的警告
-        MoveCommand stop;
-        stop.direction = MoveDirection::Stop;
-        stop.speed = 0;
         ESP_LOGW(TAG, "遥控看门狗超时（%lld ms 无指令），自动停车", kMoveTimeoutUs / 1000);
-        handler(stop);
+        handler(MoveCommand{MoveDirection::Stop, 0});
     }
 }
 
@@ -301,6 +316,12 @@ static std::string ReadRequestBody(httpd_req_t* req) {
     return body;
 }
 
+/** 读 body 并解析；解析失败返回 nullptr，由调用方统一回 invalid json */
+static cJSON* ParseJsonBody(httpd_req_t* req) {
+    std::string body = ReadRequestBody(req);
+    return cJSON_Parse(body.c_str());
+}
+
 static void SendJson(httpd_req_t* req, cJSON* root) {
     httpd_resp_set_type(req, "application/json");
     char* text = cJSON_PrintUnformatted(root);
@@ -322,6 +343,14 @@ static void SendResult(httpd_req_t* req, bool ok, const char* error) {
     SendJson(req, root);
 }
 
+/** 成功且要带一个额外字段时用（切模式回 mode、配网回 ip），省得每处手搓一遍 */
+static void SendOkWith(httpd_req_t* req, const char* key, const char* value) {
+    cJSON* root = cJSON_CreateObject();
+    cJSON_AddBoolToObject(root, "ok", true);
+    cJSON_AddStringToObject(root, key, value);
+    SendJson(req, root);
+}
+
 esp_err_t ControlServer::StatusHandler(httpd_req_t* req) {
     auto& self = GetInstance();
 
@@ -329,6 +358,8 @@ esp_err_t ControlServer::StatusHandler(httpd_req_t* req) {
     bool moving;
     int battery;
     bool charging;
+    float battery_volts;
+    std::string battery_level;
     std::string fault;
     {
         std::lock_guard<std::mutex> lock(self.mutex_);
@@ -336,6 +367,8 @@ esp_err_t ControlServer::StatusHandler(httpd_req_t* req) {
         moving = self.moving_;
         battery = self.battery_percent_;
         charging = self.charging_;
+        battery_volts = self.battery_volts_;
+        battery_level = self.battery_level_;
         fault = self.fault_;
     }
 
@@ -344,6 +377,10 @@ esp_err_t ControlServer::StatusHandler(httpd_req_t* req) {
     cJSON_AddBoolToObject(root, "moving", moving);
     cJSON_AddNumberToObject(root, "battery", battery);
     cJSON_AddBoolToObject(root, "charging", charging);
+    // 电池实测电压（V）。-1 表示分压没接好、读不到。
+    // 排查"电池供电反复重启"就看这个数和 battery_level。
+    cJSON_AddNumberToObject(root, "battery_volts", static_cast<double>(battery_volts));
+    cJSON_AddStringToObject(root, "battery_level", battery_level.c_str());
 
     cJSON* wifi = cJSON_CreateObject();
     wifi_ap_record_t ap_info;
@@ -363,7 +400,7 @@ esp_err_t ControlServer::StatusHandler(httpd_req_t* req) {
 
 #ifdef CONFIG_AI_DOG_ENABLE_SUMMON
     // ---- summon 字段（SW-203 / 方案 §5.4）：阶段/角度/能量/测距/视觉 ----
-    if (mode == Mode::Summon || aidog::AiDogSummon::GetInstance().IsActive()) {
+    if (mode == aidog::Mode::Summon || aidog::AiDogSummon::GetInstance().IsActive()) {
         auto st = aidog::AiDogSummon::GetInstance().GetStatus();
         cJSON* summon = cJSON_CreateObject();
         cJSON_AddStringToObject(summon, "phase", aidog::AiDogSummon::PhaseToString(st.phase));
@@ -385,11 +422,9 @@ esp_err_t ControlServer::StatusHandler(httpd_req_t* req) {
 }
 
 esp_err_t ControlServer::ModeHandler(httpd_req_t* req) {
-    std::string body = ReadRequestBody(req);
-
-    cJSON* root = cJSON_Parse(body.c_str());
+    cJSON* root = ParseJsonBody(req);
     if (root == nullptr) {
-        SendResult(req, false, "invalid json");
+        SendResult(req, false, kErrInvalidJson);
         return ESP_OK;
     }
     cJSON* mode_item = cJSON_GetObjectItem(root, "mode");
@@ -408,34 +443,26 @@ esp_err_t ControlServer::ModeHandler(httpd_req_t* req) {
 
 #ifdef CONFIG_AI_DOG_ENABLE_SUMMON
     // SW-203 抢占规则：Summon 进行中拒绝一切普通模式切换（急停 /api/stop 除外）；
-    // summon 模式本身只能由"唤醒词 + 口令验证通过"进入，App 不能直接切。
-    auto& self = GetInstance();
-    const Mode current = self.GetMode();
-    if (current == Mode::Summon && mode != Mode::Summon) {
-        ESP_LOGW(TAG, "召唤进行中，拒绝模式切换 %s -> %s（急停除外）",
-                 ModeToString(current), ModeToString(mode));
-        SendResult(req, false, "summon in progress");
-        return ESP_OK;
-    }
-    if (current != Mode::Summon && mode == Mode::Summon) {
+    // summon 只能由"唤醒词 + 口令验证通过"进入，App 抢不了这个入口。
+    const bool summon_active = aidog::AiDogSummon::GetInstance().IsActive();
+    if (mode == aidog::Mode::Summon) {
         ESP_LOGW(TAG, "召唤模式只能由唤醒词+口令进入，拒绝 App 直接切换");
         SendResult(req, false, "summon requires wake word + passphrase");
         return ESP_OK;
     }
+    if (summon_active) {
+        ESP_LOGW(TAG, "召唤进行中，拒绝模式切换 -> %s（急停除外）", ModeToString(mode));
+        SendResult(req, false, "summon in progress");
+        return ESP_OK;
+    }
 #endif
 
-    GetInstance().SetMode(mode);
+    if (!GetInstance().SetMode(mode)) {
+        SendResult(req, false, "mode change rejected (see fault / battery_level)");
+        return ESP_OK;
+    }
 
-    cJSON* resp = cJSON_CreateObject();
-    cJSON_AddBoolToObject(resp, "ok", true);
-    cJSON_AddStringToObject(resp, "mode", ModeToString(mode));
-    SendJson(req, resp);
-    return ESP_OK;
-}
-
-esp_err_t ControlServer::StopHandler(httpd_req_t* req) {
-    GetInstance().RequestEmergencyStop();
-    SendResult(req, true, nullptr);
+    SendOkWith(req, "mode", ModeToString(mode));
     return ESP_OK;
 }
 
@@ -446,27 +473,23 @@ esp_err_t ControlServer::StopHandler(httpd_req_t* req) {
 // 编译期 AI_DOG_VISION_ENABLE=n（或摄像头没接）时 available=false，只能关不能开。
 esp_err_t ControlServer::SummonVisionHandler(httpd_req_t* req) {
     if (req->method == HTTP_GET) {
+        cJSON* root = cJSON_CreateObject();
+        cJSON_AddBoolToObject(root, "ok", true);
 #ifdef CONFIG_AI_DOG_VISION_ENABLE
         auto& vision = aidog::AiDogVision::GetInstance();
-        cJSON* root = cJSON_CreateObject();
-        cJSON_AddBoolToObject(root, "ok", true);
         cJSON_AddBoolToObject(root, "available", vision.IsEnabled());
         cJSON_AddBoolToObject(root, "enabled", vision.IsRuntimeEnabled());
-        SendJson(req, root);
 #else
-        cJSON* root = cJSON_CreateObject();
-        cJSON_AddBoolToObject(root, "ok", true);
         cJSON_AddBoolToObject(root, "available", false);
         cJSON_AddBoolToObject(root, "enabled", false);
-        SendJson(req, root);
 #endif
+        SendJson(req, root);
         return ESP_OK;
     }
 
-    std::string body = ReadRequestBody(req);
-    cJSON* root = cJSON_Parse(body.c_str());
+    cJSON* root = ParseJsonBody(req);
     if (root == nullptr) {
-        SendResult(req, false, "invalid json");
+        SendResult(req, false, kErrInvalidJson);
         return ESP_OK;
     }
     cJSON* item = cJSON_GetObjectItem(root, "enabled");
@@ -490,12 +513,16 @@ esp_err_t ControlServer::SummonVisionHandler(httpd_req_t* req) {
 }
 #endif  // CONFIG_AI_DOG_ENABLE_SUMMON
 
-esp_err_t ControlServer::MoveHandler(httpd_req_t* req) {
-    std::string body = ReadRequestBody(req);
+esp_err_t ControlServer::StopHandler(httpd_req_t* req) {
+    GetInstance().RequestEmergencyStop();
+    SendResult(req, true, nullptr);
+    return ESP_OK;
+}
 
-    cJSON* root = cJSON_Parse(body.c_str());
+esp_err_t ControlServer::MoveHandler(httpd_req_t* req) {
+    cJSON* root = ParseJsonBody(req);
     if (root == nullptr) {
-        SendResult(req, false, "invalid json");
+        SendResult(req, false, kErrInvalidJson);
         return ESP_OK;
     }
     cJSON* dir_item = cJSON_GetObjectItem(root, "dir");
@@ -525,11 +552,9 @@ esp_err_t ControlServer::MoveHandler(httpd_req_t* req) {
 }
 
 esp_err_t ControlServer::WifiHandler(httpd_req_t* req) {
-    std::string body = ReadRequestBody(req);
-
-    cJSON* root = cJSON_Parse(body.c_str());
+    cJSON* root = ParseJsonBody(req);
     if (root == nullptr) {
-        SendResult(req, false, "invalid json");
+        SendResult(req, false, kErrInvalidJson);
         return ESP_OK;
     }
     cJSON* ssid_item = cJSON_GetObjectItem(root, "ssid");
@@ -554,17 +579,14 @@ esp_err_t ControlServer::WifiHandler(httpd_req_t* req) {
     WifiManager::GetInstance().StartStation();
 
     // IP 要等连接成功才有，这里先返回空串，App 会按"已下发"处理
-    cJSON* resp = cJSON_CreateObject();
-    cJSON_AddBoolToObject(resp, "ok", true);
-    cJSON_AddStringToObject(resp, "ip", "");
-    SendJson(req, resp);
+    SendOkWith(req, "ip", "");
     return ESP_OK;
 }
 
 void ControlServer::Start() {
-    bool started = false;
     {
-        // httpd 的启停和 server_ 的读写都在这把锁里，Stop() 同样持锁，不会打架
+        // httpd 的启停和 server_ 的读写都在这把锁里，Stop() 同样持锁，不会打架。
+        // 走到函数末尾就代表启动成功：失败的两条路（已在运行 / httpd_start 失败）都直接 return。
         std::lock_guard<std::mutex> lock(mutex_);
         if (server_ != nullptr) {
             return;
@@ -581,66 +603,24 @@ void ControlServer::Start() {
             return;
         }
 
-        httpd_uri_t status_uri = {
-            .uri = "/api/status",
-            .method = HTTP_GET,
-            .handler = StatusHandler,
-            .user_ctx = nullptr
-        };
+        // 路由表：五个接口除了 uri/method/handler 其它字段都一样，
+        // 摊平成一张表循环注册，加接口时只改这一处。
+        const httpd_uri_t routes[] = {
+            {.uri = "/api/status", .method = HTTP_GET,  .handler = StatusHandler, .user_ctx = nullptr},
+            {.uri = "/api/mode",   .method = HTTP_POST, .handler = ModeHandler,   .user_ctx = nullptr},
+            {.uri = "/api/stop",   .method = HTTP_POST, .handler = StopHandler,   .user_ctx = nullptr},
+            {.uri = "/api/move",   .method = HTTP_POST, .handler = MoveHandler,   .user_ctx = nullptr},
+            {.uri = "/api/wifi",   .method = HTTP_POST, .handler = WifiHandler,   .user_ctx = nullptr},
 #ifdef CONFIG_AI_DOG_ENABLE_SUMMON
-        httpd_uri_t summon_vision_get_uri = {
-            .uri = "/api/summon/vision",
-            .method = HTTP_GET,
-            .handler = SummonVisionHandler,
-            .user_ctx = nullptr
-        };
-        httpd_uri_t summon_vision_post_uri = {
-            .uri = "/api/summon/vision",
-            .method = HTTP_POST,
-            .handler = SummonVisionHandler,
-            .user_ctx = nullptr
-        };
+            {.uri = "/api/summon/vision", .method = HTTP_GET,  .handler = SummonVisionHandler, .user_ctx = nullptr},
+            {.uri = "/api/summon/vision", .method = HTTP_POST, .handler = SummonVisionHandler, .user_ctx = nullptr},
 #endif
-        httpd_uri_t mode_uri = {
-            .uri = "/api/mode",
-            .method = HTTP_POST,
-            .handler = ModeHandler,
-            .user_ctx = nullptr
         };
-        httpd_uri_t stop_uri = {
-            .uri = "/api/stop",
-            .method = HTTP_POST,
-            .handler = StopHandler,
-            .user_ctx = nullptr
-        };
-        httpd_uri_t move_uri = {
-            .uri = "/api/move",
-            .method = HTTP_POST,
-            .handler = MoveHandler,
-            .user_ctx = nullptr
-        };
-        httpd_uri_t wifi_uri = {
-            .uri = "/api/wifi",
-            .method = HTTP_POST,
-            .handler = WifiHandler,
-            .user_ctx = nullptr
-        };
-
-        httpd_register_uri_handler(server_, &status_uri);
-        httpd_register_uri_handler(server_, &mode_uri);
-        httpd_register_uri_handler(server_, &stop_uri);
-        httpd_register_uri_handler(server_, &move_uri);
-        httpd_register_uri_handler(server_, &wifi_uri);
-#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
-        httpd_register_uri_handler(server_, &summon_vision_get_uri);
-        httpd_register_uri_handler(server_, &summon_vision_post_uri);
-#endif
-        started = true;
+        for (const httpd_uri_t& route : routes) {
+            httpd_register_uri_handler(server_, &route);
+        }
     }
 
-    if (!started) {
-        return;
-    }
     ESP_LOGI(TAG, "局域网控制服务已启动：http://<ip>/api/status");
 
     // 看门狗必须在锁外启动：它内部还要拿同一把 mutex_，std::mutex 不可重入

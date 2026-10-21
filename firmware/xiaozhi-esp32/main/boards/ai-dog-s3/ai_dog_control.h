@@ -9,14 +9,12 @@
 #include <esp_err.h>
 #include <esp_http_server.h>
 #include <esp_timer.h>
-#include <sdkconfig.h>
 
 namespace aidog {
 
 /**
  * 机器狗工作模式。
  * 与 Android 端约定的字符串：idle / chat / patrol / guard / remote
- * （V1.5 起增加 summon，见下；开关 OFF 时与 V1 完全一致）
  */
 enum class Mode {
     Idle,     // 待机：电机停止
@@ -46,7 +44,8 @@ enum class MoveDirection {
     RotateRight,  // 原地右转
 };
 
-const char* MoveDirectionToString(MoveDirection dir);
+// 方向只需要"字符串 -> 枚举"这一向：设备收 App 的指令才需要解析，
+// 反序列化方向（枚举 -> 字符串）没有任何调用方，别留死代码。
 bool MoveDirectionFromString(const std::string& text, MoveDirection& out);
 
 /** 一条遥控指令：方向 + 速度百分比（0..100） */
@@ -64,6 +63,9 @@ struct MoveCommand {
  *   POST /api/stop     急停（最高优先级）
  *   POST /api/move     遥控运动指令（只在 remote 模式生效）
  *   POST /api/wifi     配网
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+ *   GET/POST /api/summon/vision  召唤摄像头确认开关（V1.5）
+#endif
  *
  * 说明：
  * - 本模块只负责"收指令 + 报状态"，不直接驱动电机；
@@ -85,16 +87,28 @@ public:
     void Start();
     /** 停止 HTTP 服务（进入配网热点模式前必须调用） */
     void Stop();
-    bool IsRunning() const { return server_ != nullptr; }
 
     // ---- 状态（线程安全） ----
-    Mode GetMode() const;
-    void SetMode(Mode mode);
+    /**
+     * 切换模式。返回 false 表示被 mode_guard_handler_ 拒绝（例如电量太低不让进巡逻）。
+     * 调用方应给 App 回 ok:false + 原因。
+     */
+    bool SetMode(Mode mode);
     /** 急停：立即回到 Idle 并触发停止回调 */
     void RequestEmergencyStop();
     void SetMoving(bool moving);
     void SetBatteryPercent(int percent);   // -1 表示无采样
-    int GetBatteryPercent() const;         // SW-204 低压预检用
+    void SetBatteryVoltage(float volts);   // -1 表示读不到
+    void SetBatteryLevelText(const char* level);  // normal/warn/restrict/cutoff/unknown
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+    /** 读取电量百分比（-1 无采样）。召唤进入前的低压预检用。 */
+    int GetBatteryPercent() const;
+    /**
+     * 读取当前模式。召唤状态机用它判断是否被其他模式抢占
+     * （“被抢就停”，不自动恢复原模式）。
+     */
+    Mode GetMode() const;
+#endif
     void SetCharging(bool charging);
     void SetFault(const std::string& fault);
     void ClearFault();
@@ -110,9 +124,16 @@ public:
     using ModeChangedHandler = std::function<void(Mode)>;
     using EmergencyStopHandler = std::function<void()>;
     using MoveCommandHandler = std::function<void(const MoveCommand&)>;
+    /**
+     * 模式切换闸门：返回 false 就不让切（并保持原模式）。
+     * 电池监测用它实现"电量太低，拒绝进巡逻/看门/遥控"。
+     * 注意：急停和掉电自停走的是另一条路，不受这个闸门影响。
+     */
+    using ModeGuardHandler = std::function<bool(Mode)>;
     void SetModeChangedHandler(ModeChangedHandler handler);
     void SetEmergencyStopHandler(EmergencyStopHandler handler);
     void SetMoveCommandHandler(MoveCommandHandler handler);
+    void SetModeGuardHandler(ModeGuardHandler handler);
 
 private:
     ControlServer() = default;
@@ -131,6 +152,8 @@ private:
     Mode mode_ = Mode::Idle;
     bool moving_ = false;
     int battery_percent_ = -1;
+    float battery_volts_ = -1.0f;
+    std::string battery_level_ = "unknown";
     bool charging_ = false;
     std::string fault_;
 
@@ -141,6 +164,7 @@ private:
     ModeChangedHandler mode_changed_handler_;
     EmergencyStopHandler stop_handler_;
     MoveCommandHandler move_command_handler_;
+    ModeGuardHandler mode_guard_handler_;
 
     // httpd 回调（静态，转发到单例）
     static esp_err_t StatusHandler(httpd_req_t* req);
@@ -149,6 +173,7 @@ private:
     static esp_err_t MoveHandler(httpd_req_t* req);
     static esp_err_t WifiHandler(httpd_req_t* req);
 #ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+    /** GET/POST /api/summon/vision：召唤摄像头确认开关（App 侧） */
     static esp_err_t SummonVisionHandler(httpd_req_t* req);
 #endif
 };

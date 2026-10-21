@@ -1,7 +1,6 @@
 package com.aidog.control;
 
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -22,7 +21,9 @@ import com.google.android.material.button.MaterialButton;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * 主控界面：状态面板 + 模式切换 + 急停。
@@ -30,12 +31,9 @@ import java.util.Locale;
  */
 public class MainActivity extends AppCompatActivity {
 
-    private static final String PREFS = "ai_dog";
-    private static final String KEY_IP = "device_ip";
-
     private ActivityMainBinding binding;
     private DeviceApi api;
-    private SharedPreferences prefs;
+    private Prefs prefs;
 
     private String currentMode = "idle";
 
@@ -43,13 +41,16 @@ public class MainActivity extends AppCompatActivity {
     private boolean visionAvailable = false;
     private boolean visionEnabled = false;
 
+    /** 模式名 -> 按钮。既用来打 tag 分发点击，也用来高亮，避免两处各列一遍按钮 */
+    private final Map<String, MaterialButton> modeButtons = new LinkedHashMap<>();
+
     // ---- 遥控状态 ----
     /** 重复发送间隔：10Hz。设备端看门狗是 1.5s，正常网络下绝不超时 */
     private static final long MOVE_REPEAT_MS = 100L;
     private final Handler moveHandler = new Handler(Looper.getMainLooper());
     private Runnable moveRepeat;
     private String holdingDir = null;   // 当前按住的方向，null 表示没在按
-    private int currentSpeed = 60;
+    private int currentSpeed;           // 初值直接取自 SeekBar，避免"默认值"在三处各写一遍
 
     /**
      * 设置页返回回调。
@@ -64,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
     private final ActivityResultLauncher<Intent> setupLauncher =
             registerForActivityResult(new ActivityResultContracts.StartActivityForResult(),
                     result -> {
-                        if (prefs.getString(KEY_IP, "").isEmpty()) {
+                        if (!prefs.hasDeviceIp()) {
                             finish();
                         }
                     });
@@ -75,7 +76,7 @@ public class MainActivity extends AppCompatActivity {
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
+        prefs = new Prefs(this);
         api = new DeviceApi();
 
         setupModeButtons();
@@ -84,7 +85,7 @@ public class MainActivity extends AppCompatActivity {
         setupSummon();
 
         // 只在首次创建时引导一次，交给 launcher 收结果；onResume 不再重复拉起
-        if (prefs.getString(KEY_IP, "").isEmpty()) {
+        if (!prefs.hasDeviceIp()) {
             setupLauncher.launch(new Intent(this, SetupActivity.class));
         }
     }
@@ -92,7 +93,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        String ip = prefs.getString(KEY_IP, "");
+        String ip = prefs.getDeviceIp();
         if (ip.isEmpty()) {
             // 没配置 IP：不再自动拉起设置页（否则返回手势会被死循环吃掉），
             // 只显示未配置状态，退出动作交给系统返回键 / 侧滑手势
@@ -100,8 +101,8 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         api.setDeviceIp(ip);
-        binding.textDeviceIp.setText("设备：" + ip);
-        refreshSummonVision();
+        binding.textDeviceIp.setText(getString(R.string.device_ip_value, ip));
+        refreshSummonVision();   // 必须在 setDeviceIp 之后：否则查不到会误判摄像头不可用
         startListening();
     }
 
@@ -115,84 +116,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setupModeButtons() {
+        modeButtons.put("idle", binding.buttonModeIdle);
+        modeButtons.put("chat", binding.buttonModeChat);
+        modeButtons.put("patrol", binding.buttonModePatrol);
+        modeButtons.put("guard", binding.buttonModeGuard);
+        modeButtons.put("remote", binding.buttonModeRemote);
+
         View.OnClickListener modeClick = v -> {
             String mode = (String) v.getTag();
             if (mode == null || mode.equals(currentMode)) return;
             setMode(mode);
         };
-
-        binding.buttonModeIdle.setTag("idle");
-        binding.buttonModeChat.setTag("chat");
-        binding.buttonModePatrol.setTag("patrol");
-        binding.buttonModeGuard.setTag("guard");
-        binding.buttonModeRemote.setTag("remote");
-
-        binding.buttonModeIdle.setOnClickListener(modeClick);
-        binding.buttonModeChat.setOnClickListener(modeClick);
-        binding.buttonModePatrol.setOnClickListener(modeClick);
-        binding.buttonModeGuard.setOnClickListener(modeClick);
-        binding.buttonModeRemote.setOnClickListener(modeClick);
-    }
-
-    // ------------------------------------------------------------------
-    // V1.5 召唤（SW-401）：状态页 / 口令向导 / 摄像头开关
-    // ------------------------------------------------------------------
-
-    private void setupSummon() {
-        binding.buttonSummonGuide.setOnClickListener(v ->
-                startActivity(new Intent(this, SummonGuideActivity.class)));
-
-        binding.buttonSummonVision.setOnClickListener(v -> toggleSummonVision());
-    }
-
-    /**
-     * 同步召唤摄像头开关状态。必须在 setDeviceIp 之后调用（onCreate 时还没 IP，
-     * 查不到会误判成"摄像头不可用"）。
-     */
-    private void refreshSummonVision() {
-        api.getSummonVision((ok, message) -> {
-            if (ok) {
-                try {
-                    JSONObject resp = new JSONObject(message);
-                    visionAvailable = resp.optBoolean("available", false);
-                    visionEnabled = resp.optBoolean("enabled", visionAvailable);
-                } catch (JSONException ignored) {
-                    // 老设备没有这个端点：按不可用处理
-                    visionAvailable = false;
-                    visionEnabled = false;
-                }
-            } else {
-                visionAvailable = false;
-                visionEnabled = false;
-            }
-            updateVisionButton();
-        });
-    }
-
-    private void toggleSummonVision() {
-        if (!visionAvailable) {
-            Toast.makeText(this, R.string.msg_vision_unavailable, Toast.LENGTH_SHORT).show();
-            return;
+        for (Map.Entry<String, MaterialButton> entry : modeButtons.entrySet()) {
+            entry.getValue().setTag(entry.getKey());
+            entry.getValue().setOnClickListener(modeClick);
         }
-        boolean target = !visionEnabled;
-        api.setSummonVision(target, (ok, message) -> {
-            if (ok) {
-                visionEnabled = target;
-                Toast.makeText(this, target ? R.string.msg_vision_on : R.string.msg_vision_off,
-                        Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "摄像头开关失败：" + message, Toast.LENGTH_SHORT).show();
-            }
-            updateVisionButton();
-        });
-    }
-
-    private void updateVisionButton() {
-        if (!visionAvailable) {
-            binding.buttonSummonVision.setText(R.string.msg_vision_unavailable);
-            return;
-        }
-        binding.buttonSummonVision.setText(visionEnabled ? "摄像头确认：开" : "摄像头确认：关");
     }
 
     // ------------------------------------------------------------------
@@ -200,6 +138,11 @@ public class MainActivity extends AppCompatActivity {
     // ------------------------------------------------------------------
 
     private void setupRemote() {
+        // 默认速度只有一处定义：布局里 SeekBar 的 android:progress。
+        // 这里读回来，省掉"Java 常量 + 布局初值 + 文案初值"三处各写一个 60 的老问题。
+        currentSpeed = binding.seekSpeed.getProgress();
+        updateSpeedLabel();
+
         bindDirButton(binding.buttonForward, "forward");
         bindDirButton(binding.buttonBackward, "backward");
         bindDirButton(binding.buttonTurnLeft, "left");
@@ -211,7 +154,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 currentSpeed = progress;
-                binding.textSpeed.setText(progress + "%");
+                updateSpeedLabel();
             }
 
             @Override
@@ -289,7 +232,8 @@ public class MainActivity extends AppCompatActivity {
         api.move("stop", 0, (ok, message) -> {
             // stop 失败也不用弹窗打扰：设备端看门狗 1.5s 后会自己停
             if (!ok) {
-                Toast.makeText(this, "停车失败：" + message, Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.msg_stop_failed, message),
+                        Toast.LENGTH_SHORT).show();
             }
         });
     }
@@ -303,6 +247,10 @@ public class MainActivity extends AppCompatActivity {
         holdingDir = null;
     }
 
+    private void updateSpeedLabel() {
+        binding.textSpeed.setText(getString(R.string.speed_value, currentSpeed));
+    }
+
     /** 根据当前模式刷新遥控区提示：非遥控模式要明确告诉用户方向键为什么按不动 */
     private void updateRemoteHint() {
         boolean remote = "remote".equals(currentMode);
@@ -313,11 +261,12 @@ public class MainActivity extends AppCompatActivity {
         binding.buttonStop.setOnClickListener(v -> {
             cancelMoveRepeat();   // 急停最高优先级，先把本地的重复发送掐掉
             api.emergencyStop((ok, message) -> {
-                Toast.makeText(this, ok ? "已急停" : ("急停失败：" + message), Toast.LENGTH_SHORT).show();
+                Toast.makeText(this,
+                        ok ? getString(R.string.msg_estop_ok)
+                           : getString(R.string.msg_estop_failed, message),
+                        Toast.LENGTH_SHORT).show();
                 if (ok) {
-                    currentMode = "idle";
-                    highlightMode(currentMode);
-                    updateRemoteHint();
+                    applyMode("idle");
                 }
             });
         });
@@ -348,75 +297,126 @@ public class MainActivity extends AppCompatActivity {
                 if (!"remote".equals(mode)) {
                     cancelMoveRepeat();
                 }
-                currentMode = mode;
-                highlightMode(mode);
-                updateRemoteHint();
-                Toast.makeText(this, "已切换到" + modeLabel(mode), Toast.LENGTH_SHORT).show();
+                applyMode(mode);
+                Toast.makeText(this, getString(R.string.msg_mode_switched, DeviceStatus.modeLabel(this, mode)),
+                        Toast.LENGTH_SHORT).show();
+            } else if (message != null && message.contains("summon in progress")) {
+                // 召唤进行中设备端拒绝切模式（SW-203）：明确提示，别让用户以为按钮坏了
+                Toast.makeText(this, R.string.msg_summon_mode_rejected, Toast.LENGTH_SHORT).show();
             } else {
-                // 召唤进行中设备会拒绝普通模式切换（SW-203）：明确提示，别让用户以为按钮坏了
-                if (message != null && message.contains("summon in progress")) {
-                    Toast.makeText(this, R.string.msg_summon_mode_rejected, Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(this, "切换失败：" + message, Toast.LENGTH_SHORT).show();
-                }
+                Toast.makeText(this, getString(R.string.msg_mode_failed, message),
+                        Toast.LENGTH_SHORT).show();
             }
         });
     }
 
-    private void renderStatus(DeviceStatus status) {
-        binding.textConnection.setText(R.string.status_online);
-        binding.textConnection.setTextColor(getColor(R.color.status_online));
+    // ------------------------------------------------------------------
+    // V1.5 召唤（SW-401）：状态页 / 口令向导 / 摄像头开关
+    // ------------------------------------------------------------------
 
-        binding.textMode.setText(status.modeLabel());
-        binding.textBattery.setText(status.batteryLabel());
-        binding.textWifi.setText(status.wifiLabel());
-        binding.textFault.setText(status.faultLabel());
+    private void setupSummon() {
+        binding.buttonSummonGuide.setOnClickListener(v ->
+                startActivity(new Intent(this, SummonGuideActivity.class)));
 
-        currentMode = status.mode;
-        highlightMode(status.mode);
-        updateRemoteHint();
-        renderSummon(status);
+        binding.buttonSummonVision.setOnClickListener(v -> toggleSummonVision());
     }
 
     /**
-     * V1.5 召唤状态页（SW-401）：召唤进行中显示阶段/方向/能量条/测距/视觉，
+     * 同步召唤摄像头开关状态。必须在 setDeviceIp 之后调用（onCreate 时还没 IP，
+     * 查不到会误判成"摄像头不可用"）。
+     */
+    private void refreshSummonVision() {
+        api.getSummonVision((ok, message) -> {
+            if (ok) {
+                try {
+                    JSONObject resp = new JSONObject(message);
+                    visionAvailable = resp.optBoolean("available", false);
+                    visionEnabled = resp.optBoolean("enabled", visionAvailable);
+                } catch (JSONException ignored) {
+                    // 老设备没这个端点：按不可用处理
+                    visionAvailable = false;
+                    visionEnabled = false;
+                }
+            } else {
+                visionAvailable = false;
+                visionEnabled = false;
+            }
+            updateVisionButton();
+        });
+    }
+
+    private void toggleSummonVision() {
+        if (!visionAvailable) {
+            Toast.makeText(this, R.string.msg_vision_unavailable, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        boolean target = !visionEnabled;
+        api.setSummonVision(target, (ok, message) -> {
+            if (ok) {
+                visionEnabled = target;
+                Toast.makeText(this, target ? R.string.msg_vision_on : R.string.msg_vision_off,
+                        Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, getString(R.string.msg_vision_failed, message),
+                        Toast.LENGTH_SHORT).show();
+            }
+            updateVisionButton();
+        });
+    }
+
+    private void updateVisionButton() {
+        if (!visionAvailable) {
+            binding.buttonSummonVision.setText(R.string.msg_vision_unavailable);
+            return;
+        }
+        binding.buttonSummonVision.setText(visionEnabled
+                ? R.string.summon_vision_switch_on : R.string.summon_vision_switch_off);
+    }
+
+    /**
+     * 召唤状态页：召唤进行中显示阶段/方向/能量条/测距/视觉/用时，
      * 同时把模式按钮置灰（设备端也会拒绝，这里是双保险 + 明确视觉反馈）。
      */
     private void renderSummon(DeviceStatus status) {
         final boolean summoning = status.isSummoning();
         binding.cardSummon.setVisibility(summoning ? View.VISIBLE : View.GONE);
-
-        // 模式按钮置灰（急停按钮不动，始终可点）
         setModeButtonsEnabled(!summoning);
 
         if (!summoning || status.summon == null) {
             return;
         }
         DeviceStatus.SummonInfo s = status.summon;
-        binding.textSummonPhase.setText(s.phaseLabel());
+        binding.textSummonPhase.setText(s.phaseLabel(this));
         binding.textSummonDoa.setText(String.format(Locale.US, "%.0f°", s.doaDeg));
         binding.textSummonEnergy.setText(String.format(Locale.US, "%.1f dB", s.energyDb));
         binding.progressSummonEnergy.setProgress(s.energyPercent());
-        binding.textSummonDistance.setText(s.distanceLabel());
-        binding.textSummonVision.setText(s.visionLabel());
+        binding.textSummonDistance.setText(s.distanceLabel(this));
+        binding.textSummonVision.setText(s.visionLabel(this));
         binding.textSummonElapsed.setText(s.elapsedMs / 1000 + "s");
         binding.textSummonMessage.setText(
-                (s.message == null || s.message.isEmpty()) ? getString(R.string.msg_summoning)
-                        : s.message);
+                (s.message == null || s.message.isEmpty())
+                        ? getString(R.string.msg_summoning) : s.message);
     }
 
     private void setModeButtonsEnabled(boolean enabled) {
-        binding.buttonModeIdle.setEnabled(enabled);
-        binding.buttonModeChat.setEnabled(enabled);
-        binding.buttonModePatrol.setEnabled(enabled);
-        binding.buttonModeGuard.setEnabled(enabled);
-        binding.buttonModeRemote.setEnabled(enabled);
         float alpha = enabled ? 1.0f : 0.4f;
-        binding.buttonModeIdle.setAlpha(alpha);
-        binding.buttonModeChat.setAlpha(alpha);
-        binding.buttonModePatrol.setAlpha(alpha);
-        binding.buttonModeGuard.setAlpha(alpha);
-        binding.buttonModeRemote.setAlpha(alpha);
+        for (MaterialButton button : modeButtons.values()) {
+            button.setEnabled(enabled);
+            button.setAlpha(alpha);
+        }
+    }
+
+    private void renderStatus(DeviceStatus status) {
+        binding.textConnection.setText(R.string.status_online);
+        binding.textConnection.setTextColor(getColor(R.color.status_online));
+
+        binding.textMode.setText(status.modeLabel(this));
+        binding.textBattery.setText(status.batteryLabel(this));
+        binding.textWifi.setText(status.wifiLabel(this));
+        binding.textFault.setText(status.faultLabel(this));
+
+        applyMode(status.mode);
+        renderSummon(status);
     }
 
     private void renderOffline(String message) {
@@ -428,41 +428,32 @@ public class MainActivity extends AppCompatActivity {
         binding.textFault.setText(message);
     }
 
+    /**
+     * 模式变更的唯一收口：记状态 + 高亮按钮 + 刷新遥控提示。
+     * 切模式、状态推送、急停成功后都要做这三件事，以前三处各写一遍，
+     * 漏掉 updateRemoteHint 就会出现"已经是遥控模式但提示还说不可用"。
+     */
+    private void applyMode(String mode) {
+        currentMode = mode;
+        highlightMode(mode);
+        updateRemoteHint();
+    }
+
     /** 高亮当前模式按钮 */
     private void highlightMode(String mode) {
-        resetButton(binding.buttonModeIdle);
-        resetButton(binding.buttonModeChat);
-        resetButton(binding.buttonModePatrol);
-        resetButton(binding.buttonModeGuard);
-        resetButton(binding.buttonModeRemote);
-
-        MaterialButton target = null;
-        if ("idle".equals(mode)) target = binding.buttonModeIdle;
-        else if ("chat".equals(mode)) target = binding.buttonModeChat;
-        else if ("patrol".equals(mode)) target = binding.buttonModePatrol;
-        else if ("guard".equals(mode)) target = binding.buttonModeGuard;
-        else if ("remote".equals(mode)) target = binding.buttonModeRemote;
-
+        for (MaterialButton button : modeButtons.values()) {
+            resetButton(button);
+        }
+        // 文字颜色不用再设一遍：resetButton 已经把所有按钮刷成白色，
+        // 高亮只是换背景色，重复设同一个值是纯冗余。
+        MaterialButton target = modeButtons.get(mode);
         if (target != null) {
             target.setBackgroundColor(getColor(R.color.primary));
-            target.setTextColor(getColor(android.R.color.white));
         }
     }
 
     private void resetButton(MaterialButton button) {
         button.setBackgroundColor(getColor(android.R.color.darker_gray));
         button.setTextColor(getColor(android.R.color.white));
-    }
-
-    private String modeLabel(String mode) {
-        switch (mode) {
-            case "idle":   return "待机";
-            case "chat":   return "聊天";
-            case "patrol": return "巡逻";
-            case "guard":  return "看门";
-            case "remote": return "遥控";
-            case "summon": return "召唤";
-            default:       return mode;
-        }
     }
 }

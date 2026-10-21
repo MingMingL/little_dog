@@ -1,16 +1,13 @@
 #include "ai_dog_motor.h"
 
 #include <esp_log.h>
+#include <esp_timer.h>
 #include <driver/gpio.h>
 #include <driver/ledc.h>
 
 #include "config.h"
 
 #include <algorithm>
-
-#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
-#include <esp_timer.h>
-#endif
 
 #define TAG "AiDogMotor"
 
@@ -166,16 +163,13 @@ void MotorDriver::Stop() {
     ApplyOne(false, 0);
 }
 
-void MotorDriver::GetSpeeds(int& left, int& right) const {
-    std::lock_guard<std::mutex> lock(mutex_);
-    left = last_left_;
-    right = last_right_;
-}
 
 #ifdef CONFIG_AI_DOG_ENABLE_SUMMON
-// ---------------------------------------------------------------------------
-// Summon 寻声专用（SW-205）
-// ---------------------------------------------------------------------------
+// ---- Summon 寻声专用（SW-205）----
+//
+// 召唤链路只用两种动作：双轮同速的"低速巡航"和原地差速的"点动纠偏"。
+// 遥控走 SetSpeeds()，两条路互不干扰；点动用一次性定时器兜底停车，
+// 调用方卡住也不会让狗一直原地转圈。
 
 void MotorDriver::CruiseForward(int duty_percent) {
     std::lock_guard<std::mutex> lock(mutex_);

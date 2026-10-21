@@ -10,8 +10,7 @@
 #   .\build-ai-dog.ps1 -Action menuconfig           # Kconfig menu
 #   .\build-ai-dog.ps1 -Action fullclean            # clean build dir
 #   .\build-ai-dog.ps1 -Action reconfigure          # re-run cmake configure
-#   .\build-ai-dog.ps1 -Action build-summon          # build with V1.5 summon ON
-#   .\build-ai-dog.ps1 -Action flash-summon -Port COM3
+#   .\build-ai-dog.ps1 -Jobs 4                      # build with 4 ninja jobs
 #
 # IMPORTANT: run reconfigure after ADDING a new source file under
 #   main/boards/ai-dog-s3/
@@ -23,7 +22,8 @@
 param(
     [ValidateSet("build", "build-summon", "flash", "flash-summon", "monitor", "menuconfig", "fullclean", "reconfigure")]
     [string]$Action = "build",
-    [string]$Port = "COM3"
+    [string]$Port = "COM3",
+    [int]$Jobs = 2
 )
 
 $ErrorActionPreference = "Stop"
@@ -33,9 +33,6 @@ $ErrorActionPreference = "Stop"
 # NativeCommandError and kills this script mid-configure, which looks like a
 # build failure even though configure just succeeded. Check every invocation's
 # exit code immediately so a failed set-target cannot be masked by build.
-# NOTE: keep the comment block above as ASCII only (same reason as the file
-# header) - PS 5.1 reads .ps1 without BOM as GBK, so UTF-8 Chinese comments
-# get mis-decoded into stray quotes/braces and break the parser entirely.
 function Invoke-Idf {
     param(
         [Parameter(ValueFromRemainingArguments = $true)]
@@ -84,27 +81,58 @@ $env:IDF_COMPONENT_CACHE_PATH = Join-Path $PSScriptRoot ".idf-component-cache"
 $env:CODEBUDDY_SAFE_DELETE_ENABLED = "0"
 
 # Keep compiler scratch files inside the workspace. The toolchain writes to
-# %TEMP% and the ccache dir (both outside the project), which get denied when
-# the sandbox turns them away mid-build; local dirs avoid that entirely.
+# %TEMP% (outside the project), which gets denied when the sandbox turns it
+# away mid-build; a local dir avoids that entirely.
 $BuildTmp = Join-Path $PSScriptRoot ".build-tmp"
-$BuildCache = Join-Path $PSScriptRoot ".ccache"
-New-Item -ItemType Directory -Force -Path $BuildTmp, $BuildCache | Out-Null
+New-Item -ItemType Directory -Force -Path $BuildTmp | Out-Null
 $env:TMP = $BuildTmp
 $env:TEMP = $BuildTmp
-$env:CCACHE_DIR = $BuildCache
-# ccache adds another scratch path and brings no benefit on the first build.
+# ccache off: it only adds another out-of-project scratch path (CCACHE_DIR
+# likewise), and buys nothing for a single-board build.
 $env:CCACHE_DISABLE = "1"
-# ccache itself hangs on this host (two gcc children sharing one
-# ccache/tmp/cmd_args.tmp.* response file, 0% CPU forever). CCACHE_DISABLE
-# alone did NOT stop it -- the launcher was still ccache. Disable it in IDF
-# so ninja calls the compiler directly.
+# CCACHE_DISABLE alone is not enough here: the launcher was still ccache, and two
+# gcc children ended up sharing one ccache/tmp/cmd_args.tmp.* response file.
+# They sat at 0% CPU forever (looks like a slow build, actually a deadlock).
+# IDF_CCACHE_ENABLE=0 makes ninja call the compiler directly.
 $env:IDF_CCACHE_ENABLE = "0"
 
 # Windows command-line limit: this workspace path is long and IDF passes a huge
 # -DESP_LCD_*_VER_* define list, so the generated compile command overflows
 # CreateProcess ("ninja: fatal: CreateProcess ... is the command line too
-# long?"). Force ninja to use @rsp files instead.
+# long?"). Force ninja to use @rsp files instead. This is a CMake cache
+# variable, so it must be passed at configure time (see Invoke-Configure).
 $env:IDF_EXTRA_CMAKE_ARGS = "-DCMAKE_NINJA_FORCE_RESPONSE_FILE=ON"
+
+# -Jobs goes straight to "ninja -j"; do NOT re-add IDF_PY_BUILD_JOBS, it is
+# ignored once ninja is called directly.
+# Run ninja directly instead of "idf.py build". idf.py wraps ninja's stdout in a
+# Python pipe; in this environment that pipe makes ninja die mid-build with
+# "CreateProcess failed: The system cannot find the file specified" and
+# "ninja: error: exception: 0xC0000005" - a false build failure that looks like a
+# code error. Calling ninja ourselves (same env, same build dir) is reliable.
+function Invoke-Ninja {
+    param([int]$Jobs)
+    Push-Location (Join-Path $Project "build")
+    try {
+        # Same trap as Invoke-Idf: when CMake re-runs during the build it writes
+        # Kconfig NOTEs to stderr ("... is not a valid bool value ... treated as
+        # 'n'"). With $ErrorActionPreference = "Stop" that note becomes a
+        # NativeCommandError and kills the script mid-build - a false failure.
+        # Flip to Continue for the child call, then check the real exit code.
+        $previousPreference = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            & ninja -j $Jobs all
+        } finally {
+            $ErrorActionPreference = $previousPreference
+        }
+        if ($LASTEXITCODE -ne 0) {
+            throw "ninja failed (exit $LASTEXITCODE)"
+        }
+    } finally {
+        Pop-Location
+    }
+}
 
 $SummonDefaults = Join-Path $PSScriptRoot "config\ai-dog-s3-summon.defaults"
 
@@ -131,6 +159,9 @@ function Set-SdkconfigValue {
 }
 
 function Enable-SummonConfig {
+    if (-not (Test-Path $SummonDefaults)) {
+        throw "Summon defaults not found: $SummonDefaults"
+    }
     $env:SDKCONFIG_DEFAULTS = "sdkconfig.defaults;sdkconfig.defaults.esp32s3;$Defaults;$SummonDefaults"
     Set-SdkconfigValue "CONFIG_AI_DOG_ENABLE_SUMMON" "y"
     Set-SdkconfigValue "CONFIG_AI_DOG_VISION_ENABLE" "y"
@@ -138,33 +169,34 @@ function Enable-SummonConfig {
     Set-SdkconfigValue "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME" '"partitions/v2/16m_summon.csv"'
 }
 
+# Re-run cmake with the response-file flag (only needed once per build dir).
+function Invoke-Configure {
+    Invoke-Idf -D CMAKE_NINJA_FORCE_RESPONSE_FILE=ON reconfigure
+}
+
 switch ($Action) {
     "build" {
         if (-not (Test-Path "sdkconfig") -or -not (Test-Path "build")) {
             Write-Host "==> First build: setting target esp32s3" -ForegroundColor Cyan
             Invoke-Idf set-target esp32s3
+            Invoke-Configure
         }
-        Invoke-Idf build
+        Invoke-Ninja -Jobs $Jobs
     }
     "build-summon" {
-        # V1.5 summon ON: needs the bigger OTA slots (16m_summon.csv) because
-        # esp-dl pedestrian_detect ships ~425KB of model inside the app image.
-        if (-not (Test-Path $SummonDefaults)) {
-            throw "Summon defaults not found: $SummonDefaults"
-        }
+        # V1.5 summon ON. Needs the bigger OTA slots (16m_summon.csv): the esp-dl
+        # pedestrian_detect model lives in the app image, so the firmware grows
+        # from 2.5MB to 5MB and no longer fits the default 3.94MB OTA slot.
         Enable-SummonConfig
         Write-Host "==> Summon ON (see $SummonDefaults)" -ForegroundColor Cyan
-        Invoke-Idf reconfigure
-        Invoke-Idf build
+        Invoke-Configure
+        Invoke-Ninja -Jobs $Jobs
     }
     "flash"        { Invoke-Idf -p $Port flash }
     "flash-summon" {
-        if (-not (Test-Path $SummonDefaults)) {
-            throw "Summon defaults not found: $SummonDefaults"
-        }
         Enable-SummonConfig
-        Invoke-Idf reconfigure
-        Invoke-Idf build
+        Invoke-Configure
+        Invoke-Ninja -Jobs $Jobs
         Invoke-Idf -p $Port flash
     }
     "monitor"     { Invoke-Idf -p $Port monitor }
@@ -173,4 +205,4 @@ switch ($Action) {
     "reconfigure" { Invoke-Idf reconfigure }
 }
 
-Write-Host "==> idf.py $Action done" -ForegroundColor Green
+Write-Host "==> $Action done" -ForegroundColor Green
