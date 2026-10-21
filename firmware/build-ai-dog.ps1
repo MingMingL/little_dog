@@ -28,27 +28,41 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Wrapper around idf.py. idf.py writes Kconfig NOTEs and compiler warnings to
-# stderr; with $ErrorActionPreference = "Stop" PowerShell turns that into a
-# NativeCommandError and kills this script mid-configure, which looks like a
-# build failure even though configure just succeeded. Check every invocation's
-# exit code immediately so a failed set-target cannot be masked by build.
-function Invoke-Idf {
+# Single choke point for every native command (idf.py, ninja, ...).
+#
+# WHY: these tools write Kconfig NOTEs and compiler warnings to stderr. With
+# $ErrorActionPreference = "Stop" PowerShell turns any stderr byte into a
+# NativeCommandError and kills this script mid-run, which looks like a build
+# failure even though the command succeeded (seen twice: once in configure, once
+# when ninja triggers a CMake re-run). So: flip to Continue for the child, then
+# judge by the real exit code. Route ALL native calls through here - hand-rolling
+# the same try/finally in a second helper is how the ninja path regressed.
+function Invoke-Native {
     param(
+        [Parameter(Mandatory = $true)]
+        [string]$Command,
         [Parameter(ValueFromRemainingArguments = $true)]
-        [string[]]$IdfArgs
+        [string[]]$CommandArgs
     )
     $previousPreference = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
     try {
-        & idf.py @IdfArgs 2>&1
+        & $Command @CommandArgs 2>&1
         $exitCode = $LASTEXITCODE
     } finally {
         $ErrorActionPreference = $previousPreference
     }
     if ($exitCode -ne 0) {
-        throw "idf.py $($IdfArgs -join ' ') failed (exit $exitCode)"
+        throw "$Command $($CommandArgs -join ' ') failed (exit $exitCode)"
     }
+}
+
+function Invoke-Idf {
+    param(
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]]$IdfArgs
+    )
+    Invoke-Native -Command "idf.py" @IdfArgs
 }
 
 $IdfActivate = "C:\Espressif\tools\Microsoft.v6.1.PowerShell_profile.ps1"
@@ -102,21 +116,7 @@ function Invoke-Ninja {
     param([int]$Jobs)
     Push-Location (Join-Path $Project "build")
     try {
-        # Same trap as Invoke-Idf: when CMake re-runs during the build it writes
-        # Kconfig NOTEs to stderr ("... is not a valid bool value ... treated as
-        # 'n'"). With $ErrorActionPreference = "Stop" that note becomes a
-        # NativeCommandError and kills the script mid-build - a false failure.
-        # Flip to Continue for the child call, then check the real exit code.
-        $previousPreference = $ErrorActionPreference
-        $ErrorActionPreference = "Continue"
-        try {
-            & ninja -j $Jobs all
-        } finally {
-            $ErrorActionPreference = $previousPreference
-        }
-        if ($LASTEXITCODE -ne 0) {
-            throw "ninja failed (exit $LASTEXITCODE)"
-        }
+        Invoke-Native -Command "ninja" -j $Jobs all
     } finally {
         Pop-Location
     }

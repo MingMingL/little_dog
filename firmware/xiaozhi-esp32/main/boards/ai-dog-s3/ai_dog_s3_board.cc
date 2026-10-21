@@ -298,9 +298,10 @@ private:
                     esp_deep_sleep_start();
                     break;
 
-                case aidog::BatteryMonitor::Level::Unknown:
                 default:
-                    control.SetBatteryLevelText("unknown");
+                    // Unknown：回调第一行的 SetBatteryLevelText(BatteryLevelText(level))
+                    // 对它就是 "unknown"，再写一遍是重复赋值；保留 default 只为满足
+                    // -Werror=switch（枚举漏分支会直接编译失败）。
                     break;
             }
         });

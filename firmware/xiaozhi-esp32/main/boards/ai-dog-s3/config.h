@@ -65,7 +65,7 @@
 #define DOG_BATTERY_RESTRICT_V     6.6f   // 限制：拒绝进入巡逻/看门/遥控
 #define DOG_BATTERY_CUTOFF_V       6.3f   // 截止：停电机 + 提示 + 深度睡眠
 
-/* ===== 以下为后续阶段预留，首版固件尚未初始化这些外设 ===== */
+/* ===== 运动执行机构：已在 AiDogS3Board::InitializeMotor() 里初始化 ===== */
 
 // TB6612FNG 电机驱动（左/右各 PWM + 方向两线）
 #define MOTOR_LEFT_PWM_GPIO   GPIO_NUM_11

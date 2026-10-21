@@ -11,6 +11,7 @@
 #include <driver/gpio.h>
 
 #include <algorithm>
+#include <cmath>
 
 #define TAG "AiDogBattery"
 
@@ -39,6 +40,9 @@ constexpr int kConfirmSamples = 3;
 
 // 心跳：电压没变化也定期打一条。电池测试时要看趋势，无效读数时要留着标定分压比。
 constexpr int kHeartbeatSamples = 15;  // 2 秒 × 15 = 30 秒
+
+// 档位没翻转但电压跳了这么多也补一条：电池测试看的是趋势，只看档位会漏掉缓降
+constexpr float kReportDeltaV = 0.15f;
 
 }  // namespace
 
@@ -203,7 +207,8 @@ void BatteryMonitor::Sample() {
         pending_count_ = 0;
     }
 
-    if (next != level_ || (valid_ && (voltage_ - was_voltage > 0.15f || was_voltage - voltage_ > 0.15f)) ||
+    bool voltage_jumped = valid_ && std::fabs(voltage_ - was_voltage) > kReportDeltaV;
+    if (next != level_ || voltage_jumped ||
         sample_count_ <= 1 || (sample_count_ % kHeartbeatSamples) == 0) {
         if (valid_) {
             ESP_LOGI(TAG, "电池 %.2fV (%d%%)，adc raw=%umV，分压比 %.2f -> %s",
