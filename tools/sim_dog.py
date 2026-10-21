@@ -128,13 +128,6 @@ class SummonSim:
             return v(self.now_ms, self)
         return v
 
-    # ---- 传感器注入接口 ----
-    def sensor(self, name, default):
-        v = self.sensors.get(name, default)
-        if callable(v):
-            return v(self.now_ms, self)
-        return v
-
     def t(self):
         return self.now_ms
 
@@ -144,10 +137,6 @@ class SummonSim:
             self.log("[%7.1fms] %s -> %s  %s" % (self.now_ms, self.phase, phase, note))
             self.trace.append((self.now_ms, phase, note))
         self.phase = phase
-
-    def motor(self, what):
-        self.actions.append((round(self.now_ms, 1), what))
-        self.log("[%7.1fms]   motor: %s" % (self.now_ms, what))
 
     def doa_estimate(self):
         """返回 (valid, azimuth_deg, energy_db, quality)。

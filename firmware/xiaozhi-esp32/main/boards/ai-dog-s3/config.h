@@ -66,7 +66,7 @@
 #define DOG_BATTERY_RESTRICT_V     6.6f   // 限制：拒绝进入巡逻/看门/遥控
 #define DOG_BATTERY_CUTOFF_V       6.3f   // 截止：停电机 + 提示 + 深度睡眠
 
-/* ===== 以下为后续阶段预留，首版固件尚未初始化这些外设 ===== */
+/* ===== 运动执行机构：已在 AiDogS3Board::InitializeMotor() 里初始化 ===== */
 
 // TB6612FNG 电机驱动（左/右各 PWM + 方向两线）
 #define MOTOR_LEFT_PWM_GPIO   GPIO_NUM_11
@@ -128,8 +128,9 @@
 
 /* 巡线 5 路改接 PCF8574（TCRT5000 数字输出，开漏兼容准双向口）：
  * 挂现有 I2C（GPIO41/42），与 VL53L0X 0x29 并联。 */
+// 轮询周期不在这里定：巡线是调用方按需 Read()（见 ai_dog_line_pcf8574.cc），
+// 模块内部没有自己的定时器，写个用不上的 POLL_MS 只会让人以为改它就能改频率。
 #define LINE_SENSOR_PCF8574_ADDR  0x20
-#define LINE_SENSOR_PCF8574_POLL_MS 20
 
 /* VL53L0X 前向测程（避障 + 接近段触发） */
 #define VL53L0X_I2C_ADDR 0x29

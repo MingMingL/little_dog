@@ -45,7 +45,6 @@
     <string name="action_summon_vision">摄像头确认</string>
     <string name="msg_summoning">召唤进行中：模式已锁定，仅急停可用</string>
     <string name="msg_summon_mode_rejected">召唤进行中，不能切换模式（急停除外）</string>
-    <string name="msg_summon_requires_word">召唤模式只能由唤醒词+口令进入</string>
     <string name="msg_vision_off">摄像头确认已关闭：到达判定改用纯声学</string>
     <string name="msg_vision_on">摄像头确认已开启</string>
     <string name="msg_vision_unavailable">摄像头不可用（没接或编译期关闭）</string>

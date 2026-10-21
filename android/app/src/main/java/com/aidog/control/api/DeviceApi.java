@@ -130,6 +130,12 @@ public class DeviceApi {
 
     public void startStatusPush(StatusCallback callback) {
         stopStatusPush();
+        // 和 post()/move() 一样先判 IP：下面要用 baseUrl 拼 ws:// 地址，
+        // 没配 IP 时这里是 null，拼串会直接 NPE。
+        if (!ipReady()) {
+            callback.onError(MSG_NO_IP);
+            return;
+        }
         final long generation = statusGeneration;
 
         String wsUrl = baseUrl.replace("http://", "ws://").replace("https://", "wss://") + "/ws";

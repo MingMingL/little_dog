@@ -17,7 +17,6 @@ namespace aidog {
 
 // ---- VL53L0X 寄存器（ datasheet + ST API ）----
 static constexpr uint8_t REG_IDENTIFICATION_MODEL_ID       = 0xC0;
-static constexpr uint8_t REG_VHV_CONFIG_PAD_SCL_SDA_EXTSUP = 0x89;
 static constexpr uint8_t REG_MSRC_CONFIG_CONTROL           = 0x60;
 static constexpr uint8_t REG_GLOBAL_CONFIG_SPAD_ENABLES    = 0xB0;
 static constexpr uint8_t REG_DYNAMIC_SPAD_REF_EN_START     = 0x4F;

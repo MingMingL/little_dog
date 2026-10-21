@@ -230,7 +230,8 @@ public class MainActivity extends AppCompatActivity {
         }
         holdingDir = null;
         api.move("stop", 0, (ok, message) -> {
-            // stop 失败也不用弹窗打扰：设备端看门狗 1.5s 后会自己停
+            // stop 失败只提示一次，不做重试：设备端看门狗 1.5s 后会自己停，
+            // 这里再补发也大概率因为已不是 remote 模式被拒。
             if (!ok) {
                 Toast.makeText(this, getString(R.string.msg_stop_failed, message),
                         Toast.LENGTH_SHORT).show();
