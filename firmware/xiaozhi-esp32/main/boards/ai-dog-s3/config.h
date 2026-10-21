@@ -2,6 +2,7 @@
 #define _BOARD_CONFIG_H_
 
 #include <driver/gpio.h>
+#include <sdkconfig.h>
 
 /* AI Dog V1 —— 乐鑫原装 ESP32-S3-DevKitC-1（N16R8）+ INMP441 麦克风 + MAX98357A 功放 + SSD1306 OLED
  *
@@ -73,8 +74,14 @@
  *
  * 可用 GPIO 已很紧（GPIO1/2/46/48 是仅剩的安全脚：3/45 是 strapping、
  * 43/44 留给串口日志、19/20 是 USB、26-37 被模组内部 SPI flash 占用），
- * 因此 CS 片选脚直接接 GND —— SPI 总线上只有这一个从设备，不需要片选。
+ * 因此 CS 片选脚默认直接接 GND —— SPI 总线上只有 OLED 一个从设备，不需要片选。
  * 这样 4 个 GPIO + 3.3V + GND 就能驱动整块屏。
+ *
+ * V1.5 召唤功能要挂 ArduCAM 到同一条 SPI 总线（最终实施方案 §3.1 第 3 条）：
+ * OLED 模块 CS 常接地时两个从设备会同时响应，必须把 OLED CS 飞线到 GPIO45
+ * （strapping 脚，上电保持高电平即可正常启动）。Kconfig
+ * AI_DOG_OLED_CS_GPIO45 打开后 DISPLAY_CS_PIN 改为 GPIO45；不飞线的现场
+ * 用软件兜底（摄像头用完后重新初始化 OLED，见 ai_dog_s3_board.cc）。
  */
 #define DISPLAY_DRIVER_SH1106
 
@@ -82,10 +89,45 @@
 #define DISPLAY_SPI_MOSI_PIN GPIO_NUM_2   // 7针屏的 DIN/MOSI/D1
 #define DISPLAY_DC_PIN       GPIO_NUM_46  // 数据/命令选择（DC）
 #define DISPLAY_RES_PIN      GPIO_NUM_48  // 复位（RES/RST）
+#ifdef CONFIG_AI_DOG_OLED_CS_GPIO45
+#define DISPLAY_CS_PIN       GPIO_NUM_45  // CS 飞线到 GPIO45（与摄像头共总线）
+#else
 #define DISPLAY_CS_PIN       GPIO_NUM_NC  // CS 接 GND，不占用 GPIO
+#endif
 #define DISPLAY_WIDTH        128
 #define DISPLAY_HEIGHT       64
 #define DISPLAY_MIRROR_X     true
 #define DISPLAY_MIRROR_Y     true
+
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+/* ===== V1.5 召唤功能新增外设（main/Kconfig.projbuild → AI Dog Summon）=====
+ * 引脚口径见 output/召唤狗狗最终实施方案-v1.0.md §3.2；未到货期间只编译不初始化。
+ */
+
+/* 4 麦方阵：MIC1 沿用 GPIO6；MIC2/3/4 用 PCF8574 释放的 GPIO38/39/40。
+ * 采集后端 (a)/(c) 单数据线 TDM 时仅 GPIO6 作 DIN；后端 (b) 双立体声线时
+ * GPIO6（MIC1/MIC2 L/R）+ GPIO38（MIC3/MIC4 L/R）各作一条数据线。 */
+#define MIC_ARRAY_SD2_GPIO GPIO_NUM_38
+#define MIC_ARRAY_SD3_GPIO GPIO_NUM_39
+#define MIC_ARRAY_SD4_GPIO GPIO_NUM_40
+
+/* 巡线 5 路改接 PCF8574（TCRT5000 数字输出，开漏兼容准双向口）：
+ * 挂现有 I2C（GPIO41/42），与 VL53L0X 0x29 并联。 */
+#define LINE_SENSOR_PCF8574_ADDR  0x20
+#define LINE_SENSOR_PCF8574_POLL_MS 20
+
+/* VL53L0X 前向测程（避障 + 接近段触发） */
+#define VL53L0X_I2C_ADDR 0x29
+
+/* ArduCAM Mini 2MP Plus（OV2640）：与 OLED 共 SPI 总线，
+ * SCK/MOSI 共享 GPIO1/2，MISO=GPIO17、CS=GPIO18（PCF8574 释放）。
+ * PWDN 接 GND、RESET 接 3.3V（静态，不占 GPIO）。 */
+#define CAMERA_SPI_SCLK_PIN DISPLAY_SPI_SCLK_PIN
+#define CAMERA_SPI_MOSI_PIN DISPLAY_SPI_MOSI_PIN
+#define CAMERA_SPI_MISO_PIN GPIO_NUM_17
+#define CAMERA_SPI_CS_PIN   GPIO_NUM_18
+#define CAMERA_SPI_CLOCK_HZ 8 * 1000 * 1000
+
+#endif  // CONFIG_AI_DOG_ENABLE_SUMMON
 
 #endif // _BOARD_CONFIG_H_

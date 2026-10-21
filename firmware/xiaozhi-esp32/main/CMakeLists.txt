@@ -69,6 +69,11 @@ if(CONFIG_XIAOZHI_NETWORK_ETHERNET)
 endif()
 list(APPEND INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/boards/common)
 
+# AI Dog V1.5 召唤功能：main/ 下的 application.cc 需要 include 板级 summon 模块
+if(CONFIG_BOARD_TYPE_AI_DOG_S3 AND CONFIG_AI_DOG_ENABLE_SUMMON)
+    list(APPEND INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/boards/ai-dog-s3)
+endif()
+
 
 idf_build_get_property(build_components BUILD_COMPONENTS)
 # Function to find component dynamically by pattern

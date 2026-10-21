@@ -1,5 +1,7 @@
 # ===== 本地环境 / 工具缓存（不上传）=====
 .workbuddy-ai/
+# 会话缓存目录（WorkBuddy 本地状态），不进仓库
+.workbuddy/
 .gradle-home/
 firmware/.idf-component-cache/
 firmware/.build-tmp/

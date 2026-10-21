@@ -8,6 +8,10 @@
 
 #include <algorithm>
 
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+#include <esp_timer.h>
+#endif
+
 #define TAG "AiDogMotor"
 
 namespace aidog {
@@ -167,5 +171,93 @@ void MotorDriver::GetSpeeds(int& left, int& right) const {
     left = last_left_;
     right = last_right_;
 }
+
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+// ---------------------------------------------------------------------------
+// Summon 寻声专用（SW-205）
+// ---------------------------------------------------------------------------
+
+void MotorDriver::CruiseForward(int duty_percent) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!enabled_) {
+        return;
+    }
+    if (duty_percent <= 0) {
+        // 停车（不能调 Stop()：本函数已持锁，std::mutex 不可重入）
+        cruise_duty_ = 0;
+        last_left_ = 0;
+        last_right_ = 0;
+        ApplyOne(true, 0);
+        ApplyOne(false, 0);
+        return;
+    }
+    duty_percent = std::clamp(duty_percent, 1, 100);
+    cruise_duty_ = duty_percent;
+    const int duty = duty_percent * kMaxDuty / 100;
+    if (last_left_ == duty && last_right_ == duty) {
+        return;
+    }
+    ApplyOne(true, duty);
+    ApplyOne(false, duty);
+    last_left_ = duty;
+    last_right_ = duty;
+    ESP_LOGD(TAG, "低速巡航：占空比 %d%%（双轮 %d/255）", duty_percent, duty);
+}
+
+void MotorDriver::NudgeTimerCallback(void* arg) {
+    auto* self = static_cast<MotorDriver*>(arg);
+    std::lock_guard<std::mutex> lock(self->mutex_);
+    self->cruise_duty_ = 0;
+    self->last_left_ = 0;
+    self->last_right_ = 0;
+    self->ApplyOne(true, 0);
+    self->ApplyOne(false, 0);
+    ESP_LOGD(TAG, "点动脉冲到点，已停车");
+}
+
+int MotorDriver::NudgeTurn(int dir, int duty_percent, int duration_ms) {
+    if (dir == 0 || duty_percent <= 0 || duration_ms <= 0) {
+        return -1;
+    }
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!enabled_) {
+        return -1;
+    }
+    duty_percent = std::clamp(duty_percent, 1, 100);
+    duration_ms = std::clamp(duration_ms, 10, 1000);
+    const int duty = duty_percent * kMaxDuty / 100;
+    cruise_duty_ = duty_percent;
+
+    // 原地差速：两轮反向
+    const int left = (dir < 0) ? -duty : duty;
+    const int right = (dir < 0) ? duty : -duty;
+    ApplyOne(true, left);
+    ApplyOne(false, right);
+    last_left_ = left;
+    last_right_ = right;
+
+    // 兜底定时器：到点强制停（一次性）
+    if (nudge_timer_ == nullptr) {
+        esp_timer_create_args_t args = {};
+        args.callback = NudgeTimerCallback;
+        args.arg = this;
+        args.name = "aidog_nudge";
+        if (esp_timer_create(&args, &nudge_timer_) != ESP_OK) {
+            nudge_timer_ = nullptr;
+        }
+    }
+    if (nudge_timer_ != nullptr) {
+        esp_timer_stop(nudge_timer_);
+        esp_timer_start_once(nudge_timer_, static_cast<uint64_t>(duration_ms) * 1000);
+    }
+    ESP_LOGD(TAG, "点动纠偏：%s %d%% %dms", dir < 0 ? "左" : "右", duty_percent, duration_ms);
+    return duration_ms;
+}
+
+int MotorDriver::GetCruiseDuty() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return cruise_duty_;
+}
+#endif  // CONFIG_AI_DOG_ENABLE_SUMMON
 
 }  // namespace aidog

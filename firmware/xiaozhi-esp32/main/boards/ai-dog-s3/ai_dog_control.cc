@@ -9,6 +9,13 @@
 
 #include <cstring>
 
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+#include "ai_dog_summon.h"
+#ifdef CONFIG_AI_DOG_VISION_ENABLE
+#include "ai_dog_vision.h"
+#endif
+#endif
+
 #define TAG "AiDogControl"
 
 namespace {
@@ -32,6 +39,9 @@ const char* ModeToString(Mode mode) {
         case Mode::Patrol: return "patrol";
         case Mode::Guard:  return "guard";
         case Mode::Remote: return "remote";
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+        case Mode::Summon: return "summon";
+#endif
         default:           return "idle";
     }
 }
@@ -42,6 +52,9 @@ bool ModeFromString(const std::string& text, Mode& out) {
     if (text == "patrol")      { out = Mode::Patrol; return true; }
     if (text == "guard")       { out = Mode::Guard;  return true; }
     if (text == "remote")      { out = Mode::Remote; return true; }
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+    if (text == "summon")      { out = Mode::Summon; return true; }
+#endif
     return false;
 }
 
@@ -126,6 +139,11 @@ void ControlServer::SetMoving(bool moving) {
 void ControlServer::SetBatteryPercent(int percent) {
     std::lock_guard<std::mutex> lock(mutex_);
     battery_percent_ = percent;
+}
+
+int ControlServer::GetBatteryPercent() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return battery_percent_;
 }
 
 void ControlServer::SetCharging(bool charging) {
@@ -343,6 +361,24 @@ esp_err_t ControlServer::StatusHandler(httpd_req_t* req) {
         cJSON_AddStringToObject(root, "fault", fault.c_str());
     }
 
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+    // ---- summon 字段（SW-203 / 方案 §5.4）：阶段/角度/能量/测距/视觉 ----
+    if (mode == Mode::Summon || aidog::AiDogSummon::GetInstance().IsActive()) {
+        auto st = aidog::AiDogSummon::GetInstance().GetStatus();
+        cJSON* summon = cJSON_CreateObject();
+        cJSON_AddStringToObject(summon, "phase", aidog::AiDogSummon::PhaseToString(st.phase));
+        cJSON_AddNumberToObject(summon, "doa_deg", st.doa_deg);
+        cJSON_AddNumberToObject(summon, "energy_db", st.energy_db);
+        cJSON_AddNumberToObject(summon, "distance_mm", st.distance_mm);
+        cJSON_AddBoolToObject(summon, "vision_used", st.vision_used);
+        cJSON_AddNumberToObject(summon, "vision_result", st.vision_result);
+        cJSON_AddNumberToObject(summon, "vision_tries", st.vision_tries);
+        cJSON_AddNumberToObject(summon, "elapsed_ms", st.elapsed_ms);
+        cJSON_AddStringToObject(summon, "message", st.message);
+        cJSON_AddItemToObject(root, "summon", summon);
+    }
+#endif
+
     cJSON_AddNumberToObject(root, "uptime", static_cast<double>(esp_timer_get_time() / 1000000LL));
     SendJson(req, root);
     return ESP_OK;
@@ -362,9 +398,31 @@ esp_err_t ControlServer::ModeHandler(httpd_req_t* req) {
     cJSON_Delete(root);
 
     if (!valid) {
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+        SendResult(req, false, "invalid mode (idle|chat|patrol|guard|remote|summon)");
+#else
         SendResult(req, false, "invalid mode (idle|chat|patrol|guard|remote)");
+#endif
         return ESP_OK;
     }
+
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+    // SW-203 抢占规则：Summon 进行中拒绝一切普通模式切换（急停 /api/stop 除外）；
+    // summon 模式本身只能由"唤醒词 + 口令验证通过"进入，App 不能直接切。
+    auto& self = GetInstance();
+    const Mode current = self.GetMode();
+    if (current == Mode::Summon && mode != Mode::Summon) {
+        ESP_LOGW(TAG, "召唤进行中，拒绝模式切换 %s -> %s（急停除外）",
+                 ModeToString(current), ModeToString(mode));
+        SendResult(req, false, "summon in progress");
+        return ESP_OK;
+    }
+    if (current != Mode::Summon && mode == Mode::Summon) {
+        ESP_LOGW(TAG, "召唤模式只能由唤醒词+口令进入，拒绝 App 直接切换");
+        SendResult(req, false, "summon requires wake word + passphrase");
+        return ESP_OK;
+    }
+#endif
 
     GetInstance().SetMode(mode);
 
@@ -380,6 +438,57 @@ esp_err_t ControlServer::StopHandler(httpd_req_t* req) {
     SendResult(req, true, nullptr);
     return ESP_OK;
 }
+
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+// V1.5 召唤摄像头开关（SW-401 App 摄像头开关）：
+//   GET  /api/summon/vision            -> {"ok":true,"enabled":bool,"available":bool}
+//   POST /api/summon/vision {"enabled":bool} -> 运行时开关视觉确认
+// 编译期 AI_DOG_VISION_ENABLE=n（或摄像头没接）时 available=false，只能关不能开。
+esp_err_t ControlServer::SummonVisionHandler(httpd_req_t* req) {
+    if (req->method == HTTP_GET) {
+#ifdef CONFIG_AI_DOG_VISION_ENABLE
+        auto& vision = aidog::AiDogVision::GetInstance();
+        cJSON* root = cJSON_CreateObject();
+        cJSON_AddBoolToObject(root, "ok", true);
+        cJSON_AddBoolToObject(root, "available", vision.IsEnabled());
+        cJSON_AddBoolToObject(root, "enabled", vision.IsRuntimeEnabled());
+        SendJson(req, root);
+#else
+        cJSON* root = cJSON_CreateObject();
+        cJSON_AddBoolToObject(root, "ok", true);
+        cJSON_AddBoolToObject(root, "available", false);
+        cJSON_AddBoolToObject(root, "enabled", false);
+        SendJson(req, root);
+#endif
+        return ESP_OK;
+    }
+
+    std::string body = ReadRequestBody(req);
+    cJSON* root = cJSON_Parse(body.c_str());
+    if (root == nullptr) {
+        SendResult(req, false, "invalid json");
+        return ESP_OK;
+    }
+    cJSON* item = cJSON_GetObjectItem(root, "enabled");
+    const bool enabled = cJSON_IsBool(item) ? cJSON_IsTrue(item) : false;
+    cJSON_Delete(root);
+
+#ifdef CONFIG_AI_DOG_VISION_ENABLE
+    auto& vision = aidog::AiDogVision::GetInstance();
+    if (enabled && !vision.IsEnabled()) {
+        // 摄像头没接：拒绝开启（R-F6 纯声学降级）
+        SendResult(req, false, "camera not available");
+        return ESP_OK;
+    }
+    vision.SetRuntimeEnabled(enabled);
+    ESP_LOGI(TAG, "召唤视觉确认运行时开关 -> %s", enabled ? "开" : "关");
+    SendResult(req, true, nullptr);
+#else
+    SendResult(req, false, "vision disabled at build time");
+#endif
+    return ESP_OK;
+}
+#endif  // CONFIG_AI_DOG_ENABLE_SUMMON
 
 esp_err_t ControlServer::MoveHandler(httpd_req_t* req) {
     std::string body = ReadRequestBody(req);
@@ -478,6 +587,20 @@ void ControlServer::Start() {
             .handler = StatusHandler,
             .user_ctx = nullptr
         };
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+        httpd_uri_t summon_vision_get_uri = {
+            .uri = "/api/summon/vision",
+            .method = HTTP_GET,
+            .handler = SummonVisionHandler,
+            .user_ctx = nullptr
+        };
+        httpd_uri_t summon_vision_post_uri = {
+            .uri = "/api/summon/vision",
+            .method = HTTP_POST,
+            .handler = SummonVisionHandler,
+            .user_ctx = nullptr
+        };
+#endif
         httpd_uri_t mode_uri = {
             .uri = "/api/mode",
             .method = HTTP_POST,
@@ -508,6 +631,10 @@ void ControlServer::Start() {
         httpd_register_uri_handler(server_, &stop_uri);
         httpd_register_uri_handler(server_, &move_uri);
         httpd_register_uri_handler(server_, &wifi_uri);
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+        httpd_register_uri_handler(server_, &summon_vision_get_uri);
+        httpd_register_uri_handler(server_, &summon_vision_post_uri);
+#endif
         started = true;
     }
 

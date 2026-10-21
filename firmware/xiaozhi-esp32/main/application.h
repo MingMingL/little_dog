@@ -88,6 +88,15 @@ public:
     void Alert(const char* status, const char* message, const char* emotion = "", const std::string_view& sound = "");
     void DismissAlert();
 
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+    /**
+     * V1.5 召唤用：当前是否正在播报音频（狗叫/问候/TTS）。
+     * Summon 状态机据此暂停口令识别，避免设备自己的声音触发口令（AT-S07）。
+     * 开关 OFF 时本方法不存在，不影响 V1。
+     */
+    bool IsPlaybackPlaying() { return !audio_service_.IsPlaybackIdle(); }
+#endif
+
     void AbortSpeaking(AbortReason reason);
 
     /**

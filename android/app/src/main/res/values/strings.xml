@@ -20,6 +20,32 @@
     <string name="mode_patrol">巡逻</string>
     <string name="mode_guard">看门</string>
     <string name="mode_remote">遥控</string>
+    <string name="mode_summon">召唤</string>
+
+    <!-- 召唤（V1.5） -->
+    <string name="hint_summon">召唤：对设备说唤醒词“你好小智”，再说口令“过来/到这里来”，
+        设备会判断方向并开到你面前。召唤优先级高于巡逻/看门/遥控，仅急停可中断。</string>
+    <string name="label_summon_phase">召唤阶段</string>
+    <string name="label_summon_doa">声源方向</string>
+    <string name="label_summon_energy">声音能量</string>
+    <string name="label_summon_distance">前向测距</string>
+    <string name="label_summon_vision">视觉确认</string>
+    <string name="label_summon_elapsed">已用时间</string>
+    <string name="action_summon_guide">召唤向导</string>
+    <string name="action_summon_vision">摄像头确认</string>
+    <string name="msg_summoning">召唤进行中：模式已锁定，仅急停可用</string>
+    <string name="msg_summon_mode_rejected">召唤进行中，不能切换模式（急停除外）</string>
+    <string name="msg_summon_requires_word">召唤模式只能由唤醒词+口令进入</string>
+    <string name="msg_vision_off">摄像头确认已关闭：到达判定改用纯声学</string>
+    <string name="msg_vision_on">摄像头确认已开启</string>
+    <string name="msg_vision_unavailable">摄像头不可用（没接或编译期关闭）</string>
+    <string name="title_summon_guide">召唤口令向导</string>
+    <string name="summon_guide_step1">1. 说唤醒词：“你好小智”\n（任何模式下都监听，巡逻/看门中也会响应）</string>
+    <string name="summon_guide_step2">2. 3 秒内说口令：“过来”或“到这里来”\n说错或超时会提示“没听清”，可以再试一次</string>
+    <string name="summon_guide_step3">3. 设备判断你的方向，低速开过来\n（停-听-走：边走边听，避障绕行）</string>
+    <string name="summon_guide_step4">4. 快到面前时用摄像头确认是你\n确认后播放问候并自动进入聊天模式</string>
+    <string name="summon_guide_tip">提示：口令验证通过才执行召唤；看门模式下也可被召唤打断
+        （可在设置里关闭）。60 秒没找到会原地扫描一次后放弃。</string>
 
     <!-- 遥控 -->
     <string name="hint_remote">按住方向键控制，松手即停（仅遥控模式可用）</string>

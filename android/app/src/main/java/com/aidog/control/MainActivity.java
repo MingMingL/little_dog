@@ -19,6 +19,11 @@ import com.aidog.control.databinding.ActivityMainBinding;
 import com.aidog.control.model.DeviceStatus;
 import com.google.android.material.button.MaterialButton;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.Locale;
+
 /**
  * 主控界面：状态面板 + 模式切换 + 急停。
  * 设备 IP 存在 SharedPreferences，没配置过就跳设置页。
@@ -33,6 +38,10 @@ public class MainActivity extends AppCompatActivity {
     private SharedPreferences prefs;
 
     private String currentMode = "idle";
+
+    // ---- V1.5 召唤（SW-401）----
+    private boolean visionAvailable = false;
+    private boolean visionEnabled = false;
 
     // ---- 遥控状态 ----
     /** 重复发送间隔：10Hz。设备端看门狗是 1.5s，正常网络下绝不超时 */
@@ -72,6 +81,7 @@ public class MainActivity extends AppCompatActivity {
         setupModeButtons();
         setupActions();
         setupRemote();
+        setupSummon();
 
         // 只在首次创建时引导一次，交给 launcher 收结果；onResume 不再重复拉起
         if (prefs.getString(KEY_IP, "").isEmpty()) {
@@ -91,6 +101,7 @@ public class MainActivity extends AppCompatActivity {
         }
         api.setDeviceIp(ip);
         binding.textDeviceIp.setText("设备：" + ip);
+        refreshSummonVision();
         startListening();
     }
 
@@ -121,6 +132,67 @@ public class MainActivity extends AppCompatActivity {
         binding.buttonModePatrol.setOnClickListener(modeClick);
         binding.buttonModeGuard.setOnClickListener(modeClick);
         binding.buttonModeRemote.setOnClickListener(modeClick);
+    }
+
+    // ------------------------------------------------------------------
+    // V1.5 召唤（SW-401）：状态页 / 口令向导 / 摄像头开关
+    // ------------------------------------------------------------------
+
+    private void setupSummon() {
+        binding.buttonSummonGuide.setOnClickListener(v ->
+                startActivity(new Intent(this, SummonGuideActivity.class)));
+
+        binding.buttonSummonVision.setOnClickListener(v -> toggleSummonVision());
+    }
+
+    /**
+     * 同步召唤摄像头开关状态。必须在 setDeviceIp 之后调用（onCreate 时还没 IP，
+     * 查不到会误判成"摄像头不可用"）。
+     */
+    private void refreshSummonVision() {
+        api.getSummonVision((ok, message) -> {
+            if (ok) {
+                try {
+                    JSONObject resp = new JSONObject(message);
+                    visionAvailable = resp.optBoolean("available", false);
+                    visionEnabled = resp.optBoolean("enabled", visionAvailable);
+                } catch (JSONException ignored) {
+                    // 老设备没有这个端点：按不可用处理
+                    visionAvailable = false;
+                    visionEnabled = false;
+                }
+            } else {
+                visionAvailable = false;
+                visionEnabled = false;
+            }
+            updateVisionButton();
+        });
+    }
+
+    private void toggleSummonVision() {
+        if (!visionAvailable) {
+            Toast.makeText(this, R.string.msg_vision_unavailable, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        boolean target = !visionEnabled;
+        api.setSummonVision(target, (ok, message) -> {
+            if (ok) {
+                visionEnabled = target;
+                Toast.makeText(this, target ? R.string.msg_vision_on : R.string.msg_vision_off,
+                        Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "摄像头开关失败：" + message, Toast.LENGTH_SHORT).show();
+            }
+            updateVisionButton();
+        });
+    }
+
+    private void updateVisionButton() {
+        if (!visionAvailable) {
+            binding.buttonSummonVision.setText(R.string.msg_vision_unavailable);
+            return;
+        }
+        binding.buttonSummonVision.setText(visionEnabled ? "摄像头确认：开" : "摄像头确认：关");
     }
 
     // ------------------------------------------------------------------
@@ -281,7 +353,12 @@ public class MainActivity extends AppCompatActivity {
                 updateRemoteHint();
                 Toast.makeText(this, "已切换到" + modeLabel(mode), Toast.LENGTH_SHORT).show();
             } else {
-                Toast.makeText(this, "切换失败：" + message, Toast.LENGTH_SHORT).show();
+                // 召唤进行中设备会拒绝普通模式切换（SW-203）：明确提示，别让用户以为按钮坏了
+                if (message != null && message.contains("summon in progress")) {
+                    Toast.makeText(this, R.string.msg_summon_mode_rejected, Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(this, "切换失败：" + message, Toast.LENGTH_SHORT).show();
+                }
             }
         });
     }
@@ -298,6 +375,48 @@ public class MainActivity extends AppCompatActivity {
         currentMode = status.mode;
         highlightMode(status.mode);
         updateRemoteHint();
+        renderSummon(status);
+    }
+
+    /**
+     * V1.5 召唤状态页（SW-401）：召唤进行中显示阶段/方向/能量条/测距/视觉，
+     * 同时把模式按钮置灰（设备端也会拒绝，这里是双保险 + 明确视觉反馈）。
+     */
+    private void renderSummon(DeviceStatus status) {
+        final boolean summoning = status.isSummoning();
+        binding.cardSummon.setVisibility(summoning ? View.VISIBLE : View.GONE);
+
+        // 模式按钮置灰（急停按钮不动，始终可点）
+        setModeButtonsEnabled(!summoning);
+
+        if (!summoning || status.summon == null) {
+            return;
+        }
+        DeviceStatus.SummonInfo s = status.summon;
+        binding.textSummonPhase.setText(s.phaseLabel());
+        binding.textSummonDoa.setText(String.format(Locale.US, "%.0f°", s.doaDeg));
+        binding.textSummonEnergy.setText(String.format(Locale.US, "%.1f dB", s.energyDb));
+        binding.progressSummonEnergy.setProgress(s.energyPercent());
+        binding.textSummonDistance.setText(s.distanceLabel());
+        binding.textSummonVision.setText(s.visionLabel());
+        binding.textSummonElapsed.setText(s.elapsedMs / 1000 + "s");
+        binding.textSummonMessage.setText(
+                (s.message == null || s.message.isEmpty()) ? getString(R.string.msg_summoning)
+                        : s.message);
+    }
+
+    private void setModeButtonsEnabled(boolean enabled) {
+        binding.buttonModeIdle.setEnabled(enabled);
+        binding.buttonModeChat.setEnabled(enabled);
+        binding.buttonModePatrol.setEnabled(enabled);
+        binding.buttonModeGuard.setEnabled(enabled);
+        binding.buttonModeRemote.setEnabled(enabled);
+        float alpha = enabled ? 1.0f : 0.4f;
+        binding.buttonModeIdle.setAlpha(alpha);
+        binding.buttonModeChat.setAlpha(alpha);
+        binding.buttonModePatrol.setAlpha(alpha);
+        binding.buttonModeGuard.setAlpha(alpha);
+        binding.buttonModeRemote.setAlpha(alpha);
     }
 
     private void renderOffline(String message) {
@@ -342,6 +461,7 @@ public class MainActivity extends AppCompatActivity {
             case "patrol": return "巡逻";
             case "guard":  return "看门";
             case "remote": return "遥控";
+            case "summon": return "召唤";
             default:       return mode;
         }
     }

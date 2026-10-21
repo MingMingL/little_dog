@@ -9,12 +9,14 @@
 #include <esp_err.h>
 #include <esp_http_server.h>
 #include <esp_timer.h>
+#include <sdkconfig.h>
 
 namespace aidog {
 
 /**
  * 机器狗工作模式。
  * 与 Android 端约定的字符串：idle / chat / patrol / guard / remote
+ * （V1.5 起增加 summon，见下；开关 OFF 时与 V1 完全一致）
  */
 enum class Mode {
     Idle,     // 待机：电机停止
@@ -22,6 +24,9 @@ enum class Mode {
     Patrol,   // 巡逻：循线行驶
     Guard,    // 看门：设防，检测声音后狗叫
     Remote,   // 遥控：只接受 App 发来的 /api/move 指令
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+    Summon,   // 召唤：寻声接近 + 视觉确认（V1.5 新增，优先级最高，仅低于急停）
+#endif
 };
 
 const char* ModeToString(Mode mode);
@@ -89,6 +94,7 @@ public:
     void RequestEmergencyStop();
     void SetMoving(bool moving);
     void SetBatteryPercent(int percent);   // -1 表示无采样
+    int GetBatteryPercent() const;         // SW-204 低压预检用
     void SetCharging(bool charging);
     void SetFault(const std::string& fault);
     void ClearFault();
@@ -142,6 +148,9 @@ private:
     static esp_err_t StopHandler(httpd_req_t* req);
     static esp_err_t MoveHandler(httpd_req_t* req);
     static esp_err_t WifiHandler(httpd_req_t* req);
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+    static esp_err_t SummonVisionHandler(httpd_req_t* req);
+#endif
 };
 
 }  // namespace aidog

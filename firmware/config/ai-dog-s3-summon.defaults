@@ -1,0 +1,16 @@
+# AI Dog S3 —— V1.5 召唤功能构建配置（summon ON）
+# 用法：把本文件接到 SDKCONFIG_DEFAULTS 的末尾（例如 build-ai-dog.ps1 -Action build-summon），
+#       或者在 menuconfig 里按本文件的值打开开关。
+#
+# 实测结果（2026-10-19）：
+#   summon OFF：xiaozhi.bin 2.6MB（分区余 37%）
+#   summon ON ：xiaozhi.bin 4.96MB + srmodels 3.9MB（model 分区），需用本文件带的
+#   16m_summon.csv 分区表（OTA 双槽扩到 5888K）。
+#
+# 分区表必须用召唤版：默认 16m.csv 的 OTA 槽只有 0x3f0000（3.94MB），
+# 放不下 5MB 的引擎（esp-dl 人形模型嵌入 rodata）。
+
+CONFIG_AI_DOG_ENABLE_SUMMON=y
+CONFIG_AI_DOG_VISION_ENABLE=y
+CONFIG_AI_DOG_VOICEPRINT_MULTINET=y
+CONFIG_PARTITION_TABLE_CUSTOM_FILENAME="partitions/v2/16m_summon.csv"

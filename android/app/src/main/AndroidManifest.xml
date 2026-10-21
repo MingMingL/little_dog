@@ -26,6 +26,11 @@
             android:name=".SetupActivity"
             android:exported="false"
             android:label="@string/title_setup" />
+
+        <activity
+            android:name=".SummonGuideActivity"
+            android:exported="false"
+            android:label="@string/title_summon_guide" />
     </application>
 
 </manifest>

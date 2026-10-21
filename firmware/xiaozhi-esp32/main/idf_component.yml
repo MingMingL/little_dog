@@ -90,6 +90,14 @@ dependencies:
     - if: target in [esp32s3]
 
   tny-robotics/sh1106-esp-idf: ^1.0.1
+
+  # AI Dog V1.5 召唤功能（SW-005 锁版本；SW-302 人形检测）。
+  # esp_apa_doa：乐鑫 DOA 组件，2~4 麦方阵/共线/三角/长方，360° 输出，
+  #   S3 原生；ai_dog_doa.cc 封装（方阵坐标 + 多帧滤波 + 能量估计）。
+  # pedestrian_detect：160x120 输入的人形检测模型（esp-dl），
+  #   ai_dog_vision.cc 在 S3 接近段调用；关闭 AI_DOG_VISION_ENABLE 时不实例化。
+  espressif/esp_apa_doa: ==1.0.0
+  espressif/pedestrian_detect: ==0.3.2
   espressif/esp_lcd_jd9365:
     version: '*'
     rules:

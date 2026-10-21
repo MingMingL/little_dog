@@ -1175,4 +1175,319 @@ menu "TAIJIPAI_S3_CONFIG"
         启动双声道
 endmenu
 
+# ============================================================================
+# AI Dog V1.5 召唤功能（SW-001/SW-002）
+#
+# 总开关默认 OFF：任何时刻都能构建出与 V1 行为完全一致的固件，
+# 召唤代码（ai_dog_summon/doa/mic_array/voiceprint/vision/line_pcf8574）
+# 不参与编译，不影响 V1 验收。
+#
+# 参数来源：output/召唤狗狗最终实施方案-v1.0.md §4.3（初值，M1-M3 实测标定后冻结）。
+# 禁止在代码里硬编码这些参数——标定改这里即可。
+# ============================================================================
+menu "AI Dog Summon (召唤功能)"
+    depends on BOARD_TYPE_AI_DOG_S3
+
+    config AI_DOG_ENABLE_SUMMON
+        bool "Enable Summon (召唤) feature"
+        default n
+        help
+            召唤狗狗功能总开关（默认 OFF = 与 V1 一致）。
+
+            ON 之后：
+            - 编译 ai_dog_mic_array / ai_dog_doa / ai_dog_voiceprint /
+              ai_dog_summon / ai_dog_line_pcf8574，并按 AI_DOG_VISION_ENABLE
+              编译 ai_dog_vision；
+            - ai_dog_control 启用 Mode::Summon、抢占规则与 /api/status 的
+              summon 字段；
+            - 需要 esp_apa_doa 组件（main/idf_component.yml 已声明）。
+
+    if AI_DOG_ENABLE_SUMMON
+
+    # ---------------- 口令 / 唤醒（Q-01 决策 A：预置唤醒词 + MultiNet 命令词） ----------------
+    config AI_DOG_SUMMON_COMMAND_WORDS
+        string "口令短语（MultiNet 拼音，空格分隔多个）"
+        default "guo lai dao zhe li lai"
+        help
+            L1 口令短语，拼音、空格分隔。主口令 "guo lai"（过来），
+            备选 "dao zhe li lai"（到这里来）。唤醒词后说出任一短语才进入
+            召唤验证（Q-01 决策 A：唤醒词仍是预置"你好小智"，纯唤醒词走原聊天）。
+
+    config AI_DOG_SUMMON_COMMAND_TIMEOUT_MS
+        int "口令验证超时 (ms)"
+        default 3000
+        range 500 10000
+        help
+            S1 口令验证窗口。超时或未命中 → 回监听，App 提示"没听清"（Q-02）。
+
+    config AI_DOG_SUMMON_COMMAND_THRESHOLD
+        int "口令检测阈值 (%)，越小越灵敏"
+        default 20
+        range 1 99
+        help
+            MultiNet 命令词检测阈值，换算成 0..1 传给 multinet->set_det_threshold。
+
+    # ---------------- 4 麦采集后端（Q-04；R-F2 降级路径） ----------------
+    choice AI_DOG_MIC_BACKEND
+        prompt "4-mic capture backend"
+        default AI_DOG_MIC_BACKEND_A_TDM4
+        help
+            三种电气实现（最终实施方案 §3.3），固件侧可切换，切换只改配置：
+
+            A  单数据线 4 槽 TDM（I2S1 拥有麦克风口，DIN=GPIO6）。
+               分立麦 + TDM 复用板，或 4 麦合成 1 路的接法。
+            B  双立体声数据线：I2S1 立体声（MIC1/MIC2 走 GPIO6 L/R 分槽）
+               + I2S0-RX 立体声（MIC3/MIC4 走 GPIO38）。
+            C  成品 TDM 阵列板（4 麦合成 1-2 路 I2S），固件与 A 相同，
+               仅日志区分，便于现场记录用的是哪种硬件。
+
+        config AI_DOG_MIC_BACKEND_A_TDM4
+            bool "A: single-line 4-slot TDM"
+        config AI_DOG_MIC_BACKEND_B_DUAL_STEREO
+            bool "B: dual stereo lines (I2S1 + I2S0-RX)"
+        config AI_DOG_MIC_BACKEND_C_TDM_BOARD
+            bool "C: finished TDM array board"
+    endchoice
+
+    config AI_DOG_MIC_ARRAY_SIZE_MM
+        int "4 麦方阵边长 (mm)"
+        default 40
+        range 20 100
+        help
+            相邻麦间距。DOA 几何用；同时决定频带上限（防空间混叠：
+            c/(2*d)，40mm → 约 4250Hz，方案初值取 4000Hz）。
+
+    config AI_DOG_MIC_CAPTURE_RING_FRAMES
+        int "采集广播环形缓冲（帧，每帧 = 4 麦 × 1 sample 交错）"
+        default 2048
+        range 256 8192
+        help
+            4 麦采集环形缓冲深度（2048 帧 ≈ 128ms @16kHz）。
+            消费方（AFE 单麦旁出 / DOA / 口令）各持读游标独立取数，互不抢数据。
+
+    # ---------------- DOA（SW-103） ----------------
+    config AI_DOG_DOA_FMIN_HZ
+        int "DOA 分析频带下限 (Hz)"
+        default 1500
+        range 100 8000
+        help
+            按 4cm 阵距裁剪分析频带（约 1500-4000Hz），防空间混叠（R-F3 调优入口）。
+
+    config AI_DOG_DOA_FMAX_HZ
+        int "DOA 分析频带上限 (Hz)"
+        default 4000
+        range 500 8000
+
+    choice AI_DOG_DOA_PRESET
+        prompt "DOA CPU/延迟预设"
+        default AI_DOG_DOA_PRESET_BALANCED
+        help
+            esp_apa_doa 的 analysis_stride 预设。寻声导航用 BALANCED；
+            跟丢重搜可临时改 RESPONSIVE。
+
+        config AI_DOG_DOA_PRESET_ECONOMY
+            bool "Economy (lowest CPU)"
+        config AI_DOG_DOA_PRESET_BALANCED
+            bool "Balanced"
+        config AI_DOG_DOA_PRESET_RESPONSIVE
+            bool "Responsive (fastest tracking)"
+    endchoice
+
+    config AI_DOG_DOA_FILTER_FRAMES
+        int "DOA 多帧滤波窗长（帧）"
+        default 5
+        range 1 21
+        help
+            多帧中值滤波窗长。滤掉单帧乱跳；窗内奇偶均可，内部自动取中值。
+
+    config AI_DOG_DOA_MIN_QUALITY
+        int "DOA 可用质量门限 (0..10)"
+        default 3
+        range 0 10
+        help
+            esp_apa_doa 的 quality 低于该值视为不可用，不参与滤波/决策。
+
+    config AI_DOG_DOA_DEADZONE_DEG
+        int "DOA 对准死区 (±deg)"
+        default 12
+        range 1 45
+        help
+            原地对准的比例伺服死区。死区内不再纠偏，直接进入前进步。
+
+    config AI_DOG_DOA_STABLE_DEG
+        int "DOA 稳定判定（监听窗内最大偏差, deg）"
+        default 25
+        range 5 90
+        help
+            接近段触发条件之一：监听窗内各帧角度与中值的最大偏差小于该值
+            视为"DOA 稳定"。
+
+    # ---------------- 近场声学特征（SW-204 接近段触发，标定值） ----------------
+    config AI_DOG_SUMMON_NEAR_ENERGY_DB
+        int "近场能量阈值 (dBFS)"
+        default -30
+        range -80 0
+        help
+            接近段触发条件之二：DOA 全带能量超过该值视为进入近场
+            （方案 §4.3"近场声学特征（能量+方差）"的初值，M2 实测标定后冻结）。
+
+    # ---------------- 停-听-走 / 寻声（SW-204） ----------------
+    config AI_DOG_SUMMON_LISTEN_MS
+        int "单步监听窗 (ms)"
+        default 500
+        range 100 3000
+        help
+            停-听-走中"听"的时长。DOA + 能量多帧滤波在此窗内完成。
+
+    config AI_DOG_SUMMON_STEP_MS
+        int "前进步长时间 (ms)"
+        default 1500
+        range 200 5000
+        help
+            "走"的时长。配合 CRUISE_DUTY 约 0.2m/s → 1.5s ≈ 0.3m/步（SW-205 标定）。
+
+    config AI_DOG_SUMMON_CRUISE_DUTY
+        int "低速巡航占空比 (%)，0..100"
+        default 35
+        range 5 100
+        help
+            低速巡航档对应 PWM 占空比（8bit 满幅 = 100%）。约 0.2m/s，实测标定后回写 §4.3。
+
+    config AI_DOG_SUMMON_ALIGN_MAX_MS
+        int "单步原地对准最长用时 (ms)，超时按当前角度前进"
+        default 3000
+        range 500 15000
+
+    config AI_DOG_SUMMON_TOTAL_TIMEOUT_MS
+        int "召唤总时限 (ms)"
+        default 60000
+        range 10000 300000
+        help
+            超时 → 同 S5 降级（原地 360° 重搜一次 → 回 Idle，App 提示）。
+
+    config AI_DOG_SUMMON_APPROACH_STOP_MM
+        int "近场触发距离 (mm)，DOA 稳定后准备视觉确认"
+        default 1000
+        range 200 3000
+        help
+            前向测程（VL53L0X）小于该值 → 认为进入接近段，启摄像头（S3）。
+
+    # ---------------- 避障（VL53L0X） ----------------
+    config AI_DOG_VL53L0X_THRESHOLD_MM
+        int "VL53L0X 避障阈值 (mm)"
+        default 400
+        range 100 2000
+        help
+            前向测程小于该值 → 停车 → 原地重定向。
+
+    # ---------------- 自噪抑制（R-F1） ----------------
+    config AI_DOG_SUMMON_MOVE_DUTY_30
+        bool "自噪抑制 30% 占空比档（R-F1 降级）"
+        default n
+        help
+            ON 时巡航占空比强制为 30%（自噪淹没麦克风时的降级档）。
+            正常标定后关掉。
+
+    # ---------------- 视觉（SW-301~303；R-F6 可关） ----------------
+    config AI_DOG_VISION_ENABLE
+        bool "启用 ArduCAM 视觉确认（路线 B）"
+        default y
+        help
+            S3 接近段抓 1-2 帧 + 本地人形检测，确认"面前有人"才最终停车。
+            关闭后按 R-F6 退回纯声学到达判定（AT-S04 口径）。
+
+    config AI_DOG_OLED_CS_GPIO45
+        bool "OLED CS 飞线到 GPIO45（与摄像头共 SPI 总线，SW-304）"
+        default n
+        help
+            最终实施方案 §3.1 第 3 条：OLED 模块 CS 从 GND 改接 GPIO45
+            （strapping 脚，上电高电平启动）。飞线完成并实测启动正常后打开。
+            不飞线的现场保持 n，用软件兜底（摄像头用后重初始化 OLED）。
+            打开后 config.h 的 DISPLAY_CS_PIN 变为 GPIO_NUM_45。
+
+    config AI_DOG_VISION_DETECT_THRESHOLD
+        int "人形检测分数阈值 (%)"
+        default 70
+        range 10 99
+        help
+            pedestrian_detect 的 score 阈值（模型默认 0.7）。
+
+    config AI_DOG_VISION_BOX_RATIO
+        int "人形框最小占比 (%)，约画面占比"
+        default 15
+        range 1 100
+        help
+            检出框面积占 160x120 画面的最小比例，过滤远处小人影/误检。
+
+    config AI_DOG_VISION_MAX_TRIES
+        int "视觉确认最大重试次数"
+        default 3
+        range 1 10
+        help
+            无人形 → 回 S2 重试；仍无 → S5 降级。
+
+    config AI_DOG_VISION_FRAME_BUDGET_MS
+        int "单帧视觉链路预算 (ms)"
+        default 1500
+        range 300 10000
+        help
+            抓帧 + 解码 + 检测的单帧预算，超时记日志并按无人形处理。
+
+    config AI_DOG_VISION_PRIVACY_NO_SAVE
+        bool "隐私：不存储/不上传图像（强制 ON）"
+        default y
+        help
+            AT-S09 隐私条款代码评审项。固件只在上电后内存中处理 JPEG，
+            不写 flash、不发网络。故意不给关闭选项。
+
+    # ---------------- 声纹 L1（SW-202） ----------------
+    choice AI_DOG_VOICEPRINT_BACKEND
+        prompt "L1 口令验证后端"
+        default AI_DOG_VOICEPRINT_MULTINET
+        help
+            MultiNet：命令词识别（需选择中文 MultiNet 模型，见下）。
+            AlwaysAccept：无模型 bring-up / 仿真联调用，唤醒词后直接放行。
+
+        config AI_DOG_VOICEPRINT_MULTINET
+            bool "MultiNet command words"
+            select SR_MN_CN_MULTINET6_QUANT
+            help
+                选择中文 MultiNet6 量化模型并打进 model 分区
+                （menuconfig 免费自定义命令词）。口令短语在
+                AI_DOG_SUMMON_COMMAND_WORDS 配置。
+        config AI_DOG_VOICEPRINT_ALWAYS_ACCEPT
+            bool "Always accept (bring-up)"
+    endchoice
+
+    # ---------------- 模式抢占（Q-08/Q-09/Q-11） ----------------
+    config AI_DOG_SUMMON_GUARD_ALLOW
+        bool "看门模式允许被召唤口令抢占"
+        default y
+        help
+            Q-08 安全悖论处理：默认允许召唤，但口令必须通过（R-F10）。
+            App 侧另有"看门时段禁用召唤"开关。
+
+    config AI_DOG_SUMMON_LOW_BATTERY_PCT
+        int "低压拒绝进入阈值 (%)"
+        default 20
+        range 0 100
+        help
+            低于该值拒绝进入 Summon；过程中低压 → 立即停车回 Idle 并播报（Q-11）。
+
+    # ---------------- 电机点动（SW-205） ----------------
+    config AI_DOG_MOTOR_NUDGE_MS
+        int "点动纠偏脉冲宽度 (ms)"
+        default 60
+        range 20 500
+        help
+            原地对准的短脉冲差速。脉冲式输出抑制过冲，也降低自噪暴露。
+
+    config AI_DOG_MOTOR_NUDGE_DUTY
+        int "点动纠偏占空比 (%)"
+        default 30
+        range 5 100
+
+    endif
+endmenu
+
 endmenu

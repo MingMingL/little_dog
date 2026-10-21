@@ -4,6 +4,11 @@
 > 设备现为"有屏"状态：Wi-Fi/配网/对话内容会显示在 0.96" SSD1306 上（SPI 接口，GPIO1/2/46/48，CS 接地）。
 > 尚未烧录到真实硬件验证（主控仍在途中），联调待硬件到货。
 > 构建注意：AGP 不支持 JDK 24，本机已另装 JDK 21 于 `F:\software\jdk21\jdk-21.0.12.1+1`，详见 `android/README.md`。
+>
+> **V1.5 召唤功能（2026-10-15，SW-203/SW-401）**：`/api/status` 增加 `summon` 字段对象；
+> Summon 期间 `/api/mode` 拒绝普通切换；新增 `GET/POST /api/summon/vision` 摄像头开关；
+> App 增加召唤状态页与口令向导。召唤总开关 `CONFIG_AI_DOG_ENABLE_SUMMON` 默认 OFF，
+> 关闭时协议与 V1 完全一致（App 对老固件自动降级：summon 字段缺失即不显示召唤页）。
 
 ## 1. 总体方案
 
@@ -117,15 +122,59 @@ WS ws://<ip>/ws
 服务端每 1 秒推送一次与 `/api/status` 相同的 JSON。
 **App 逻辑**：先尝试 WebSocket；连不上则自动降级为每 2 秒轮询 `GET /api/status`。监听带代数标记，停止或重启后旧 WS 失败回调/轮询结果不再起效，避免后台继续轮询。因此设备端目前只实现 HTTP 接口，App 仍能正常工作。
 
+### 2.9 召唤状态字段（V1.5 新增，SW-203/SW-401）
+
+`/api/status` 在**召唤进行中**（`mode == "summon"` 或 summon 阶段非 idle）时额外返回 `summon` 对象；其余情况不返回该字段（App 据此判断老固件，自动隐藏召唤页）：
+
+```json
+{
+  "mode": "summon",
+  "summon": {
+    "phase": "listening",      // idle|verifying|listening|aligning|moving|avoiding|vision|arrived|rescan|finishing
+    "doa_deg": 87.5,           // DOA 方位角 0..360（+Y=0° 顺时针，90°=右）
+    "energy_db": -42.3,        // 全带能量 dBFS
+    "distance_mm": 1250,       // VL53L0X 前向测程，-1 无效
+    "vision_used": true,       // 本次召唤是否用过视觉确认
+    "vision_result": 0,        // -1 未用 / 0 无人形 / 1 有人形 / 2 超时失败
+    "vision_tries": 1,         // 视觉确认已重试次数
+    "elapsed_ms": 8400,        // 本次召唤已用时
+    "message": "听听"           // 状态短语（App 原样展示）
+  }
+}
+```
+
+阶段与设备端 `AiDogSummon::PhaseToString` 一致，中文映射在 App 端 `DeviceStatus.SummonInfo.phaseLabel()`。
+
+**模式切换规则（SW-203 抢占）**：
+- Summon 进行中 `/api/mode` 切普通模式 → `{"ok":false,"error":"summon in progress"}`；
+- App 直接切 `summon` → `{"ok":false,"error":"summon requires wake word + passphrase"}`
+  （召唤只能由"唤醒词 + 口令验证通过"进入，App 抢不了这个入口）；
+- `/api/stop` 急停始终有效（任何模式立即停车回 idle）。
+
+**摄像头开关（SW-401）**：
+
+```
+GET  /api/summon/vision   -> {"ok":true,"available":bool,"enabled":bool}
+POST /api/summon/vision   {"enabled": true|false} -> {"ok":true}
+```
+
+`available=false` 表示摄像头没接或编译期关闭（`AI_DOG_VISION_ENABLE=n`），此时不能开启；
+关闭 `enabled` 后到达判定退回纯声学（R-F6 降级口径）。
+
+无硬件联调：`tools/sim_dog.py` 已实现同名端点与 summon 状态推进
+（`POST /api/summon/wake` → `/api/summon/passphrase {"word":"guo lai"}` →
+`/api/summon/step {"phase":"vision"}`）。
+
 ## 3. App 结构
 
 ```
 android/
 └── app/src/main/java/com/aidog/control/
-    ├── MainActivity.java       # 状态面板 + 模式切换 + 遥控方向键 + 急停
+    ├── MainActivity.java       # 状态面板 + 模式切换 + 遥控方向键 + 急停 + 召唤状态页（V1.5）
     ├── SetupActivity.java      # 设备 IP 设置 + 配网入口
-    ├── api/DeviceApi.java      # OkHttp：HTTP 请求 + WebSocket + 自动降级轮询 + /api/move
-    └── model/DeviceStatus.java # 状态数据模型（Gson 解析）
+    ├── SummonGuideActivity.java # V1.5 召唤口令向导（唤醒词/口令/流程说明）
+    ├── api/DeviceApi.java      # OkHttp：HTTP 请求 + WebSocket + 自动降级轮询 + /api/move + /api/summon/vision
+    └── model/DeviceStatus.java # 状态数据模型（Gson 解析；V1.5 起含 SummonInfo）
 ```
 
 要点：

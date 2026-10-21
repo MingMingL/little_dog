@@ -189,11 +189,26 @@ public class DeviceApi {
     // 控制指令
     // ------------------------------------------------------------------
 
-    /** 切换模式：idle / chat / patrol / guard */
+    /** 切换模式：idle / chat / patrol / guard / remote（summon 只能由唤醒词+口令进入） */
     public void setMode(String mode, SimpleCallback callback) {
         JsonObject json = new JsonObject();
         json.addProperty("mode", mode);
         post("/api/mode", json.toString(), callback);
+    }
+
+    /**
+     * V1.5 召唤摄像头开关（SW-401）：POST /api/summon/vision {"enabled": bool}。
+     * 设备编译期关闭视觉（AI_DOG_VISION_ENABLE=n）时返回 ok:false，App 提示不可用。
+     */
+    public void setSummonVision(boolean enabled, SimpleCallback callback) {
+        JsonObject json = new JsonObject();
+        json.addProperty("enabled", enabled);
+        post("/api/summon/vision", json.toString(), callback);
+    }
+
+    /** 查询召唤摄像头开关状态（GET /api/summon/vision） */
+    public void getSummonVision(SimpleCallback callback) {
+        get("/api/summon/vision", callback);
     }
 
     /** 急停：最高优先级，设备应立即停电机并回到 idle */
@@ -302,6 +317,39 @@ public class DeviceApi {
         Request request = new Request.Builder()
                 .url(baseUrl + path)
                 .post(RequestBody.create(body, JSON))
+                .build();
+
+        client.newCall(request).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(okhttp3.Call call, java.io.IOException e) {
+                mainHandler.post(() -> callback.onResult(false, "连接失败：" + e.getMessage()));
+            }
+
+            @Override
+            public void onResponse(okhttp3.Call call, Response response) {
+                try {
+                    String respBody = response.body() != null ? response.body().string() : "";
+                    boolean ok = response.isSuccessful() && !respBody.contains("\"ok\":false");
+                    String msg = respBody.isEmpty() ? ("HTTP " + response.code()) : respBody;
+                    mainHandler.post(() -> callback.onResult(ok, msg));
+                } catch (Exception e) {
+                    mainHandler.post(() -> callback.onResult(false, "解析失败：" + e.getMessage()));
+                } finally {
+                    response.close();
+                }
+            }
+        });
+    }
+
+    /** GET 请求（召唤摄像头开关状态查询用） */
+    private void get(String path, SimpleCallback callback) {
+        if (baseUrl == null) {
+            callback.onResult(false, "未设置设备 IP");
+            return;
+        }
+        Request request = new Request.Builder()
+                .url(baseUrl + path)
+                .get()
                 .build();
 
         client.newCall(request).enqueue(new okhttp3.Callback() {

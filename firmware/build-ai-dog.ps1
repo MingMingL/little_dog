@@ -10,6 +10,8 @@
 #   .\build-ai-dog.ps1 -Action menuconfig           # Kconfig menu
 #   .\build-ai-dog.ps1 -Action fullclean            # clean build dir
 #   .\build-ai-dog.ps1 -Action reconfigure          # re-run cmake configure
+#   .\build-ai-dog.ps1 -Action build-summon          # build with V1.5 summon ON
+#   .\build-ai-dog.ps1 -Action flash-summon -Port COM3
 #
 # IMPORTANT: run reconfigure after ADDING a new source file under
 #   main/boards/ai-dog-s3/
@@ -19,7 +21,7 @@
 # because it only re-configures when CMakeLists.txt itself changes.
 
 param(
-    [ValidateSet("build", "flash", "monitor", "menuconfig", "fullclean", "reconfigure")]
+    [ValidateSet("build", "build-summon", "flash", "flash-summon", "monitor", "menuconfig", "fullclean", "reconfigure")]
     [string]$Action = "build",
     [string]$Port = "COM3"
 )
@@ -92,6 +94,49 @@ $env:TEMP = $BuildTmp
 $env:CCACHE_DIR = $BuildCache
 # ccache adds another scratch path and brings no benefit on the first build.
 $env:CCACHE_DISABLE = "1"
+# ccache itself hangs on this host (two gcc children sharing one
+# ccache/tmp/cmd_args.tmp.* response file, 0% CPU forever). CCACHE_DISABLE
+# alone did NOT stop it -- the launcher was still ccache. Disable it in IDF
+# so ninja calls the compiler directly.
+$env:IDF_CCACHE_ENABLE = "0"
+
+# Windows command-line limit: this workspace path is long and IDF passes a huge
+# -DESP_LCD_*_VER_* define list, so the generated compile command overflows
+# CreateProcess ("ninja: fatal: CreateProcess ... is the command line too
+# long?"). Force ninja to use @rsp files instead.
+$env:IDF_EXTRA_CMAKE_ARGS = "-DCMAKE_NINJA_FORCE_RESPONSE_FILE=ON"
+
+$SummonDefaults = Join-Path $PSScriptRoot "config\ai-dog-s3-summon.defaults"
+
+# SDKCONFIG_DEFAULTS only seeds symbols that are NOT already in sdkconfig, so an
+# existing sdkconfig would silently keep summon OFF. Flip the values in place to
+# make -Action build-summon deterministic.
+function Set-SdkconfigValue {
+    param([string]$Key, [string]$Value)
+    $file = Join-Path $Project "sdkconfig"
+    if (-not (Test-Path $file)) { return }
+    $lines = Get-Content $file
+    $found = $false
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match "^(# )?$([regex]::Escape($Key))(=| )") {
+            $lines[$i] = "$Key=$Value"
+            $found = $true
+            break
+        }
+    }
+    if (-not $found) {
+        $lines += "$Key=$Value"
+    }
+    Set-Content -Path $file -Value $lines -Encoding ASCII
+}
+
+function Enable-SummonConfig {
+    $env:SDKCONFIG_DEFAULTS = "sdkconfig.defaults;sdkconfig.defaults.esp32s3;$Defaults;$SummonDefaults"
+    Set-SdkconfigValue "CONFIG_AI_DOG_ENABLE_SUMMON" "y"
+    Set-SdkconfigValue "CONFIG_AI_DOG_VISION_ENABLE" "y"
+    Set-SdkconfigValue "CONFIG_AI_DOG_VOICEPRINT_MULTINET" "y"
+    Set-SdkconfigValue "CONFIG_PARTITION_TABLE_CUSTOM_FILENAME" '"partitions/v2/16m_summon.csv"'
+}
 
 switch ($Action) {
     "build" {
@@ -101,7 +146,27 @@ switch ($Action) {
         }
         Invoke-Idf build
     }
-    "flash"       { Invoke-Idf -p $Port flash }
+    "build-summon" {
+        # V1.5 summon ON: needs the bigger OTA slots (16m_summon.csv) because
+        # esp-dl pedestrian_detect ships ~425KB of model inside the app image.
+        if (-not (Test-Path $SummonDefaults)) {
+            throw "Summon defaults not found: $SummonDefaults"
+        }
+        Enable-SummonConfig
+        Write-Host "==> Summon ON (see $SummonDefaults)" -ForegroundColor Cyan
+        Invoke-Idf reconfigure
+        Invoke-Idf build
+    }
+    "flash"        { Invoke-Idf -p $Port flash }
+    "flash-summon" {
+        if (-not (Test-Path $SummonDefaults)) {
+            throw "Summon defaults not found: $SummonDefaults"
+        }
+        Enable-SummonConfig
+        Invoke-Idf reconfigure
+        Invoke-Idf build
+        Invoke-Idf -p $Port flash
+    }
     "monitor"     { Invoke-Idf -p $Port monitor }
     "menuconfig"  { Invoke-Idf menuconfig }
     "fullclean"   { Invoke-Idf fullclean }

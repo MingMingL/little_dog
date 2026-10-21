@@ -1,0 +1,23 @@
+﻿# Name,   Type, SubType, Offset,   Size,     Flags
+# V1.5 召唤专用分区表（16MB flash）
+#
+# 与 v2/16m.csv 的差别：把 flash 尾部未使用的 8MB 分给 OTA 双槽，
+# 容纳"4 麦 DOA + pedestrian_detect 模型（rodata ~425KB）"后的固件
+# （summon OFF 时 0x276690 ≈ 2.6MB；summon ON 时 0x4d94c0 ≈ 5.1MB）。
+# 人形检测模型走 rodata 内嵌（pedestrian_detect 默认配置），不单独占分区，
+# OTA 升级时模型随固件一起更新，不会出现"固件新、模型旧"的错配。
+#
+# 布局（16MB = 0x1000000，末端留 3MB 余量给后续 OTA/日志）：
+#   0x009000 nvs        16K
+#   0x00d000 otadata     8K
+#   0x00f000 phy_init    4K
+#   0x020000 ota_0    5888K   (0x5E0000)
+#   0x600000 ota_1    5888K   (0x5E0000)
+#   0xBE0000 model    1792K   (0x1C0000，预留给后续 L2 声纹/x-vector 模型)
+nvs,      data, nvs,     0x9000,    0x4000,
+otadata,  data, ota,     0xd000,    0x2000,
+phy_init, data, phy,     0xf000,    0x1000,
+ota_0,    app,  ota_0,   0x20000,   0x5E0000,
+ota_1,    app,  ota_1,   ,          0x5E0000,
+# model 预留：放 SR 语音模型（esp-sr 的 mn/wn 模型按需放这里）
+model,    data, spiffs,  0xBE0000,  0x1C0000,

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>机器狗 V1.5 · 召唤功能最终实施方案（方案一 + 路线 B）</title>
+<style>
+:root{--primary:#3F51B5;--primary-light:#E8EAF6;--surface:#F7F8FA;--border:#E0E0E0;--text:#212121;--text2:#616161;--new:#2E7D32;--new-bg:#E8F5E9;--todo:#EF6C00;--todo-bg:#FFF3E0;--warn:#C62828}
+*{box-sizing:border-box}body{margin:0;padding:0 24px 70px;font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;background:#fff;color:var(--text);line-height:1.7}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:26px;margin:0 0 6px}h2{font-size:20px;margin:40px 0 14px;padding-left:12px;border-left:4px solid var(--primary)}
+h3{font-size:16px;margin:24px 0 10px;color:var(--primary)}p,li{font-size:14.5px}
+code{background:var(--surface);padding:1px 5px;border-radius:3px;font-size:13px;font-family:Consolas,Monaco,monospace}
+header{padding:34px 0 20px;border-bottom:2px solid var(--primary);margin-bottom:26px}
+.sub{color:var(--text2);font-size:13.5px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12.5px}
+th,td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--primary-light);font-weight:600}tr:nth-child(even) td{background:#FAFAFA}
+figure{margin:20px 0;text-align:center}figcaption{font-size:13px;color:var(--text2);margin-top:8px}
+svg{max-width:100%;height:auto}
+.note{background:var(--todo-bg);border-left:4px solid var(--todo);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.danger{background:#FFEBEE;border-left:4px solid var(--warn);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.ok{background:var(--new-bg);border-left:4px solid var(--new);padding:10px 14px;margin:14px 0;font-size:13.5px}
+footer{margin-top:50px;padding-top:16px;border-bottom:0;border-top:1px solid var(--border);color:var(--text2);font-size:13px}
+</style></head><body><div class="wrap">
+<header>
+<h1>机器狗 V1.5 · 召唤功能最终实施方案</h1>
+<div class="sub">执行版 v1.1 · 2026-10-19（v1.1 = 与任务计划 Q-01 对齐 + 补充 AFE AEC/NS 分工） · 方案构成：<b>方案一（现有项目升级）+ 路线 B（SPI 摄像头快照确认）</b> · 背景文档：可行性方案 v0.4（保留） · 价格为估算口径</div>
+</header>
+
+<h2>〇、小白导读（非硬件读者看这里）</h2>
+<div class="ok"><b>做什么：</b>喊一声特殊口令（如"小狗过来"），机器狗听出是你的声音、判断你在哪个方向，开到你面前停下，然后跟你聊天。</div>
+<p><b>三样新东西：</b>①多装 3 个麦克风（凑够 4 个才能判断方向）；②加一个小摄像头（最后几米用眼睛确认"面前是你"，防止对着电视/别人乱停）；③软件上新写"召唤模式"（优先级最高，你一喊它，巡逻/看门都让位）。</p>
+<div class="danger"><b>一句话边界：</b>同一个房间、互相看得见，基本保证开到身边；隔着墙是"试着找"，不打包票。完整通俗解释见可行性方案 v0.4 的"小白导读"。</div>
+
+<h2>1. 方案锁定</h2>
+<h3>1.1 本期做（P0）</h3>
+<table>
+<tr><th style="width:9%">编号</th><th>内容</th></tr>
+<tr><td>P0-1</td><td>4 麦方阵（现有 1 麦 + 新增 3 麦）+ 麦克风隔振 + 电机线抗干扰</td></tr>
+<tr><td>P0-2</td><td>DOA 声源定向（<code>esp_apa_doa</code>，4 麦方阵，360° 无前后模糊）</td></tr>
+<tr><td>P0-3</td><td>唤醒词 + L1 声音口令：默认预置唤醒词（xiaozhi 已有）+ MultiNet 自定义命令词（免费，menuconfig 可加）；WakeNet9 定制专属唤醒词为可选升级（原因见任务计划 Q-01）</td></tr>
+<tr><td>P0-4</td><td>Summon 模式：抢占优先级（高于 chat/patrol/guard/remote，仅低于急停）</td></tr>
+<tr><td>P0-5</td><td>寻声导航：停-听-走 + 原地对准伺服 + VL53L0X 避障 + 多重到达判定</td></tr>
+<tr><td>P0-6</td><td>路线 B 摄像头：接近段抓 1–2 帧 + 本地人形检测，确认"面前有人"才最终停车</td></tr>
+<tr><td>P0-7</td><td><code>/api/status</code> 扩展（summon 阶段/角度/视觉结果）+ Android 召唤状态页与口令录入向导</td></tr>
+<tr><td>P0-8</td><td>巡线 5 路改接 PCF8574 I²C 扩展（为麦克风/摄像头释放 GPIO，巡线功能不变）</td></tr>
+</table>
+<h3>1.2 本期不做（P1/后续）</h3>
+<table>
+<tr><th style="width:9%">编号</th><th>内容</th><th style="width:38%">触发条件</th></tr>
+<tr><td>P1-1</td><td>L2 端侧声纹（x-vector，认人）</td><td>口令方案实测误召不可接受时</td></tr>
+<tr><td>P1-2</td><td>MPU6050 IMU（转向防过冲辅助）</td><td>原地对准过冲明显时（¥8，随时可加）</td></tr>
+<tr><td>P1-3</td><td>A02YYUW 超声（宽波束避障，GPIO3）</td><td>VL53L0X 窄波束漏检低矮/透明障碍时</td></tr>
+<tr><td>P1-4</td><td>带编码器电机（短距精控）</td><td>开环定时前进精度不足时</td></tr>
+<tr><td>P1-5</td><td>路线 A 连续视觉伺服 / 方案二（S31 整机重做）/ UWB</td><td>DOA 精度或自噪成为明确瓶颈时，见可行性方案 v0.4</td></tr>
+</table>
+<div class="note"><b>与可行性方案的关系：</b>本文档为<b>施工依据</b>；v0.4 保留为背景文档（含被否/备选路线）。<b>一处修正：</b>v0.4 §3.6 称路线 B"OLED 与巡线都不用动"——实际因 OLED 模块 CS 常接地（无片选），与摄像头共享 SPI 总线会产生乱码，需按本文 §3.1 将 OLED CS 改接 GPIO45（一处飞线），或采用软件兜底。</div>
+
+<h2>2. 硬件最终清单（只列新增/改动，估算价）</h2>
+<table>
+<tr><th style="width:5%">#</th><th>器件</th><th style="width:22%">规格/型号</th><th style="width:7%">数量</th><th style="width:8%">估价</th><th>采购与接线注意</th></tr>
+<tr><td>1</td><td>数字麦克风</td><td>INMP441（I²S，<b>仅 3.3V</b>）</td><td>3</td><td>¥25</td><td>与现有 1 只凑 4 麦方阵；SCK/WS 共用现有 GPIO4/5，每麦独立 SD 线</td></tr>
+<tr><td>2</td><td>4 麦阵列板</td><td>自绘 PCB 打样（嘉立创 5 片）或洞洞板</td><td>1</td><td>¥30</td><td>方阵边长 4–5cm；4 根 SD 走线等长、星型接地、包地；亦可买成品阵列板（¥40–80）</td></tr>
+<tr><td>3</td><td>麦克风减振支架</td><td>硅胶柱/海绵 + 与壳体隔离安装</td><td>1 套</td><td>¥10</td><td>麦克风不得与电机、壳体刚性接触；<b>自噪抑制第一道防线</b></td></tr>
+<tr><td>4</td><td>电机线双绞 + 铁氧体磁环</td><td>—</td><td>若干</td><td>¥10</td><td>两根电机线绞合，穿磁环；远离麦克风走线</td></tr>
+<tr><td>5</td><td>I²C 扩展</td><td>PCF8574（地址 0x20）</td><td>1</td><td>¥5</td><td>巡线 5 路（TCRT5000 数字输出多为开漏，与 PCF8574 准双向口兼容；读不稳则在模块端加 10k 上拉）</td></tr>
+<tr><td>6</td><td>SPI 摄像头</td><td>ArduCAM Mini 2MP Plus（OV2640）</td><td>1</td><td>¥65</td><td>3.3V 直供或板载 LDO 版本，<b>5V 不得直接接信号脚</b>；只抓 JPEG 快照，不做视频流</td></tr>
+<tr><td>7</td><td>装配辅料</td><td>飞线、排针、电阻、小洞洞板</td><td>1 批</td><td>¥20</td><td>含 OLED CS 改接飞线</td></tr>
+<tr><td></td><td colspan="3"><b>新增小计</b></td><td><b>≈ ¥165</b></td><td>可选（P1-2/3）：MPU6050 ¥8；A02YYUW ¥18</td></tr>
+</table>
+<p><b>整机口径：</b>V1 约 ¥492 + 本期增量约 ¥165–190 → <b>整机约 ¥660–680</b>（不含已有工具与手机）。</p>
+
+<h2>3. 硬件改动与引脚分配（最终版）</h2>
+<h3>3.1 三处硬件改动</h3>
+<ol>
+<li><b>加麦克风阵列：</b>新增 3× INMP441，与现有麦克风组成 4 麦方阵；共享 SCK/WS（GPIO4/5），每麦独立 SD 数据线（GPIO6 现有 + 38/39/40 新增）。</li>
+<li><b>巡线改 I²C：</b>5 路 TCRT5000 输出从 GPIO17/18/38/39/40 改接到 PCF8574（P0–P4），PCF8574 挂现有 I²C（GPIO41/42，与 VL53L0X 0x29 并联）；固件中巡线读取从 GPIO 改为 I²C 读 8 位。</li>
+<li><b>OLED CS 飞线：</b>把 OLED 模块上"CS 接 GND"的跳线切断，焊一根飞线到 <b>GPIO45</b>；固件 <code>DISPLAY_CS_PIN</code> 由 <code>GPIO_NUM_NC</code> 改为 <code>GPIO_NUM_45</code>。</li>
+</ol>
+<div class="danger"><b>GPIO45 注意：</b>它是 strapping 脚，上电时电平决定启动模式——飞线时按 ESP32-S3 启动要求加合适上/下拉（通常保持高电平即可正常启动，以数据手册为准），启动后可正常当 GPIO。<b>若不愿动 strapping 脚</b>，用备选：OLED CS 仍接 GND，摄像头每次用完后由固件重新初始化 OLED（软件兜底，召唤过程中屏幕会闪一下，可接受）。</div>
+
+<h3>3.2 引脚分配总表</h3>
+<table>
+<tr><th style="width:26%">信号</th><th style="width:16%">GPIO</th><th style="width:9%">状态</th><th>说明</th></tr>
+<tr><td>MIC SCK / WS / SD1</td><td>5 / 4 / 6</td><td>现有</td><td>阵列 4 麦共享 SCK/WS</td></tr>
+<tr><td>MIC SD2 / SD3 / SD4</td><td><b>38 / 39 / 40</b></td><td><b>新增</b></td><td>PCF8574 释放；等长走线</td></tr>
+<tr><td>SPK DOUT / BCLK / LRCK</td><td>7 / 15 / 16</td><td>现有</td><td>MAX98357A</td></tr>
+<tr><td>电机 L/R PWM+方向+STBY</td><td>10–14 / 21 / 47</td><td>现有</td><td>TB6612FNG</td></tr>
+<tr><td>巡线 ×5</td><td>PCF8574 P0–P4</td><td><b>改接</b></td><td>I²C 0x20，与 VL53L0X 0x29 共总线</td></tr>
+<tr><td>VL53L0X SDA/SCL</td><td>41 / 42</td><td>现有</td><td>新增 PCF8574、MPU6050（可选）并联</td></tr>
+<tr><td>OLED SCLK / MOSI / DC / RES</td><td>1 / 2 / 46 / 48</td><td>现有</td><td>CS 见下行</td></tr>
+<tr><td>OLED CS</td><td><b>45</b></td><td><b>改接</b></td><td>飞线，见 §3.1 第 3 条</td></tr>
+<tr><td>ArduCAM SCK / MOSI</td><td>1 / 2</td><td><b>共享</b></td><td>与 OLED 共用 SPI 总线</td></tr>
+<tr><td>ArduCAM MISO / CS</td><td><b>17 / 18</b></td><td><b>新增</b></td><td>PCF8574 释放</td></tr>
+<tr><td>ArduCAM PWDN / RESET</td><td>接 GND / 接 3.3V</td><td>静态</td><td>不占 GPIO；若实测初始化失败，备选：摄像头 RESET 用 GPIO45、OLED CS 改软件兜底（二选一）</td></tr>
+<tr><td>电池 ADC / 按键 / 日志</td><td>8 / 0 / 9 / 43 / 44</td><td>现有</td><td>不变</td></tr>
+<tr><td>MPU6050（可选）</td><td>I²C 0x68</td><td>可选</td><td>不占 GPIO</td></tr>
+<tr><td>A02YYUW（可选）</td><td>GPIO3</td><td>可选</td><td>strapping 脚运行期作 GPIO；上电电平需保证</td></tr>
+</table>
+<div class="note"><b>引脚压力备注：</b>GPIO22–25 在 ESP32-S3-WROOM-1 N16R8 上是否可用，M0 阶段用"点灯法"逐个实测（若可用，本方案引脚压力进一步缓解，PCF8574 可留作冗余）。</div>
+
+<h3>3.3 4 麦采集的电气实现（固件侧择优，不改硬件）</h3>
+<p>三种接法均可由上述引脚支持，按 ESP-IDF v6.1 实测择优（M1 阶段定）：</p>
+<ul>
+<li><b>(a) 每麦独立 SD 线</b>（本方案默认设计）：4 路数据，I²S 多数据线/TDM 方式采集；</li>
+<li><b>(b) 双麦共享一条 SD</b>（L/R 分槽）×2：只占 2 条数据线，富余 GPIO 备用；</li>
+<li><b>(c) 换成品 TDM 阵列板</b>（4 麦合成 1–2 路 I²S）：引脚最省，阵列板 ¥40–80。</li>
+</ul>
+
+<h2>4. 软件设计</h2>
+<h3>4.1 模块清单（均落在 <code>main/boards/ai-dog-s3/</code>）</h3>
+<table>
+<tr><th style="width:26%">模块</th><th style="width:7%">类型</th><th>职责</th></tr>
+<tr><td><code>ai_dog_control.h/.cc</code></td><td>改</td><td>新增 <code>Mode::Summon</code>；抢占规则（Summon &gt; Chat/Patrol/Guard/Remote，急停 &gt; 全部）；<code>/api/status</code> 增加 summon 阶段/DOA 角度/视觉结果；Summon 期间 <code>/api/mode</code> 拒绝普通切换（<code>/api/stop</code> 除外）</td></tr>
+<tr><td><code>ai_dog_mic_array.cc/.h</code></td><td>新</td><td>4 麦 I²S 采集；输出原始 4 通道流，分发给 DOA 与 AFE</td></tr>
+<tr><td><code>ai_dog_doa.cc/.h</code></td><td>新</td><td>封装 <code>esp_apa_doa</code>：方阵坐标配置、每帧 0–360° 输出、多帧中值/卡尔曼滤波、能量估计</td></tr>
+<tr><td><code>ai_dog_summon.cc/.h</code></td><td>新</td><td>召唤状态机（见 §4.2）与全部决策逻辑</td></tr>
+<tr><td><code>ai_dog_voiceprint.cc/.h</code></td><td>新</td><td>L1 口令验证（MultiNet）；预留 L2 x-vector 接口</td></tr>
+<tr><td><code>ai_dog_vision.cc/.h</code></td><td>新</td><td>ArduCAM 驱动（SPI 抓 JPEG）→ tjpgd 解码 → 缩放 160×120 → ESP-DL 人形检测；只在接近段被调用</td></tr>
+<tr><td><code>ai_dog_line_pcf8574.cc/.h</code></td><td>新</td><td>巡线 5 路 I²C 读取（替代 GPIO 版）</td></tr>
+<tr><td><code>ai_dog_motor.cc</code></td><td>改</td><td>低速巡航档（约 0.2 m/s）、点动纠偏（短脉冲差速）、行驶/监听状态上报</td></tr>
+<tr><td>唤醒词配置</td><td>改</td><td>默认预置唤醒词 + MultiNet 自定义命令词（Q-01 选项 A）；狗叫播放/聊天播报期间门控 + AFE AEC 双保险防自触发；NS 仅进唤醒/ASR 链路，DOA 仍用原始流（见任务计划 SW-105）</td></tr>
+<tr><td><code>android/</code></td><td>改</td><td>召唤状态页（阶段/角度/距离提示）、口令录入向导、摄像头开关</td></tr>
+</table>
+
+<h3>4.2 Summon 状态机</h3>
+<figure>
+<svg viewBox="0 0 1080 250" xmlns="http://www.w3.org/2000/svg" font-family="inherit">
+<defs><marker id="arr2" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#3F51B5"/></marker></defs>
+<style>
+.bx{fill:#E8EAF6;stroke:#3F51B5;stroke-width:1.5}
+.bt{font-size:13px;fill:#212121;text-anchor:middle}
+.bs{font-size:11px;fill:#616161;text-anchor:middle}
+.ln{stroke:#3F51B5;stroke-width:1.5;fill:none;marker-end:url(#arr2)}
+.lt{font-size:11.5px;fill:#3F51B5}
+</style>
+<rect class="bx" x="8" y="30" width="118" height="60"/><text class="bt" x="67" y="55">任意模式</text><text class="bs" x="67" y="74">唤醒词常开监听</text>
+<line class="ln" x1="126" y1="60" x2="172" y2="60"/><text class="lt" x="149" y="50" text-anchor="middle">命中</text>
+<rect class="bx" x="172" y="30" width="118" height="60"/><text class="bt" x="231" y="55">S1 口令验证</text><text class="bs" x="231" y="74">1.5~3s</text>
+<line class="ln" x1="290" y1="60" x2="336" y2="60"/><text class="lt" x="313" y="50" text-anchor="middle">通过</text>
+<rect class="bx" x="336" y="30" width="150" height="60" style="fill:#FFF3E0;stroke:#EF6C00"/><text class="bt" x="411" y="50">S2 SUMMON 停-听-走</text><text class="bs" x="411" y="68">听0.5s → 原地对准(±12°)</text><text class="bs" x="411" y="83">前进1.5s → VL53L0X避障</text>
+<line class="ln" x1="486" y1="60" x2="532" y2="60"/><text class="lt" x="509" y="50" text-anchor="middle">近场特征</text>
+<rect class="bx" x="532" y="30" width="150" height="60"/><text class="bt" x="607" y="50">S3 视觉确认</text><text class="bs" x="607" y="68">抓1~2帧JPEG → 人形检测</text><text class="bs" x="607" y="83">最多3次</text>
+<line class="ln" x1="682" y1="60" x2="728" y2="60"/><text class="lt" x="705" y="50" text-anchor="middle">有人形</text>
+<rect class="bx" x="728" y="30" width="140" height="60" style="fill:#E8F5E9;stroke:#2E7D32"/><text class="bt" x="798" y="50">S4 到达</text><text class="bs" x="798" y="68">停车 + 狗叫/问候</text><text class="bs" x="798" y="83">→ 自动切 Chat</text>
+<line class="ln" x1="868" y1="60" x2="914" y2="60"/>
+<rect class="bx" x="914" y="30" width="158" height="60" style="fill:#FFEBEE;stroke:#C62828"/><text class="bt" x="993" y="50">S5 降级</text><text class="bs" x="993" y="68">360°重搜 → 仍失败</text><text class="bs" x="993" y="83">回 Idle + App 提示</text>
+<path class="ln" d="M607,90 L607,140 L411,140 L411,90"/><text class="lt" x="509" y="133" text-anchor="middle">无人形 → 回 S2（≤3次）</text>
+<path class="ln" d="M993,90 L993,170 L231,170 L231,90" style="stroke:#C62828"/><text class="lt" x="612" y="163" text-anchor="middle">超时60s / 声源丢失 / 口令超时 → S5</text>
+<text class="lt" x="20" y="200">避障：VL53L0X &lt; 0.4m → 停车 → 侧向绕行或原地重定向；摄像头只在 S2 近场后到 S3 之间上电工作，全程不存储、不上传图像</text>
+<text class="lt" x="20" y="222">优先级：Summon 抢占 Chat/Patrol/Guard/Remote；物理急停 &gt; Summon</text>
+</svg>
+<figcaption>图 1 · Summon 状态机（最终实施方案）</figcaption>
+</figure>
+
+<h3>4.3 关键参数表（初值，M1–M3 实测标定后冻结）</h3>
+<table>
+<tr><th style="width:26%">参数</th><th style="width:22%">初值</th><th>标定方法</th></tr>
+<tr><td>唤醒灵敏度 / 冷却</td><td>DET_MODE_2 档 / 播放后静默 2s</td><td>误唤醒率测试（AT-S01）</td></tr>
+<tr><td>口令验证超时</td><td>3s</td><td>口令识别测试</td></tr>
+<tr><td>DOA 死区</td><td>±12°</td><td>8 方位定向测试（AT-S03）</td></tr>
+<tr><td>前进步长 / 步速</td><td>1.5s / 0.2 m/s（约 0.3m/步）</td><td>行驶标定</td></tr>
+<tr><td>单步监听窗</td><td>0.5s</td><td>自噪抑制验证</td></tr>
+<tr><td>总时限</td><td>60s</td><td>AT-S04</td></tr>
+<tr><td>重扫策略</td><td>360° 匀速扫一次</td><td>AT-S08</td></tr>
+<tr><td>VL53L0X 避障阈值</td><td>0.4m</td><td>避障测试</td></tr>
+<tr><td>近场声学特征（能量+方差）</td><td>标定值</td><td>到达判定测试</td></tr>
+<tr><td>视觉人形框占比阈值</td><td>标定值（约画面 15%）</td><td>AT-S09</td></tr>
+<tr><td>视觉链路预算</td><td>≤1.5s/帧（仅 S3 用 1–2 帧）</td><td>实测</td></tr>
+</table>
+
+<h2>5. Android 端改动</h2>
+<ol>
+<li>召唤状态页：显示当前阶段（监听/验证/定向/接近/视觉确认/到达/降级）、DOA 角度、能量条、摄像头开关；</li>
+<li>口令录入向导：选择/录制唤醒短语与口令短语（L1），引导跟读 3 遍；</li>
+<li>Summon 期间：模式按钮置灰并提示"召唤中"，仅急停可点；</li>
+<li>协议沿用现有 HTTP API，<code>/api/status</code> 增加 <code>summon</code> 字段对象（<code>phase</code>、<code>doa_deg</code>、<code>vision</code>）。</li>
+</ol>
+
+<h2>6. 测试与验收</h2>
+<h3>6.1 分模块测试（上台架/裸板）</h3>
+<table>
+<tr><th style="width:7%">顺序</th><th style="width:14%">项目</th><th>方法</th><th style="width:32%">通过标准</th></tr>
+<tr><td>T1</td><td>I²C 扫描</td><td>上电扫描 0x20/0x29/0x68</td><td>器件全部在位</td></tr>
+<tr><td>T2</td><td>SPI 总线共存</td><td>OLED 正常刷新 + 摄像头连续抓 20 帧</td><td>屏幕无乱码、抓帧成功率 ≥95%</td></tr>
+<tr><td>T3</td><td>4 麦采集</td><td>播放测试音，看 4 路波形幅度/相位一致</td><td>4 路均正常，幅度差 &lt;20%</td></tr>
+<tr><td>T4</td><td>DOA 定向</td><td>1–3m 圆周 8 方位，各 10 次</td><td>误差 ≤30° 占比 ≥80%（AT-S03）</td></tr>
+<tr><td>T5</td><td>唤醒+口令</td><td>安静环境 10 次唤醒、10 次口令</td><td>≥9 命中（AT-S01/02）</td></tr>
+<tr><td>T6</td><td>视觉链路</td><td>真人/电视人声/空椅各 10 帧</td><td>真人检出 ≥9，空椅/电视误检 ≤2（AT-S09）</td></tr>
+</table>
+<h3>6.2 整机验收</h3>
+<table>
+<tr><th style="width:9%">编号</th><th style="width:18%">验收项</th><th>通过标准</th></tr>
+<tr><td>AT-S01</td><td>唤醒词</td><td>安静环境 10 次 ≥9 命中；30min 误唤醒 ≤1</td></tr>
+<tr><td>AT-S02</td><td>口令验证</td><td>注册用户 20 次 ≥18 通过；未注册者 20 次误通过 ≤2</td></tr>
+<tr><td>AT-S03</td><td>DOA 定向</td><td>1–3m 圆周 8 方位，误差 ≤30° 占比 ≥80%</td></tr>
+<tr><td>AT-S04</td><td>寻声行驶</td><td>5m 直线召唤 10 次，≥7 次在上限时间内到达召唤者 1m 内；不碰撞</td></tr>
+<tr><td>AT-S05</td><td>模式优先级</td><td>巡逻/看门/遥控中被唤醒词打断 ≤2s 进入验证；Summon 期间普通模式指令被拒、急停始终有效</td></tr>
+<tr><td>AT-S06</td><td>到达切聊天</td><td>到达后自动进 Chat 并播报问候，成功率 ≥9/10</td></tr>
+<tr><td>AT-S07</td><td>自触发抑制</td><td>狗叫/聊天播报/行驶噪声不触发新唤醒或召唤</td></tr>
+<tr><td>AT-S08</td><td>异常恢复</td><td>超时/丢源 → 扫描重搜 → 安全回 Idle，App 可见</td></tr>
+<tr><td>AT-S09</td><td>视觉确认</td><td>真人 10 帧 ≥9 检出；电视人声/空椅 10 次误检 ≤2；全程不存储、不上传图像</td></tr>
+<tr><td>AT-S10</td><td>巡线回归</td><td>PCF8574 改接后，巡逻循线仍满足 V1 AT-02（≥9/10）</td></tr>
+<tr><td>AT-S11</td><td>显示回归</td><td>OLED CS 改接后，各模式状态显示正常，无乱码</td></tr>
+</table>
+
+<h2>7. 风险登记与降级路径（每条都给"不过怎么办"）</h2>
+<table>
+<tr><th style="width:8%">编号</th><th style="width:26%">风险</th><th>不过怎么办（按顺序尝试）</th></tr>
+<tr><td>R-F1</td><td>电机自噪淹没麦克风</td><td>隔振/双绞/磁环 → PWM ≥20kHz（哼声移出语音/DOA 频带）→ AFE NSNet2 辅助（仅唤醒/ASR 链路）→ 停-听-走占空比降至 30% → 本期只承诺"原地转向 + 短距（≤2m）接近"</td></tr>
+<tr><td>R-F2</td><td>4 麦 I²S 采集方式在 IDF 上不顺</td><td>(a)→(b)→(c) 三种电气实现切换（§3.3），不改硬件</td></tr>
+<tr><td>R-F3</td><td>DOA 精度不达标</td><td>多帧滤波/频带调优 → 只承诺大角度粗定向 → 评估路线 A/方案二（见 v0.4）</td></tr>
+<tr><td>R-F4</td><td>GPIO45 上电电平导致启动异常</td><td>加上/下拉满足启动模式 → 改 GPIO3 → 软件兜底（摄像头用后重初始化 OLED）</td></tr>
+<tr><td>R-F5</td><td>ArduCAM 初始化失败</td><td>RESET 静态接高无效时，RESET 改接可控 GPIO（与 OLED CS 方案二选一）</td></tr>
+<tr><td>R-F6</td><td>人形检测慢/误检</td><td>降分辨率 160×120、只抓 1 帧、调阈值 → 仍不过则关闭视觉，退回纯声学到达判定（AT-S04 口径），摄像头留待路线 A</td></tr>
+<tr><td>R-F7</td><td>SPI 总线冲突（T2 失败）</td><td>OLED CS 飞线方案排查虚焊 → 改软件兜底</td></tr>
+<tr><td>R-F8</td><td>PCF8574 读巡线不稳</td><td>模块端加 10k 上拉 → 降轮询速率 → 暂时只用于巡逻（巡线本来就不在 Summon 用）</td></tr>
+<tr><td>R-F9</td><td>口令被误触发/漏触发</td><td>换更长口令 → 降唤醒灵敏度 → 提前上 L2 声纹</td></tr>
+<tr><td>R-F10</td><td>看门模式被召唤词打断（安全悖论）</td><td>口令通过才进 Summon；App 提供"看门时段禁用召唤"开关</td></tr>
+</table>
+
+<h2>8. 实施阶段（不含工期估算）</h2>
+<ol>
+<li><b>M0 物料与引脚确认：</b>采购 §2 清单；点灯实测 GPIO22–25 可用性；确认 GPIO45 上电电平；确认 TB6612 与电机参数（沿用 V1 M0 结论）。</li>
+<li><b>M1 音频链路：</b>阵列焊接 → 4 麦采集（§3.3 择优）→ DOA 定向 → 自噪抑制调试；通过 T3/T4。</li>
+<li><b>M2 唤醒 + 状态机 + 运动：</b>唤醒词/口令 → Summon 状态机 → 停-听-走导航 → VL53L0X 避障；通过 T5、AT-S03/04/05/07/08。</li>
+<li><b>M3 视觉融合：</b>ArduCAM 抓帧 → 人形检测 → 到达判定融合；通过 T2/T6、AT-S09。</li>
+<li><b>M4 整机与 App：</b>Android 适配、巡线/显示回归（AT-S10/11）、AT-S01~S09 全量验收、日志与文档归档。</li>
+</ol>
+
+<h2>9. 遗留与备选（均指向可行性方案 v0.4）</h2>
+<ul>
+<li>路线 A（DVP 连续视觉）、方案二（ESP32-S31 整机）、UWB 精确定位：保留在 v0.4，本期不实施；触发条件见 §1.2。</li>
+<li>本期摄像头只做"到达前 1–2 帧快照确认"，不做连续视觉伺服——这是路线 B 的定义边界，也是成本可控的原因。</li>
+<li>声纹只做 L1 口令；L2/L3 的选型问题（Q-S1）在口令实测后决策。</li>
+</ul>
+
+<footer>
+<p>所有价格为估算；所有阈值需实测标定后冻结。本文档与可行性方案 v0.4 冲突时，以本文档（执行版）为准。</p>
+<p>机器狗 V1.5 召唤功能最终实施方案 v1.0 · 2026-10-15</p>
+</footer>
+</div></body></html>

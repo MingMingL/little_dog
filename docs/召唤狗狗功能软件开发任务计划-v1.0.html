@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>召唤狗狗功能 · 软件开发任务计划与清单 v1.0</title>
+<style>
+:root{--primary:#3F51B5;--primary-light:#E8EAF6;--surface:#F7F8FA;--border:#E0E0E0;--text:#212121;--text2:#616161;--new:#2E7D32;--new-bg:#E8F5E9;--todo:#EF6C00;--todo-bg:#FFF3E0;--warn:#C62828}
+*{box-sizing:border-box}body{margin:0;padding:0 24px 70px;font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;background:#fff;color:var(--text);line-height:1.7}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:26px;margin:0 0 6px}h2{font-size:20px;margin:40px 0 14px;padding-left:12px;border-left:4px solid var(--primary)}
+h3{font-size:16px;margin:24px 0 10px;color:var(--primary)}p,li{font-size:14.5px}
+code{background:var(--surface);padding:1px 5px;border-radius:3px;font-size:13px;font-family:Consolas,Monaco,monospace}
+header{padding:34px 0 20px;border-bottom:2px solid var(--primary);margin-bottom:26px}
+.sub{color:var(--text2);font-size:13.5px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12.5px}
+th,td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--primary-light);font-weight:600}tr:nth-child(even) td{background:#FAFAFA}
+.note{background:var(--todo-bg);border-left:4px solid var(--todo);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.danger{background:#FFEBEE;border-left:4px solid var(--warn);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.ok{background:var(--new-bg);border-left:4px solid var(--new);padding:10px 14px;margin:14px 0;font-size:13.5px}
+footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--border);color:var(--text2);font-size:13px}
+</style></head><body><div class="wrap">
+<header>
+<h1>召唤狗狗功能 · 软件开发任务计划与清单</h1>
+<div class="sub">v1.1 · 2026-10-19（v1.0 + 新增 SW-105：AFE 回声消除/降噪配置） · 上位文档：最终实施方案 v1.0（执行版） · 范围：仅软件（固件 + Android），硬件任务见实施方案 §2/§3/§8</div>
+</header>
+
+<h2>〇、30 秒导读</h2>
+<div class="ok">
+<b>§1 澄清问题：</b>13 个开工前/进行中要拍板的问题，每个都给了"建议默认值"——不拍板也能按默认值先动工，但建议 M0 内全部关闭。<br>
+<b>§3 任务清单：</b>25 个任务（SW-001~SW-404），分 5 个阶段，每个任务带依赖和完成定义（DoD）。<br>
+<b>最重要的一条：</b>SW-101（巡线改 I²C）是释放 GPIO 的前置，必须排最早；硬件未到期间可先做 SW-001~005 和仿真验证。
+</div>
+
+<h2>1. 澄清问题（决策清单）</h2>
+<div class="note">用法：逐条确认或采纳"建议默认"；决策结果记录到本文档修订记录。标注 ⚠️ 的会改变代码结构，需优先关闭。</div>
+<table>
+<tr><th style="width:7%">编号</th><th style="width:24%">问题</th><th style="width:16%">为什么卡进度</th><th style="width:30%">选项</th><th style="width:14%">建议默认</th><th>决策时点</th></tr>
+<tr><td>Q-01 ⚠️</td><td><b>唤醒词怎么做？</b>方案 §4.1 写"WakeNet9 自定义'小狗过来'"，但 WakeNet9 自定义唤醒词需乐鑫定制服务（收费+周期）或用 TTS 数据自训练；而 MultiNet 命令词可在 menuconfig 免费自定义</td><td>直接决定 SW-201 的实现路径与外部依赖</td><td>A：预置唤醒词"你好小智"（xiaozhi 已有）+ 自定义 MultiNet 命令词"过来/到这里来"，唤醒词后说命令词才进召唤验证；纯唤醒词仍走原聊天。B：乐鑫定制专属唤醒词（费用/周期另计，体验最直接）。C：常听命令词免唤醒（误触发高，不推荐）</td><td><b>A</b>（零费用、当天可验证）</td><td>M0 软件开工前</td></tr>
+<tr><td>Q-02</td><td>口令短语具体设哪些？说错/超时怎么处理</td><td>影响 SW-201/202 词表</td><td>主口令"过来"、备选"到这里来"；超时 3s 或未命中 → 回监听，App 提示"没听清"</td><td>采纳</td><td>M0</td></tr>
+<tr><td>Q-03 ⚠️</td><td>AFE 与 4 麦如何共存？ESP-SR AFE 在 S3 上的通道数有限（以官方文档为准）</td><td>决定 <code>ai_dog_mic_array</code> 的数据流设计</td><td>A：AFE 保持单麦（现有 MIC1 链路不动），4 麦原始流旁挂专供 DOA。B：AFE 多通道（若支持）</td><td><b>A</b>（改动最小、不动 V1 聊天链路）</td><td>M1 实测后定</td></tr>
+<tr><td>Q-04</td><td>4 麦采集电气实现选 (a)/(b)/(c)？</td><td>影响采集后端</td><td>按 (a) 每麦独立 SD 设计接口，(b)/(c) 作为可切换后端</td><td>(a) 起步</td><td>M1 实测</td></tr>
+<tr><td>Q-05 ⚠️</td><td>人形检测用哪个模型？</td><td>影响模型分区占用与 <code>ai_dog_vision</code> 结构</td><td>ESP-DL / ESP-WHO 的 human_detect（S3 原生，160×120 输入）；备选：轻量运动检测</td><td>human_detect</td><td>M0</td></tr>
+<tr><td>Q-06</td><td>ArduCAM 具体型号与供电（3.3V 直供 / 板载 LDO）？</td><td>影响接线与 SW-301 初始化序列</td><td>采购前向卖家确认；5V 不得直接接信号脚</td><td>3.3V 版本</td><td>M0 采购时</td></tr>
+<tr><td>Q-07</td><td>是否接受 OLED CS 飞线到 GPIO45（strapping 脚）？</td><td>影响 SW-304 与硬件</td><td>A：接受飞线（总线最干净）。B：不接受，走软件兜底（摄像头用后重初始化 OLED）</td><td><b>A</b></td><td>M0</td></tr>
+<tr><td>Q-08</td><td>看门/夜间时段是否禁用召唤？</td><td>影响 R-F10 安全悖论处理</td><td>默认允许召唤，但口令必须通过；App 提供"看门时段禁用召唤"开关</td><td>采纳</td><td>M2 前</td></tr>
+<tr><td>Q-09</td><td>巡逻/看门/遥控被 Summon 抢占后，原模式是否自动恢复？</td><td>影响状态机转换表</td><td>不自动恢复：停止并记录事件日志，用户如需恢复手动切换</td><td>采纳</td><td>M2 前</td></tr>
+<tr><td>Q-10</td><td>到达后"狗叫/问候"素材来源？</td><td>影响 SW-206</td><td>狗叫音频 V1 已有；问候语先用本地预置短音频（不依赖网络），后续可改 TTS</td><td>采纳</td><td>M2</td></tr>
+<tr><td>Q-11</td><td>Summon 过程中电量低压怎么办？</td><td>影响状态机异常分支</td><td>进入前预检（低于阈值拒绝进入）；过程中低压 → 立即停车回 Idle 并播报</td><td>采纳</td><td>M2</td></tr>
+<tr><td>Q-12</td><td>测试用声源与验收口径？</td><td>影响 AT-S04/S09 可复现性</td><td>真人为主（AT-S04/S09），音箱放录音辅助（T3/T4）；另设"背景电视声/音乐"干扰组</td><td>采纳</td><td>M1</td></tr>
+<tr><td>Q-13</td><td>L2 声纹上车时机与责任人？</td><td>P1-1 触发条件</td><td>口令实测误召不可接受时再上；负责人与预算届时另立任务</td><td>确认即可</td><td>M4 后复盘</td></tr>
+</table>
+
+<h2>2. 开发策略与规范</h2>
+<ol>
+<li><b>分支：</b><code>feature/summon-v15</code>，每个 SW 任务一个 commit，信息带任务号（如 <code>SW-102: 4-mic I2S capture backend (a)</code>）。</li>
+<li><b>编译开关：</b><code>CONFIG_AI_DOG_ENABLE_SUMMON</code>，<b>默认 OFF</b>——任何时刻都能构建出与 V1 行为一致的固件，召唤代码不影响 V1 验收。</li>
+<li><b>参数化：</b>方案 §4.3 全部参数进 Kconfig / <code>config.h</code>，禁止硬编码；标定后冻结值回写方案文档。</li>
+<li><b>日志规范：</b>TAG 用 <code>summon</code> / <code>doa</code> / <code>mic_array</code> / <code>vision</code> / <code>line_i2c</code>；每个决策点输出依据（DOA 角度、能量、子状态、与阈值的对比）——延续"输出完整 prompt"的调试习惯；不输出敏感信息。</li>
+<li><b>代码落点与风格：</b>全部落在 <code>main/boards/ai-dog-s3/</code>，沿用现有 <code>ai_dog_*</code> 单例 + 回调风格，与 <code>ai_dog_control</code> 状态机对接，不新增全局线程模型。</li>
+<li><b>仿真先行：</b><code>tools/sim_dog.py</code> 先扩展为 Summon 状态机仿真，硬件未到也能验证抢占/超时/降级逻辑。</li>
+</ol>
+
+<h2>3. 软件开发任务清单</h2>
+
+<h3>阶段 0 · 基建（对应 M0，几乎不依赖硬件）</h3>
+<table>
+<tr><th style="width:9%">编号</th><th style="width:38%">任务</th><th style="width:20%">依赖</th><th>完成定义（DoD）</th></tr>
+<tr><td>SW-001</td><td>召唤编译开关与 Kconfig 骨架</td><td>—</td><td>开关 OFF 时构建产物与 V1 一致；ON 时可空跑主流程</td></tr>
+<tr><td>SW-002</td><td>参数配置化：方案 §4.3 全部参数进 Kconfig</td><td>SW-001</td><td>menuconfig 可见全部参数，默认值=方案初值表</td></tr>
+<tr><td>SW-003</td><td>日志规范落地（TAG/格式/决策依据输出）</td><td>SW-001</td><td>抽样日志评审通过；含 DOA/能量/子状态字段</td></tr>
+<tr><td>SW-004</td><td><code>sim_dog.py</code> 扩展 Summon 仿真</td><td>SW-002</td><td>仿真跑通 S1–S5 主流程 + 超时/丢源/口令失败分支</td></tr>
+<tr><td>SW-005</td><td><code>esp_apa_doa</code> 组件接入、锁版本、与 esp-sr/AFE 共存编译</td><td>—</td><td><code>idf.py build</code> 通过；依赖锁入库；记录组件版本</td></tr>
+<tr><td>SW-006</td><td>澄清问题 Q-01~Q-13 全部关闭并记录</td><td>Q-01~Q-13 决策</td><td>修订记录补登决策结果</td></tr>
+</table>
+
+<h3>阶段 1 · 音频链路（对应 M1）</h3>
+<table>
+<tr><th style="width:9%">编号</th><th style="width:38%">任务</th><th style="width:20%">依赖</th><th>完成定义（DoD）</th></tr>
+<tr><td><b>SW-101 ★</b></td><td>巡线 I²C 化：<code>ai_dog_line_pcf8574</code>（GPIO → PCF8574 0x20）</td><td>PCF8574 到货；硬件改接完成</td><td>T1 扫描到 0x20；巡逻循线功能不变（AT-S10 预备）；<b>释放 GPIO17/18/38/39/40</b></td></tr>
+<tr><td>SW-102</td><td><code>ai_dog_mic_array</code>：4 麦 I²S 采集，三后端 (a)/(b)/(c) 可切换</td><td>SW-005；Q-03/Q-04 决策；麦克风到货</td><td>T3：4 路幅度差 &lt;20%；后端切换只需改配置</td></tr>
+<tr><td>SW-103</td><td><code>ai_dog_doa</code>：esp_apa_doa 封装 + 方阵坐标 + 多帧滤波 + 能量估计</td><td>SW-102</td><td>T4：1–3m 八方位误差 ≤30° 占比 ≥80%；频带按 4cm 阵距裁剪（约 1500–4000Hz，防空间混叠）</td></tr>
+<tr><td>SW-104</td><td>自噪抑制联调：PWM ≥20kHz、停-听-走占空比、DOA 频带调优</td><td>SW-102/103；电机到货</td><td>行驶中 DOA 可用性实测记录；对应 R-F1 降级档位实现（30% 占空比可切）</td></tr>
+<tr><td>SW-105</td><td>AFE 回声消除/降噪配置：AEC（播放参考信号）+ NSNet2 + 播放门控；<b>NS 只进唤醒/ASR 链路，DOA 仍用原始流</b>（逐通道降噪会破坏通道间相位差，TDOA 会被毁掉）</td><td>SW-102；Q-03</td><td>AT-S07：播放期间不误触发；行驶中唤醒/ASR 可用性提升的实测记录；"NS 不进 DOA 链路"代码评审通过</td></tr>
+</table>
+
+<h3>阶段 2 · 唤醒 + 口令 + 状态机 + 运动（对应 M2）</h3>
+<table>
+<tr><th style="width:9%">编号</th><th style="width:38%">任务</th><th style="width:20%">依赖</th><th>完成定义（DoD）</th></tr>
+<tr><td>SW-201</td><td>唤醒词/口令配置：预置唤醒词 + MultiNet 命令词；全模式后台监听；播放门控</td><td>Q-01/Q-02 决策</td><td>T5：唤醒+口令 ≥9/10；播放期间不自触发（AT-S07 预备）</td></tr>
+<tr><td>SW-202</td><td><code>ai_dog_voiceprint</code> L1：口令验证 + 超时/失败处理 + L2 预留接口</td><td>SW-201</td><td>AT-S02：注册 20 次 ≥18 通过；未注册 20 次误通过 ≤2</td></tr>
+<tr><td>SW-203</td><td><code>ai_dog_control</code>：<code>Mode::Summon</code> + 抢占规则 + <code>/api/status</code> 扩展 + <code>/api/mode</code> 拒绝</td><td>SW-004 仿真验证</td><td>AT-S05：≤2s 进入验证；Summon 期间普通模式指令被拒、急停始终有效</td></tr>
+<tr><td>SW-204</td><td><code>ai_dog_summon</code>：S1–S5 状态机 + 停-听-走 + VL53L0X 避障 + 重搜/降级</td><td>SW-102/103/202/205</td><td>AT-S03/04/07/08 全过；Q-09/Q-11 分支落地</td></tr>
+<tr><td>SW-205</td><td><code>ai_dog_motor</code>：低速巡航档（0.2m/s）+ 点动纠偏 + 状态上报</td><td>电机到货</td><td>步距标定完成（1.5s≈0.3m），参数回写 §4.3</td></tr>
+<tr><td>SW-206</td><td>S4 到达行为：停车 → 狗叫/问候 → 自动切 Chat</td><td>Q-10 决策；SW-204</td><td>AT-S06：≥9/10</td></tr>
+</table>
+
+<h3>阶段 3 · 视觉融合（对应 M3）</h3>
+<table>
+<tr><th style="width:9%">编号</th><th style="width:38%">任务</th><th style="width:20%">依赖</th><th>完成定义（DoD）</th></tr>
+<tr><td>SW-301</td><td><code>ai_dog_vision</code>：ArduCAM SPI 驱动 + JPEG 抓帧（CS=GPIO18、MISO=GPIO17，与 OLED 共总线）</td><td>SW-101（引脚释放）；摄像头到货；Q-05/Q-06</td><td>连续抓 20 帧成功率 ≥95%（T2 预备）</td></tr>
+<tr><td>SW-302</td><td>解码+检测链路：tjpgd 解码 → 160×120 → human_detect</td><td>SW-301</td><td>单帧 ≤1.5s；T6：真人检出 ≥9、空椅/电视误检 ≤2</td></tr>
+<tr><td>SW-303</td><td>视觉确认接入 S3：触发条件、抓 1–2 帧、阈值、3 次重试、隐私（不存/不上传）</td><td>SW-204/302</td><td>AT-S09 全过；隐私条款代码评审通过</td></tr>
+<tr><td>SW-304</td><td>OLED CS=GPIO45 显示回归 + SPI 总线共存</td><td>硬件飞线完成；Q-07 决策</td><td>AT-S11：各模式显示正常无乱码；T2 通过</td></tr>
+</table>
+
+<h3>阶段 4 · App 与整机（对应 M4）</h3>
+<table>
+<tr><th style="width:9%">编号</th><th style="width:38%">任务</th><th style="width:20%">依赖</th><th>完成定义（DoD）</th></tr>
+<tr><td>SW-401</td><td>Android：召唤状态页（phase/doa/vision/能量条）+ 口令录入向导 + 摄像头开关 + 召唤中置灰</td><td>SW-203 协议字段</td><td>App 联调通过；置灰/急停行为符合方案 §5</td></tr>
+<tr><td>SW-402</td><td>协议文档同步：<code>docs/Android控制端设计.md</code> 增加 <code>summon</code> 字段</td><td>SW-203</td><td>文档与代码字段一致</td></tr>
+<tr><td>SW-403</td><td>整机联调 + AT-S01~S11 全量 + 巡线/显示回归</td><td>全部前置</td><td>验收报告归档；未过项按 §7 风险表降级并记录</td></tr>
+<tr><td>SW-404</td><td>归档：参数标定值冻结回写方案 §4.3、README/固件改动记录更新、commit 汇总</td><td>SW-403</td><td>文档与 git 记录一致</td></tr>
+</table>
+
+<h2>4. 任务 ↔ 测试/验收映射</h2>
+<table>
+<tr><th style="width:22%">测试/验收</th><th>对应任务</th></tr>
+<tr><td>T1（I²C 扫描）</td><td>SW-101、SW-005</td></tr>
+<tr><td>T2（SPI 共存）</td><td>SW-301、SW-304</td></tr>
+<tr><td>T3（4 麦采集）</td><td>SW-102</td></tr>
+<tr><td>T4（DOA 定向）</td><td>SW-103</td></tr>
+<tr><td>T5（唤醒+口令）</td><td>SW-201</td></tr>
+<tr><td>T6（视觉链路）</td><td>SW-302</td></tr>
+<tr><td>AT-S01 唤醒词</td><td>SW-201</td></tr>
+<tr><td>AT-S02 口令验证</td><td>SW-202</td></tr>
+<tr><td>AT-S03 DOA 定向</td><td>SW-103、SW-204</td></tr>
+<tr><td>AT-S04 寻声行驶</td><td>SW-204、SW-205</td></tr>
+<tr><td>AT-S05 模式优先级</td><td>SW-203</td></tr>
+<tr><td>AT-S06 到达切聊天</td><td>SW-206</td></tr>
+<tr><td>AT-S07 自触发抑制</td><td>SW-201、SW-204、SW-105</td></tr>
+<tr><td>AT-S08 异常恢复</td><td>SW-204</td></tr>
+<tr><td>AT-S09 视觉确认</td><td>SW-303</td></tr>
+<tr><td>AT-S10 巡线回归</td><td>SW-101</td></tr>
+<tr><td>AT-S11 显示回归</td><td>SW-304</td></tr>
+</table>
+
+<h2>5. 关键路径与硬件前置</h2>
+<div class="ok"><b>关键路径：</b>SW-005 → SW-102 → SW-103 → SW-204 → SW-403（音频定向链是全程主干，视觉与 App 可并行）。</div>
+<table>
+<tr><th style="width:22%">硬件</th><th style="width:24%">阻塞任务</th><th>未到期间怎么办</th></tr>
+<tr><td>PCF8574 + 巡线改接</td><td>SW-101（阻塞 SW-301 引脚释放）</td><td>先完成 SW-001~005；SW-301 驱动可先写、后调</td></tr>
+<tr><td>3× INMP441 + 阵列板</td><td>SW-102</td><td>SW-005/103 框架先行（用单麦+仿真数据验证 DOA 接口）</td></tr>
+<tr><td>电机/底盘实物</td><td>SW-205/104</td><td>SW-203/204 用仿真验证状态机</td></tr>
+<tr><td>ArduCAM</td><td>SW-301</td><td>驱动代码先写，用卖家的 demo 固件验证模块好坏</td></tr>
+<tr><td>OLED CS 飞线</td><td>SW-304</td><td>先走软件兜底方案（Q-07 选项 B）联调，飞线就绪再切 A</td></tr>
+</table>
+<div class="note"><b>可立即开始（零硬件依赖）：</b>SW-001、SW-002、SW-003、SW-004、SW-005、SW-006。</div>
+
+<h2>6. 与风险表的联动</h2>
+<p>开发中触发下列任一降级条件时，按最终实施方案 §7（R-F1~R-F10）执行，并在 SW-403 记录：</p>
+<ul>
+<li>R-F1（自噪）→ SW-104 的 30% 占空比档 + SW-105 的 NSNet2 辅助；</li>
+<li>R-F2（采集方式不顺）→ SW-102 后端切换；</li>
+<li>R-F6（视觉不过）→ SW-303 关闭视觉、退回纯声学到达判定（AT-S04 口径）。</li>
+</ul>
+
+<h2>7. 附：任务统计</h2>
+<table>
+<tr><th>阶段</th><th style="width:14%">任务数</th><th style="width:26%">编号</th></tr>
+<tr><td>0 基建</td><td>6</td><td>SW-001~006</td></tr>
+<tr><td>1 音频链路</td><td>5</td><td>SW-101~105</td></tr>
+<tr><td>2 唤醒+状态机+运动</td><td>6</td><td>SW-201~206</td></tr>
+<tr><td>3 视觉融合</td><td>4</td><td>SW-301~304</td></tr>
+<tr><td>4 App 与整机</td><td>4</td><td>SW-401~404</td></tr>
+<tr><td><b>合计</b></td><td><b>25</b></td><td></td></tr>
+</table>
+
+<footer>
+<p>本文档任务编号在 commit、日志、测试记录中通用；任务完成后在修订记录追加完成日期。</p>
+<p>召唤狗狗功能软件开发任务计划 v1.0 · 2026-10-15 · 上位：最终实施方案 v1.0</p>
+</footer>
+</div></body></html>

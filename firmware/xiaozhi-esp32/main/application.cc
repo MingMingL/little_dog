@@ -12,6 +12,10 @@
 #include "text_glyph_payload.h"
 #include "websocket_protocol.h"
 
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+#include "boards/ai-dog-s3/ai_dog_summon.h"
+#endif
+
 #include <driver/gpio.h>
 #include <esp_log.h>
 #include <arpa/inet.h>
@@ -81,6 +85,11 @@ void Application::Initialize() {
     };
     callbacks.on_wake_word_detected = [this](const std::string& wake_word) {
         xEventGroupSetBits(event_group_, MAIN_EVENT_WAKE_WORD_DETECTED);
+#ifdef CONFIG_AI_DOG_ENABLE_SUMMON
+        // V1.5 召唤（SW-201）：唤醒词命中后打开口令验证窗口（S1）。
+        // 口令通过 → Summon 抢占；未通过 → 下面原聊天链路照常。
+        aidog::AiDogSummon::GetInstance().OnWakeWordHeard(wake_word);
+#endif
     };
     callbacks.on_vad_change = [this](bool speaking) {
         xEventGroupSetBits(event_group_, MAIN_EVENT_VAD_CHANGE);

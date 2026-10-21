@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>4 麦方阵制作指南（DIY · 洞洞板版）v1.0</title>
+<style>
+:root{--primary:#3F51B5;--primary-light:#E8EAF6;--surface:#F7F8FA;--border:#E0E0E0;--text:#212121;--text2:#616161;--new:#2E7D32;--new-bg:#E8F5E9;--todo:#EF6C00;--todo-bg:#FFF3E0;--warn:#C62828}
+*{box-sizing:border-box}body{margin:0;padding:0 24px 70px;font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;background:#fff;color:var(--text);line-height:1.7}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:26px;margin:0 0 6px}h2{font-size:20px;margin:40px 0 14px;padding-left:12px;border-left:4px solid var(--primary)}
+h3{font-size:16px;margin:24px 0 10px;color:var(--primary)}p,li{font-size:14.5px}
+code{background:var(--surface);padding:1px 5px;border-radius:3px;font-size:13px;font-family:Consolas,Monaco,monospace}
+header{padding:34px 0 20px;border-bottom:2px solid var(--primary);margin-bottom:26px}
+.sub{color:var(--text2);font-size:13.5px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12.5px}
+th,td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--primary-light);font-weight:600}tr:nth-child(even) td{background:#FAFAFA}
+.note{background:var(--todo-bg);border-left:4px solid var(--todo);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.danger{background:#FFEBEE;border-left:4px solid var(--warn);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.ok{background:var(--new-bg);border-left:4px solid var(--new);padding:10px 14px;margin:14px 0;font-size:13.5px}
+footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--border);color:var(--text2);font-size:13px}
+</style></head><body><div class="wrap">
+<header>
+<h1>4 麦方阵制作指南（DIY · 洞洞板版）</h1>
+<div class="sub">v1.0 · 2026-10-19 · 上位文档：最终实施方案 v1.0 §2/§3 · 适用：方案一 + 路线 B 的 4 麦方阵 · 零基础可跟做</div>
+</header>
+
+<h2>〇、30 秒导读</h2>
+<div class="ok">成品买不到就自己焊：<b>4 只 INMP441 模块 + 一块 5×7cm 洞洞板</b>，约 ¥30–45，1 小时工作量。核心就三句话：<b>电源和时钟 4 麦共享、数据线各走各的、4 个麦克风朝向同一个方向摆成正方形</b>。焊完后按 §6 上电检查，按 §7 减振安装。</div>
+
+<h2>1. 为什么买不到现成的（先说清楚，别浪费时间搜）</h2>
+<table>
+<tr><th style="width:34%">市售类型</th><th>为什么不适合</th></tr>
+<tr><td>ReSpeaker 4 麦阵列（树莓派用）</td><td>模拟麦克风 + WM8960 编解码芯片，输出给 Linux 板；ESP32 直接接不了，还要额外 ADC</td></tr>
+<tr><td>ESP32-S3-Korvo 类开发板</td><td>只带 2 麦，且麦在板上一侧，摆不成方阵</td></tr>
+<tr><td>智能音箱 6+1 / 8 麦环形阵</td><td>多为模拟麦 + 多通道 ADC（如 ES7210），接口和时序都为 Linux 方案设计；环形/线形也不匹配我们的方阵设计</td></tr>
+<tr><td>单只 INMP441 模块</td><td><b>这才是我们要的</b>——买 4 只自己拼</td></tr>
+</table>
+<div class="note"><b>结论：</b>I²S 数字 4 麦方阵没有匹配 ESP32 的成熟成品，DIY 是正解，也最便宜。</div>
+
+<h2>2. 采购清单（淘宝搜索词）</h2>
+<table>
+<tr><th style="width:5%">#</th><th style="width:20%">物件</th><th style="width:22%">搜索词</th><th style="width:12%">参考价</th><th style="width:8%">数量</th><th>备注</th></tr>
+<tr><td>1</td><td>INMP441 模块</td><td><code>INMP441 麦克风模块</code></td><td>¥3–8</td><td><b>4</b></td><td>选"模块"（已焊好电阻电容的小红板），不要买裸芯片</td></tr>
+<tr><td>2</td><td>洞洞板</td><td><code>洞洞板 5x7cm</code></td><td>¥2–5</td><td>1</td><td>单面镀锡孔板即可</td></tr>
+<tr><td>3</td><td>细导线/杜邦线</td><td>—</td><td>—</td><td>若干</td><td>单芯铜线 26AWG 左右；母对母杜邦线出线用</td></tr>
+<tr><td>4</td><td>104 瓷片电容（0.1µF）</td><td><code>104 瓷片电容</code></td><td>¥1/包</td><td>4</td><td>可选：每个模块 VDD 脚旁并一个，更稳</td></tr>
+<tr><td>5</td><td>硅胶柱/海绵垫</td><td><code>硅胶柱 减振</code></td><td>¥2–5</td><td>4+</td><td>减振安装用（§7），别省</td></tr>
+</table>
+<p>若所在地区下单不便，可让商家代焊或买"已焊排针的 INMP441 模块"版本，到手即用。</p>
+
+<h2>3. 阵列几何（DOA 的输入，摆错全盘皆输）</h2>
+<ul>
+<li><b>形状：</b>正方形，边长 <b>4–5cm</b>（建议 4.5cm）。不要排成一排（线阵有前后 180° 模糊，分不清人在狗前还是狗后）。</li>
+<li><b>朝向：</b>4 只麦克风的<b>收音孔全部朝向同一方向</b>（朝上或朝前——INMP441 模块的进声孔在模块正面/贴麦那面，别被洞洞板挡住）。</li>
+<li><b>共面：</b>4 只必须在同一平面，误差 1–2mm 内；用同一块板子固定就能保证。</li>
+<li><b>水平放置：</b>阵列平面水平（平放）→ DOA 输出就是水平面内的 0–360° 方位角。</li>
+<li><b>坐标（固件要用）：</b>以阵列中心为原点，边长 d=4.5cm，则 4 麦坐标约为 (±2.25cm, ±2.25cm)。<code>esp_apa_doa</code> 组件有现成宏 <code>ESP_APA_DOA_MIC_POS_SQUARE(0.045)</code>（参数为边长，单位米），方阵直接用它。</li>
+<li><b>安装朝向校准：</b>让阵列坐标系的 <b>+Y（0°）对准机器狗正前方</b>，这样 DOA 输出的角度就是"声源在狗身哪个方向"，固件不用再换算。</li>
+</ul>
+
+<h2>4. 接线（核心，一张表照做）</h2>
+<table>
+<tr><th style="width:26%">INMP441 模块引脚</th><th>接法</th></tr>
+<tr><td>VDD</td><td><b>全部</b>接 3.3V（INMP441 只能 3.3V，接 5V 立即烧毁）</td></tr>
+<tr><td>GND</td><td><b>全部</b>接共地（<b>星型接法</b>：4 个麦的 GND 各拉一根线，回到板上同一个"总地"点——像自行车辐条汇到车轴；别一个接一个串着接。为什么，见下面的"新手名词"框）</td></tr>
+<tr><td>SCK（位时钟）</td><td><b>全部并联</b>后接一根线 → ESP32 <b>GPIO5</b></td></tr>
+<tr><td>WS（字选择）</td><td><b>全部并联</b>后接一根线 → ESP32 <b>GPIO4</b></td></tr>
+<tr><td>SD（数据）</td><td><b>每只各走各的</b>，4 根独立线 → GPIO <b>6 / 38 / 39 / 40</b></td></tr>
+<tr><td>L/R（声道选择）</td><td><b>全部接 GND</b>（4 只都选左声道）</td></tr>
+</table>
+<p>对应最终实施方案 §3.2 引脚表：GPIO6 是原有麦克风的数据脚，GPIO38/39/40 是巡线改 PCF8574 后释放出来的（<b>必须先完成 SW-101 巡线改 I²C，这 3 个脚才空得出来</b>）。</p>
+<div class="note"><b>走线长度不必强求等长：</b>4kHz 以下，几厘米的线长差对相位影响可忽略；真正重要的是 4 只麦的<b>机械位置准确、共面、同朝向</b>。等长是好习惯，不是硬指标。</div>
+<div class="note"><b>留一条后路：</b>本期按上表"4 只全接 GND"焊死（方案 a：每麦独立数据线）。若 M1 实测 ESP-IDF 多数据线采集不顺，可改方案 (b)：把其中一对麦的 L/R 从 GND 改接 3.3V（一只选左声道、一只选右声道），两只共享一根 SD 线——<b>硬件不用重焊，改两根跳线即可</b>。</div>
+
+<div class="ok"><b>新手名词：什么是"星型共地"？</b><br>
+<b>共地：</b>所有设备的负极（GND）最终要连到一起，电流才能循环——像条条河流汇入大海。<br>
+<b>星型共地：</b>每个麦克风的 GND 各拉一根线，回到板上<b>同一个"总地"点</b>——像自行车辐条都汇到车轴；而不是像糖葫芦那样一个接一个串着接（那叫"链式/菊花链"）。<br>
+<b>为什么要讲究：</b>电流流过导线会产生一点点电压降。链式接法时，后面麦的地电位会被前面麦的电流"垫高"，几路麦互相污染；星型让 4 路地线等长、独立回到中心点，4 个麦"地位平等"。DOA 要比较 4 路信号相差几微秒的先后，地线干净一点，定向就稳一点。<br>
+<b>板上怎么做：</b>在电源入口附近留一个"总地"焊点，4 个麦的 GND 各用一根等长跳线焊过去；板小走不开线时，拉一排孔当"地排"就近连接（近似星型，也比串成一条支路好）。<br>
+<b>怎么验证：</b>万用表蜂鸣档，任意两个麦的 GND 焊点之间应该"通"（响一下即通）。</div>
+
+<h2>5. 焊接步骤（洞洞板，零基础可跟）</h2>
+<ol>
+<li><b>摆位：</b>板上按 4.5cm 边长画个正方形，4 只模块摆在四个角，<b>收音孔全部朝同一个方向</b>（朝上）；模块底部用硅胶柱垫高 2–3mm（进声孔别被板面贴死）。</li>
+<li><b>电源总线：</b>拉一条 3.3V 母线、一条 GND 母线过板子中心；4 个 VDD 用短跳线接到 3.3V 母线，4 个 GND 接到 GND 母线（星型）。每个 VDD 脚旁并一个 104 电容（可选）。</li>
+<li><b>时钟并联：</b>4 个 SCK 拧/焊到一根线上，汇总后出一根线（接 GPIO5）；4 个 WS 同样处理（接 GPIO4）。</li>
+<li><b>数据独立：</b>每只模块的 SD 各焊一根线，4 根一起出到一排排针，标记清楚顺序（SD1=原麦=GPIO6，SD2/3/4=GPIO38/39/40）。</li>
+<li><b>L/R：</b>4 个 L/R 脚全部焊到 GND 母线。</li>
+<li><b>通断检查（必须做）：</b>万用表蜂鸣档——3.3V 母线对 GND 母线<b>不应通</b>；抽点测 SCK/WS 并联正确（任意两个模块的 SCK 脚之间应通）。</li>
+</ol>
+<div class="danger">焊锡丝用 0.5–0.8mm 细丝，模块焊点小，烙铁 300–350℃，每个点 1–2 秒即可，烫久了 INMP441 会坏。</div>
+
+<h2>6. 上电检查（对应最终方案 T3）</h2>
+<p>不装到狗上，先裸板验证：</p>
+<ol>
+<li>ESP32 只接阵列电源和 6 根线（GPIO4/5/6/38/39/40），串口接电脑；</li>
+<li>烧录带 4 麦采集的测试固件（SW-102），播放测试音或拍手；</li>
+<li>看 4 路波形：<b>幅度差 &lt;20% 即通过</b>（T3 标准）；</li>
+</ol>
+<table>
+<tr><th style="width:34%">故障现象</th><th>排查方向</th></tr>
+<tr><td>某一路完全没反应</td><td>查该模块 SD 虚焊、L/R 悬空、模块损坏</td></tr>
+<tr><td>4 路都有声但幅度差大</td><td>INMP441 个体灵敏度有差异（±3dB 正常）；差太多查朝向/被遮挡/虚焊</td></tr>
+<tr><td>4 路都是噪声无语音</td><td>SCK/WS 没并联好或 GPIO 号写错</td></tr>
+<tr><td>某路时钟沿对不上</td><td>检查该模块是否混用了不同的 SCK 来源</td></tr>
+</table>
+
+<h2>7. 减振与安装（自噪抑制第一道防线，别跳过）</h2>
+<ol>
+<li>阵列板通过<b>硅胶柱/海绵</b>与狗体连接，<b>绝不与电机、壳体刚性接触</b>——电机振动会沿结构传进麦克风，比空气噪声更难搞；</li>
+<li>阵列板远离电机线、电池线（&gt;2cm；必须交叉时垂直过）；</li>
+<li>阵列平面保持水平；外壳给阵列区开孔，别罩住；</li>
+<li>安装完后用最终方案 §6.1 T3 + SW-104（行驶中 DOA 可用性）复核——<b>边走边听</b>的效果在这一步才见分晓。</li>
+</ol>
+
+<h2>8. 备选路径（实在不想焊 / 焊失败了）</h2>
+<table>
+<tr><th style="width:22%">备选</th><th>做法</th><th style="width:34%">代价</th></tr>
+<tr><td>备选 1：双麦小板凑</td><td>买 2 只"双 INMP441 模块"成品小板，自己摆成方阵用细线连接</td><td>线多、几何靠手工摆，便宜（¥20–40）</td></tr>
+<tr><td>备选 2：成品 TDM 阵列板</td><td>搜 <code>4麦 阵列 TDM I2S</code> 或找 ESP32 音频板卖家问；多麦合成 1–2 路 I²S（最终方案 §3.3 选项 c）</td><td>¥40–80；型号杂，需确认输出时序与 esp_apa_doa 的输入格式匹配</td></tr>
+<tr><td>备选 3：先洞洞板后打样</td><td>本指南跑通后，画简单原理图去嘉立创打样 4 麦方阵小板</td><td>打样约 ¥30/5 片；孔位/坐标按 §3 固化，量产一致性最好</td></tr>
+</table>
+
+<h2>9. 与软件任务的衔接</h2>
+<ul>
+<li>焊完且 §6 通过 → SW-102（4 麦采集）可进入联调；</li>
+<li>阵列坐标（§3）和 +Y 朝前（§3 末条）要同步给 SW-103（<code>ai_dog_doa</code> 的方阵配置）；</li>
+<li>若 M1 改走方案 (b)，只需改 L/R 跳线（§4 备注），并同步 SW-102 的后端切换。</li>
+</ul>
+
+<h2>附录 A · 名词速查（小白版）</h2>
+<table>
+<tr><th style="width:22%">名词</th><th>大白话</th></tr>
+<tr><td>共地 / GND</td><td>公共负极：所有设备的负极最终连到一起，电流才能循环</td></tr>
+<tr><td>星型共地</td><td>每个设备的 GND 各拉一根线回同一个中心点；本方案地线推荐这样接</td></tr>
+<tr><td>链式 / 菊花链</td><td>一个接一个串着接；地线不推荐这样接（会互相污染）</td></tr>
+<tr><td>并联</td><td>多个脚焊到同一根线上（如 4 个 SCK 全接一起）</td></tr>
+<tr><td>独立走线</td><td>每个信号各走各的线、不并联（如 4 根 SD）</td></tr>
+<tr><td>母线</td><td>板上拉的一条公共走线（3.3V 母线、GND 母线）</td></tr>
+<tr><td>排针</td><td>一排金属针，把板的信号引出来插杜邦线</td></tr>
+<tr><td>SD / SCK / WS</td><td>麦克风的三根线：数据 / 位时钟 / 字选择（切左右声道）</td></tr>
+<tr><td>L/R</td><td>选左/右声道的脚；本方案 4 只全接 GND（全选左声道）</td></tr>
+<tr><td>104 电容</td><td>0.1µF 小电容，并在电源脚旁滤掉高频杂波（可选）</td></tr>
+<tr><td>硅胶柱</td><td>减振小垫柱，让阵列板和狗体不刚性接触</td></tr>
+<tr><td>通断检查</td><td>万用表蜂鸣档测两点通不通；"通"= 响一下</td></tr>
+</table>
+
+<footer>
+<p>本文所有 GPIO 号与最终实施方案 §3.2 一致；如有调整，以最终实施方案为准。</p>
+<p>4 麦方阵制作指南 v1.0 · 2026-10-19</p>
+</footer>
+</div></body></html>

@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>召唤狗狗（Summon）功能 · 可行性方案对比 v1</title>
+<style>
+:root{--primary:#3F51B5;--primary-light:#E8EAF6;--surface:#F7F8FA;--border:#E0E0E0;--text:#212121;--text2:#616161;--new:#2E7D32;--new-bg:#E8F5E9;--todo:#EF6C00;--todo-bg:#FFF3E0;--warn:#C62828}
+*{box-sizing:border-box}body{margin:0;padding:0 24px 70px;font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;background:#fff;color:var(--text);line-height:1.7}
+.wrap{max-width:1080px;margin:0 auto}
+h1{font-size:26px;margin:0 0 6px}h2{font-size:20px;margin:40px 0 14px;padding-left:12px;border-left:4px solid var(--primary)}
+h3{font-size:16px;margin:24px 0 10px;color:var(--primary)}p,li{font-size:14.5px}
+code{background:var(--surface);padding:1px 5px;border-radius:3px;font-size:13px;font-family:Consolas,Monaco,monospace}
+header{padding:34px 0 20px;border-bottom:2px solid var(--primary);margin-bottom:26px}
+.sub{color:var(--text2);font-size:13.5px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:12.5px}
+th,td{border:1px solid var(--border);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:var(--primary-light);font-weight:600}tr:nth-child(even) td{background:#FAFAFA}
+figure{margin:20px 0;text-align:center}figcaption{font-size:13px;color:var(--text2);margin-top:8px}
+svg{max-width:100%;height:auto}
+.note{background:var(--todo-bg);border-left:4px solid var(--todo);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.danger{background:#FFEBEE;border-left:4px solid var(--warn);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.ok{background:var(--new-bg);border-left:4px solid var(--new);padding:10px 14px;margin:14px 0;font-size:13.5px}
+.cols{display:flex;gap:16px;flex-wrap:wrap}
+.col{flex:1;min-width:300px;border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.col h3{margin-top:0}
+.pro li{margin:4px 0}.con li{margin:4px 0}
+footer{margin-top:50px;padding-top:16px;border-top:1px solid var(--border);color:var(--text2);font-size:13px}
+.tag{display:inline-block;background:var(--primary);color:#fff;font-size:11.5px;border-radius:3px;padding:1px 7px;margin-right:6px;vertical-align:middle}
+.tag.g{background:var(--new)}.tag.o{background:var(--todo)}.tag.r{background:var(--warn)}
+</style></head><body><div class="wrap">
+<header>
+<h1>召唤狗狗（Summon）功能 · 可行性方案对比 v1</h1>
+<div class="sub">v0.4 评审草案（含小白导读 / §3.4.1 到达策略 / §3.6 摄像头扩展） · 2026-10-15 · 上位文档：机器狗 V1 PRD · 硬件价格为估算口径，非报价</div>
+</header>
+
+<h2>小白导读（不懂技术也能看）</h2>
+<div class="ok"><b>召唤功能是干什么的：</b>你站在屋里喊一声特殊口令（比如"小狗过来"），机器狗听出是你的声音，就开到你面前停下，然后跟你聊天。</div>
+<p><b>它靠三个本事做到：</b></p>
+<ol>
+<li><b>听出是你：</b>就像朋友听脚步声就知道是你——机器狗先听口令，再辨认声音特点，确认是你才动（防止别人一喊就跟着跑）。</li>
+<li><b>听出你在哪：</b>狗身上有 4 个麦克风<b>围成一圈</b>（不是排成一排）。声音传到 4 只耳朵有先有后，就能算出你大致在哪个方向。围成一圈是为了分得清前后——排成一排会分不清你在它前面还是后面（术语叫"前后模糊"）。</li>
+<li><b>开到你面前：</b>
+<ul>
+<li><b>不在一条直线上根本不是问题：</b>狗是两轮驱动，能原地转圈——听到你在哪边就转向哪边，对准了再开。你在它左边、身后、斜对面都一样。</li>
+<li><b>它自己走路有噪音：</b>电机声会盖住你的声音，所以走几步 → 停下来 → 听一下 → 修正方向 → 再走（就像走在嘈杂的街上要停下来才听清朋友在哪个方向喊你）。代价是慢一半左右，但听得准。</li>
+<li><b>它不知道你离多远</b>，只知道方向：所以"到了没有"靠几个迹象一起判断（破案式）——你的声音明显变大了 / 你就在正前方且测到了"一个人形状的障碍" / 走的时间太长（如 60 秒）就放弃。满足任一条件就停车、狗叫一声、切聊天。</li>
+<li><b>隔墙或拐角后面，不敢保证：</b>声音会绕墙，狗可能对着一堵墙开。对策是贴墙绕行，每走一小段停下来听一次——声音变大、方向变清楚=绕对了；声音变小=换另一边。实在找不到就报告"找不到路"，不硬闯。</li>
+<li><b>想要最后几米更稳：</b>加个摄像头，最后几米用眼睛看人比用耳朵靠谱（直接开过去停你面前）。</li>
+<li><b>要求隔墙也必须找到：</b>加 UWB（相当于给狗和你各配一个室内定位信标，像室内 GPS），不靠声音、随时知道你在哪——但要额外花钱，列为可选。</li>
+</ul></li>
+</ol>
+<div class="danger"><b>一句话边界：</b>同一个房间、互相看得见，基本保证开到身边；隔着墙，是"试着找"，不打包票。</div>
+<table>
+<tr><th style="width:20%">方案</th><th>大白话</th></tr>
+<tr><td><b>方案一（升级）</b></td><td>还是现在这只狗——加耳朵（多几个麦克风）、加隔振、软件上新写"召唤模式"。花钱少（一百多块），先把功能跑起来试水。</td></tr>
+<tr><td><b>方案二（重做）</b></td><td>换一匹更强的狗——换大脑（ESP32-S31，算力更强、定位更准）、换腿（带编码器的底盘，走得准）、可选加眼睛（摄像头）。花钱多（整机五百到七百五），但定位和行驶都更稳。</td></tr>
+</table>
+
+<h2>零、30 秒结论</h2>
+<div class="ok"><b>需求三句话的工程本质：</b>①自定义唤醒词 + 说话人验证 → ②麦克风阵列声源定位（DOA）+ 无地图寻声导航 → ③状态机新增最高优先级模式。<b>最大硬件缺口是"单麦克风"</b>——现有 ai-dog-s3 板只有 1 路 INMP441，做不了声源定位，必须增麦。</div>
+<ul>
+<li><span class="tag">方案一</span><b>现有项目升级：</b>保留 ESP32-S3 与 xiaozhi 固件基座，增加 3 路麦克风组成 4 麦阵列（增量约 <b>¥100–180</b>），软件新增 Summon 模式。最快验证、风险最低；瓶颈在 S3 算力与 DOA 精度。摄像头可按 §3.6 分两档叠加：快照确认约 <b>+¥60–80</b>（零引脚冲突），连续视觉伺服约 <b>+¥20–30</b> 但要动 GPIO 改造。</li>
+<li><span class="tag o">方案二</span><b>重新设计：</b>主控升级 <b>ESP32-S31</b>（同 ESP-IDF 生态、官方 DOA 支持、Wi-Fi 6、算力约 1.65×），自研大孔径 4 麦圆阵 + 编码器底盘 + 可选摄像头。整机约 <b>¥550–750</b>，性能与扩展性最好，但等于重做一遍硬件。</li>
+<li><span class="tag g">建议</span><b>先方案一最小子集验证，再按方案二要素演进：</b>第一阶段只做"唤醒词 + 声音口令 + 4 麦 DOA + 停-听-走寻声"，实测误唤醒率、DOA 精度、电机自噪三项数据，再决定是否投入方案二。</li>
+</ul>
+
+<h2>一、需求工程化拆解</h2>
+<table>
+<tr><th style="width:34%">用户原话</th><th>工程化定义</th><th style="width:9%">编号</th></tr>
+<tr><td>特殊唤醒词 + 声纹识别，切换到召唤模式</td><td>任意模式下后台监听自定义唤醒词；命中后说话人验证；通过则切入 Summon 模式</td><td>FR-S1</td></tr>
+<tr><td>声音定位召唤者位置，自动行驶到召唤者处并切聊天模式</td><td>多麦克风声源定向（DOA）→ 朝声源寻声行驶（避障 + 停-听-走）→ 到达判定 → 自动进入 Chat 模式</td><td>FR-S2</td></tr>
+<tr><td>召唤模式优先级高于其他模式</td><td>Summon 为抢占式最高优先级（仅物理急停更高）；运行期间拒绝 App 普通模式切换</td><td>FR-S3</td></tr>
+</table>
+<table>
+<tr><th style="width:8%">编号</th><th>技术问题</th><th style="width:26%">现状</th><th>召唤功能要求</th></tr>
+<tr><td>T1</td><td>自定义唤醒词</td><td>xiaozhi 已集成 ESP-SR WakeNet</td><td>定制"小狗过来"类唤醒词，全模式后台监听</td></tr>
+<tr><td>T2</td><td>声纹/说话人验证</td><td>无</td><td>端侧或云端说话人验证，防陌生人误召</td></tr>
+<tr><td>T3</td><td>声源定位 DOA</td><td><b>单麦克风，原理上不可行</b></td><td>≥2 麦（建议 4 麦圆阵/方阵），输出 0–360° 角度</td></tr>
+<tr><td>T4</td><td>寻声导航</td><td>仅有循线巡逻（依赖地面标线）</td><td>无地图：DOA 伺服 + 差速转向 + 避障 + 自噪抑制</td></tr>
+<tr><td>T5</td><td>模式状态机</td><td>5 模式（idle/chat/patrol/guard/remote）</td><td>新增 Summon，抢占逻辑</td></tr>
+<tr><td>T6</td><td>到达判定与自动切聊天</td><td>无</td><td>声源距离粗估 + 超时保护 → 切 Chat</td></tr>
+</table>
+
+<h3>关键调研结论（2026-10 核实）</h3>
+<ol>
+<li><b>唤醒词可行：</b>ESP-SR WakeNet9 支持自定义唤醒词（乐鑫定制服务或 TTS 样本训练）；本项目固件已内置 AFE + WakeNet 全链路，S3/P4/S31 均支持。</li>
+<li><b>DOA 有官方方案但分平台：</b>官方 Capon DOA 模块（10° 分辨率、2–8 麦任意阵型）目前仅支持 <b>ESP32-P4 / ESP32-S31</b>；组件 <code>esp_apa_doa</code>（v1.0.0）<b>支持 ESP32-S3</b>（2–4 麦，共线/三角/方阵/长方阵），是 S3 上的降级路径。</li>
+<li><b>声纹无官方 ESP-SR 支持：</b>端侧路线用 x-vector 轻量模型（约 80–200KB）+ 余弦相似度，S3 可跑但需实测耗时；云端路线用 3D-Speaker（开源）自建或阿里云/讯飞声纹 API，精度高但依赖网络。</li>
+<li><b>ESP32-S31 已量产且本固件已支持：</b>RISC-V 双核 320MHz（约 2,195 CoreMark，S3 约 1,330）、Wi-Fi 6、SIMD/FPU、60 GPIO；xiaozhi-esp32 仓库已内置 <code>esp32-s31-korvo-1</code> 等 S31 板级，ESP-IDF v6.1（本项目当前版本）即可构建——方案二软件复用率高的关键依据。</li>
+<li><b>ESP32-P4 无线缺失：</b>需配 ESP32-C6/C5 协处理器，BOM 与复杂度上升；价值在 MIPI-CSI 摄像头 + H.264，适合"视觉召唤"变体，不作主线推荐。</li>
+</ol>
+
+<h2>二、现状资产与差距</h2>
+<table>
+<tr><th style="width:16%">资产</th><th>详情</th></tr>
+<tr><td>主控</td><td>ESP32-S3-DevKitC-1（N16R8，16MB Flash + 8MB PSRAM）</td></tr>
+<tr><td>音频</td><td><b>单路</b> INMP441 I²S 麦克风 + MAX98357A 功放 + 喇叭</td></tr>
+<tr><td>语音软件</td><td>xiaozhi-esp32 全链路（AFE/WakeNet/ASR→LLM→TTS 云端聊天）</td></tr>
+<tr><td>模式状态机</td><td><code>ai_dog_control.h/.cc</code>：Idle/Chat/Patrol/Guard/Remote + 急停 + 遥控看门狗</td></tr>
+<tr><td>运动</td><td>TB6612FNG 引脚已预留（GPIO10–14/21/47），电机未装；VL53L0X（I²C）+ 5 路 TCRT5000 引脚预留</td></tr>
+<tr><td>网络控制</td><td>局域网 HTTP API（status/mode/stop/move/wifi）</td></tr>
+<tr><td>控制端</td><td>Android App（Java，已出 APK，待联调）</td></tr>
+<tr><td>预算基线</td><td>V1 硬件约 ¥492</td></tr>
+</table>
+<table>
+<tr><th style="width:12%">维度</th><th style="width:26%">现状</th><th>召唤功能需要</th><th style="width:22%">差距定性</th></tr>
+<tr><td>麦克风</td><td>1 路</td><td>4 路同步采样</td><td><b>必须增麦（最大硬件缺口）</b></td></tr>
+<tr><td>DOA</td><td>无</td><td>0–360°、10° 级分辨率</td><td>S3 用 esp_apa_doa 降级实现</td></tr>
+<tr><td>声纹</td><td>无</td><td>说话人验证</td><td>端侧小模型或云端 API 二选一</td></tr>
+<tr><td>导航</td><td>循线（依赖地面标线）</td><td>朝移动声源行驶</td><td>全新导航控制器（DOA 伺服）</td></tr>
+<tr><td>算力</td><td>S3 双核 240MHz</td><td>AFE + WakeNet + DOA + 声纹 + 电机并发</td><td>紧张，需任务分级/降载</td></tr>
+<tr><td>GPIO</td><td>已很紧张（仅剩 GPIO1/2/46/48 安全脚）</td><td>3 路额外麦克风数据线</td><td>需引脚重规划或小板转接</td></tr>
+<tr><td>自噪</td><td>未处理</td><td>行驶中麦克风可用</td><td>隔振 + 停-听-走 + 滤波（最大软件风险）</td></tr>
+</table>
+
+<h2>三、方案一：在现有项目基础上升级</h2>
+<h3>3.1 总体思路</h3>
+<p>硬件做最小增量：单麦 → 4 麦阵列；麦克风机械隔振；电机线抗干扰；前向避障补强（可选超声）。软件全部落在现有仓库：新增 <code>Mode::Summon</code> 与召唤状态机、DOA 模块、声纹模块、寻声导航控制器；唤醒词后台监听常开。语音聊天链路完全复用 xiaozhi 云端（到达后自动切 Chat，无新链路开发）。</p>
+
+<h3>3.2 硬件增量清单（估算价）</h3>
+<table>
+<tr><th>项目</th><th style="width:8%">数量</th><th style="width:10%">估价</th><th>说明</th></tr>
+<tr><td>INMP441 数字麦克风</td><td>3</td><td>¥25</td><td>与现有 1 麦拼成 4 麦方阵（边长 4–5cm）</td></tr>
+<tr><td>4 麦阵列小板（自绘 PCB 打样或洞洞板）</td><td>1</td><td>¥30</td><td>等长走线、星型接地、包地屏蔽；亦可买成品阵列板（约 ¥40–80）</td></tr>
+<tr><td>麦克风减振支架（硅胶/海绵，与壳体隔离）</td><td>1 套</td><td>¥10</td><td>切断电机/壳体结构传声，<b>自噪抑制第一道防线</b></td></tr>
+<tr><td>电机线双绞 + 铁氧体磁环</td><td>若干</td><td>¥10</td><td>抑制电机辐射干扰</td></tr>
+<tr><td>A02YYUW 防水超声（3.3V 免电平转换）</td><td>1–2</td><td>¥30–40</td><td>前向/侧向避障补强，防撞人/家具</td></tr>
+<tr><td>MPU6050 六轴（可选）</td><td>1</td><td>¥8</td><td>转向角速度辅助，平滑 DOA 伺服</td></tr>
+<tr><td>带编码器 2WD 电机（可选）</td><td>1 套</td><td>¥60–100</td><td>提升短距行驶可控性；不编码器也能跑（见 3.4）</td></tr>
+<tr><td>OV2640/GC0308 DVP 摄像头（可选，连续视觉档）</td><td>1</td><td>¥15–25</td><td>路线 A；需 GPIO 改造，见 §3.6</td></tr>
+<tr><td>ArduCAM 类 SPI 摄像头（可选，快照确认档）</td><td>1</td><td>¥60–80</td><td>路线 B；只占 2 个 GPIO，OLED 与巡线都不动</td></tr>
+<tr><td>PCF8574 I²C 扩展（可选，配合路线 A）</td><td>1</td><td>¥5</td><td>把巡线 5 路挪到扩展器，永久释放 5 个 GPIO</td></tr>
+<tr><td><b>增量合计</b></td><td></td><td><b>≈¥115–180</b></td><td>纯召唤；叠加视觉后 ≈¥140–260（路线 A 取下限、路线 B 取上限），见 §3.6</td></tr>
+</table>
+<div class="note">不选编码器时，寻声导航用"转向伺服 + 定时前进"的开环方案即可工作，编码器是提升项不是必选项。摄像头两档的详细评估见 §3.6。</div>
+
+<h3>3.3 软件改动点（落到本仓库）</h3>
+<table>
+<tr><th style="width:30%">文件/模块</th><th>改动</th></tr>
+<tr><td><code>ai_dog_control.h/.cc</code></td><td>新增 <code>Mode::Summon</code>；模式抢占规则（Summon &gt; Chat/Patrol/Guard/Remote，急停 &gt; 全部）；<code>/api/status</code> 增加 summon 阶段、DOA 角度、声纹结果；Summon 期间 <code>/api/mode</code> 拒绝普通切换（<code>/api/stop</code> 除外）</td></tr>
+<tr><td><code>ai_dog_summon.cc/.h</code>（新增）</td><td>召唤状态机：LISTEN → VERIFY → LOCALIZE → APPROACH → ARRIVE → (切Chat)，含超时与丢源重搜</td></tr>
+<tr><td><code>ai_dog_doa.cc/.h</code>（新增）</td><td>接入 <code>esp_apa_doa</code>：4 麦方阵坐标配置、每帧输出 0–360° 角度；与 AFE 并挂同一路 4 通道 I²S 原始流分流</td></tr>
+<tr><td><code>ai_dog_voiceprint.cc/.h</code>（新增）</td><td>声纹模块，三档可配置（见下）；模板存 NVS，不上云</td></tr>
+<tr><td><code>ai_dog_motor.cc</code></td><td>新增低速巡航档、点动纠偏（短脉冲差速转向）、行驶/监听状态上报</td></tr>
+<tr><td>唤醒词配置</td><td>WakeNet9 自定义唤醒词（如"小狗过来"），全模式后台常开；狗叫播放/聊天播报期间门控防自触发</td></tr>
+<tr><td><code>android/</code></td><td>召唤状态页（阶段/角度/距离提示）、声纹录入向导（跟读 3–5 遍）、召唤开关</td></tr>
+<tr><td><code>tools/sim_dog.py</code></td><td>扩展为 Summon 仿真（可选）：验证状态机抢占逻辑</td></tr>
+</table>
+<table>
+<tr><th style="width:8%">档位</th><th>方案</th><th style="width:22%">精度</th><th style="width:30%">成本/依赖</th></tr>
+<tr><td>L1</td><td>唤醒词 + 文本相关"声音口令"（固定短语），用 MultiNet 命令词验证内容</td><td>中（认"话"不认"人"）</td><td>零成本，先跑通</td></tr>
+<tr><td>L2</td><td>端侧 x-vector 声纹模型（80–200KB）+ 余弦相似度阈值，注册 3–5 遍</td><td>中高（认人）</td><td>S3 算力需实测；模板本地存储</td></tr>
+<tr><td>L3</td><td>云端声纹 API（3D-Speaker 自建 / 阿里云 / 讯飞）</td><td>高</td><td>依赖网络；隐私需明示</td></tr>
+</table>
+
+<h3>3.4 召唤流程设计（无里程计也能工作）</h3>
+<figure>
+<svg viewBox="0 0 1080 250" xmlns="http://www.w3.org/2000/svg" font-family="inherit">
+<defs><marker id="arr" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#3F51B5"/></marker></defs>
+<style>
+.bx{fill:#E8EAF6;stroke:#3F51B5;stroke-width:1.5;rx:6}
+.bt{font-size:13px;fill:#212121;text-anchor:middle}
+.bs{font-size:11px;fill:#616161;text-anchor:middle}
+.ln{stroke:#3F51B5;stroke-width:1.5;fill:none;marker-end:url(#arr)}
+.lt{font-size:11.5px;fill:#3F51B5}
+</style>
+<rect class="bx" x="10" y="30" width="120" height="60"/><text class="bt" x="70" y="55">任意模式</text><text class="bs" x="70" y="74">idle/chat/patrol/guard/remote</text>
+<line class="ln" x1="130" y1="60" x2="180" y2="60"/><text class="lt" x="155" y="50" text-anchor="middle">唤醒词命中</text>
+<rect class="bx" x="180" y="30" width="130" height="60"/><text class="bt" x="245" y="55">声纹验证</text><text class="bs" x="245" y="74">1.5~3s · L1/L2/L3</text>
+<line class="ln" x1="310" y1="60" x2="360" y2="60"/><text class="lt" x="335" y="50" text-anchor="middle">通过</text>
+<rect class="bx" x="360" y="30" width="110" height="60" style="fill:#FFF3E0;stroke:#EF6C00"/><text class="bt" x="415" y="55">SUMMON</text><text class="bs" x="415" y="74">最高优先级模式</text>
+<rect class="bx" x="500" y="30" width="180" height="60"/><text class="bt" x="590" y="50">停-听-走循环</text><text class="bs" x="590" y="68">听0.5s → 转向伺服(DOA→0°)</text><text class="bs" x="590" y="83">前进1.5s → 停 → 听 …</text>
+<line class="ln" x1="470" y1="60" x2="500" y2="60"/>
+<line class="ln" x1="680" y1="60" x2="730" y2="60"/><text class="lt" x="705" y="50" text-anchor="middle">到达判定</text>
+<rect class="bx" x="730" y="30" width="150" height="60"/><text class="bt" x="805" y="50">停车 + 狗叫/问候</text><text class="bs" x="805" y="69">能量近场特征 + DOA</text><text class="bs" x="805" y="83">不稳定 + ToF + 计时上限</text>
+<line class="ln" x1="880" y1="60" x2="930" y2="60"/>
+<rect class="bx" x="930" y="30" width="140" height="60" style="fill:#E8F5E9;stroke:#2E7D32"/><text class="bt" x="1000" y="55">自动切 Chat</text><text class="bs" x="1000" y="74">用户直接说话</text>
+<path class="ln" d="M590,90 L590,140 L245,140 L245,90" /><text class="lt" x="420" y="133" text-anchor="middle">声源丢失/超时 → 原地旋转扫描 360° → 仍失败 → 回 Idle 并 App 提示</text>
+<path class="ln" d="M930,90 L930,140 L1000,140" style="stroke:none"/>
+<text class="lt" x="540" y="185">避障：ToF/超声 &lt; 阈值 → 停车 → 侧向绕行或原地重新定位</text>
+<text class="lt" x="540" y="208">要点：导航是"相对伺服"（把 DOA 角度误差转向 0 即对准），不依赖编码器、地图与航向推算</text>
+</svg>
+<figcaption>图 1 · 召唤模式状态机（方案一/二通用，方案二以编码器闭环提升行驶精度）</figcaption>
+</figure>
+
+<ul>
+<li><b>不依赖编码器与地图：</b>导航是"相对伺服"——把 DOA 角度误差转向 0 即对准，与机器狗自身朝向无关，省掉航向推算与 SLAM。</li>
+<li><b>停-听-走</b>是自噪抑制的核心手段：电机停转时监听，DOA 估计不受自噪污染；代价是移动速度约为巡航的 50%。</li>
+</ul>
+
+<h3>3.4.1 召唤者不在正前方/直线上时，如何保证准确到达</h3>
+<div class="note"><b>先分类：</b>"不在一条直线上"其实是两种情况，保证手段完全不同。</div>
+<table>
+<tr><th style="width:22%">情况</th><th>描述</th><th style="width:16%">能否保证</th><th style="width:30%">手段</th></tr>
+<tr><td>情况 1：偏离轴线但<b>视线可达</b></td><td>人在侧面、斜前方、身后（DOA 报 30°/120°/270° 等）</td><td><b>能保证</b>（同房间）</td><td>原地转向伺服 + 停-听-走重定向（见下）</td></tr>
+<tr><td>情况 2：<b>被遮挡/非视距</b></td><td>拐角、家具后、另一房间（DOA 指向墙或反射面）</td><td><b>不能保证</b>，只能尝试性接近</td><td>沿障绕行 + 周期性重听 + 视觉/状态降级（见下）</td></tr>
+</table>
+
+<h3>情况 1 的保证手段（感知 + 控制闭环，四层）</h3>
+<ol>
+<li><b>阵型上消除前后模糊：</b>4 麦方阵/圆阵在平面内 360° 无前后混淆（线阵才有 180° 模糊），身后 180° 也能给出确定方向；2WD 差速底盘可原地旋转，DOA 报多少度就原地转多少度，不存在"转不过去"的几何问题。</li>
+<li><b>原地对准闭环：</b>转向角速度 ∝ DOA 误差（比例控制，死区 ±10~15°，差速点动防过冲）；MPU6050 角速度辅助防过冲；对准（误差进死区）才允许前进，边前进边每周期复核 DOA，偏差超阈值立即停车重对准——防止"斜着漂"。</li>
+<li><b>干净的感知输入：</b>DOA 每 8ms 一帧，取多帧中值/卡尔曼滤波去野值；关键定向都放在"停车听"窗口内做（自噪归零），行驶中 DOA 仅作趋势参考。</li>
+<li><b>距离未知 → 多重停止条件 OR 判决</b>（DOA 只有角度没有距离，用弱特征组合补）：
+<ul>
+<li>声能量进入近场特征区（标定值）且 DOA 连续多帧方差变大（近场效应）；</li>
+<li>前向 ToF 正前方稳定人体尺寸遮挡，且 DOA 指向正前 ±30°；</li>
+<li>行驶计时/里程上限（开环保护，如 60s）；</li>
+<li>有摄像头时：视觉人形框占比达阈值 → 视觉伺服接管最后 1–2m（单目框高 ∝ 1/距离，标定后粗估）。</li>
+</ul></li>
+</ol>
+
+<h3>情况 2 的保证手段（绕障 + 重听 + 诚实降级）</h3>
+<ol>
+<li>前向 ToF/超声 &lt; 阈值 → 停车但保持监听；</li>
+<li><b>沿障绕行</b>：择一侧贴障绕行，绕行中每 0.5–1m 停车重听 DOA 与能量；</li>
+<li><b>通道检测</b>：绕行后若 DOA 误差变小且能量变大 → 方向正确，继续；误差变大或能量变小 → 回退换另一侧；</li>
+<li><b>超时/能量持续衰减 → 主动降级</b>：判定"声源当前不可达"，App 明示"找不到路"并回 Idle，不承诺跨房间必达；</li>
+<li><b>摄像头是跨遮挡唯一"硬保证"的最后段</b>：视线恢复（看到人形）后由视觉伺服接管最后 1–2m，声学段只负责把机器狗带到视线口；摄像头放在头部、视场角覆盖正前 ±40° 即可满足该用途。</li>
+</ol>
+
+<div class="danger"><b>边界声明（建议写入正式 PRD 与验收）：</b><br>
+① 同房间、视线可达：承诺 5m 内 10 次 ≥7 次到达召唤者 1m 圈内（AT-S04）；<br>
+② 遮挡/跨房间：只承诺"朝声源方向尝试移动 + App 状态可见"，<b>不保证到达</b>；<br>
+③ 若要"跨房间也保证到达"，需要超越声学的定位手段：最便宜的精确位置方案是 <b>UWB</b>（tag 约 ¥30–60 + 2–4 个锚点，10–30cm 精度，不依赖声传播路径与视线），但这超出"声音定位"的需求定义，列为可选升级项，不进主线。</div>
+
+<h3>3.5 方案一优缺点</h3>
+<div class="cols">
+<div class="col"><h3><span class="tag g">优点</span></h3><ul class="pro">
+<li>复用全部现有资产：固件基座、状态机、HTTP API、Android App、接线文档、调试脚本；无重新流片/打样主控板。</li>
+<li>增量成本低（约 ¥115–180），硬件改动集中在"增麦 + 隔振"，不动电源与主控。</li>
+<li>风险隔离性好：召唤功能可做成编译开关/独立模式，不影响 V1 已验证的聊天与看门。</li>
+<li>最快拿到"能不能用"的真实数据（误唤醒率、DOA 精度、自噪水平），为 V2 决策提供依据。</li>
+</ul></div>
+<div class="col"><h3><span class="tag r">缺点</span></h3><ul class="con">
+<li><b>算力天花板：</b>S3 上 AFE + WakeNet + DOA + 声纹 + 电机控制并发，需精心做任务分级；极限场景可能掉帧/延迟。</li>
+<li><b>DOA 精度受限：</b>4–5cm 小孔径阵列 + S3 上非官方 DOA 实现，角度误差与更新率弱于官方 Capon 模块；混响环境衰减明显。</li>
+<li><b>GPIO 紧张：</b>新增 3 路麦克风数据线需重排引脚，可能要改板走线或加小板转接。</li>
+<li>无摄像头，到达判定只能靠声学特征 + ToF，需实测标定。</li>
+<li>摄像头需额外评估（§3.6）：快照档（SPI，+¥60–80）便宜且零引脚冲突但只能做到达确认；连续伺服档（DVP，+¥20–30）要动 GPIO 改造且与音频抢算力。</li>
+<li>单麦→4 麦的 I²S 改造要动 <code>ai_dog_s3_board.cc</code> 音频初始化（现有是 Simplex 单麦配置）。</li>
+</ul></div>
+</div>
+
+<h3>3.6 加装摄像头（视觉能力）扩展评估</h3>
+<div class="ok"><b>结论先行：能加。</b>ESP32-S3 自带 DVP 并行摄像头接口，可接 OV2640/GC0308 类模组；人形/人脸检测用 ESP-WHO / ESP-DL（S3 原生支持）。但"要不要加、加哪一档"取决于让视觉干什么——按价值排序：</div>
+<table>
+<tr><th style="width:34%">视觉用途</th><th style="width:44%">价值</th><th>需要档位</th></tr>
+<tr><td><b>到达确认</b>（面前是不是真人）</td><td><b>高</b>：根治"电视人声/旁人说话/音响外放"导致误停</td><td>快照即可（路线 B）</td></tr>
+<tr><td><b>视觉伺服</b>（用人形框替代/校正 DOA 方向）</td><td>高：根治 DOA 在混响/多声源/自噪下不可靠</td><td>连续推理（路线 A），算力吃紧</td></tr>
+<tr><td>中途低矮/透明障碍补强</td><td>中</td><td>连续推理，S3 上性价比一般（前向 ToF/超声已覆盖大半）</td></tr>
+<tr><td>人脸/人形身份确认（替代声纹）</td><td>低</td><td>不推荐：与声纹重复建设，隐私代价大</td></tr>
+</table>
+
+<h3>路线 A：DVP 摄像头 + 连续视觉（+¥20–30 器件，含 GPIO 改造）</h3>
+<ul>
+<li><b>器件：</b>OV2640/GC0308 24P DVP 模组（选板载 LDO、3.3V I/O 的版本）；SCCB（摄像头配置总线）复用现有 I²C（GPIO41/42）。</li>
+<li><b>引脚问题（本路线真正的难点）：</b>S3 的 esp_camera 需要 XCLK/PCLK/VSYNC + D0–D7 共 <b>11 个 GPIO</b>，而本板 GPIO 已枯竭（config.h 中仅剩 GPIO1/2/46/48 安全脚）。解决办法（组合使用）：
+<ol>
+<li><b>巡线 5 路（GPIO17/18/38/39/40）挪到一片 PCF8574 I²C 扩展</b>（+¥5）：永久释放 5 个脚，且巡线功能完全不受影响（数字量传感器，I²C 轮询速率足够）；</li>
+<li><b>OLED 的 4 脚（GPIO1/2/46/48）在 Summon 期间动态让位</b>：进入 Summon 关屏、退出恢复显示（OLED 只是状态显示，召唤过程很短，可接受）；</li>
+<li><b>TB6612 STBY（GPIO10）硬件跳线硬接 3.3V</b>：释放 1 脚（STBY 常有效，符合"电机随时可停"的安全设计，急停改由 PWM 归零实现）；</li>
+<li><b>仍差 1 脚</b>：用 GPIO3/45 等 strapping 脚在运行期作 GPIO（保证上电时电平符合启动模式即可），或让电池 ADC 在 Summon 期间暂停采样（改为进入 Summon 前做一次低电量预检）。</li>
+</ol></li>
+<li><b>能力：</b>QQVGA/QVGA 人形检测约 3–8 FPS（以实测为准），可与 DOA 融合做粗粒度视觉伺服（视觉管目标方位、DOA 管声源确认与初始对准）。</li>
+<li><b>代价：</b>飞线改板 + 与音频链路抢算力（见 R-S10）。</li>
+</ul>
+
+<h3>路线 B：SPI 摄像头 + 快照确认（+¥60–80 器件，零引脚改造）</h3>
+<ul>
+<li><b>器件：</b>ArduCAM Mini 2MP Plus 类 SPI 摄像头（JPEG 输出，3.3V）。</li>
+<li><b>引脚：</b>与 OLED <b>共享 SPI 总线</b>（SCK=GPIO1、MOSI=GPIO2），只需再占 MISO/CS 两个 GPIO——正好用上面第 1 步释放的 GPIO17/18。<b>OLED 与巡线都不用动，零动态复用。</b></li>
+<li><b>能力：</b>到达判定前 2–3 秒抓 1–2 帧，本地跑人形检测，确认"面前有人"才停车切聊天。SPI 带宽不支持连续视觉伺服。</li>
+<li><b>适用：</b>以最小改造先击穿"误到达"这个最痛点；后续若确需连续伺服，再按路线 A 升级（或直接上方案二）。</li>
+</ul>
+
+<h3>算力与结构注意</h3>
+<ul>
+<li><b>视觉只在"接近段/到达段"开启</b>：DOA 稳定且声源能量进入近场特征区后再启动摄像头与推理，全程不跑；DOA、唤醒、声纹不受影响。</li>
+<li>摄像头建议与麦克风阵列同区布置（头部），但 DVP 是高速并行总线：走线等长、远离电机线、长度尽量短（建议 &lt;15cm）。</li>
+<li><b>隐私与 V1 PRD 一致</b>：不存图、不上传、只做人形存在性判定；App 明示摄像头仅在召唤接近段工作；非召唤时段摄像头断电（用 PWDN 或模组电源控制）。</li>
+</ul>
+
+<h3>对方案对比的影响</h3>
+<p>叠加路线 B 后，方案一也具备"视觉确认"，方案二独有的优势收缩为：<b>连续视觉伺服的算力余量、官方 Capon DOA、编码器闭环底盘</b>。换言之：</p>
+<ul>
+<li>若实测发现"误到达"是主要痛点 → 先加路线 B（便宜、改动小）；</li>
+<li>若实测发现"DOA 不可靠、必须连续跟踪人形" → 瓶颈是算力与定位精度，不要再往 S3 上堆视觉，直接按方案二升级。</li>
+</ul>
+
+<h2>四、方案二：重新设计（硬件 + 软件）</h2>
+<h3>4.1 总体思路</h3>
+<p>主控升级 <b>ESP32-S31</b>（算力约 1.65×、Wi-Fi 6、60 GPIO、SIMD/FPU，且官方 Capon DOA 支持；与 ESP-IDF v6.1 + xiaozhi 固件同生态，仓库已内置 S31 板级，语音链路可平移）；自研 4 麦圆阵小板（孔径加大到 8cm 级）；底盘升级为 4WD 或大轮径 2WD + 编码器 + 独立悬挂；可选 DVP 摄像头做"最终接近段视觉确认"；软件服务化重写，语音聊天仍走 xiaozhi 云端。</p>
+<div class="note"><b>备选平台说明（不推荐作主线）：</b>Rockchip RV1106/RV1103（Linux + NPU）算力与生态更强，但意味着放弃 ESP-IDF 实时性与整个 xiaozhi 固件基座，软件全重写、周期与风险不可控；仅在"必须做视觉人物跟随 + 本地 ASR"时再评估。</div>
+
+<h3>4.2 硬件清单（整机，性价比取向，估算价）</h3>
+<table>
+<tr><th>项目</th><th style="width:8%">数量</th><th style="width:10%">估价</th><th>说明</th></tr>
+<tr><td>ESP32-S31 模组/开发板</td><td>1</td><td>¥45–70</td><td>量产模组价待询价；开发板调试期用</td></tr>
+<tr><td>4 麦圆阵小板（自研打样）</td><td>1</td><td>¥40–60</td><td>孔径 8cm 级；等长走线 + 屏蔽罩</td></tr>
+<tr><td>低噪编码器电机 4WD 底盘</td><td>1 套</td><td>¥120–160</td><td>越障与精控；亦可大轮径 2WD（¥80–110）</td></tr>
+<tr><td>电机驱动（TB6612 ×2 / DRV8833）</td><td>2</td><td>¥25</td><td>按堵转电流选型</td></tr>
+<tr><td>VL53L0X ToF ×2 + A02YYUW 超声 ×2</td><td>1 套</td><td>¥50</td><td>前向 + 双侧避障</td></tr>
+<tr><td>DVP 摄像头（可选）</td><td>1</td><td>¥15–25</td><td>视觉确认用</td></tr>
+<tr><td>电池 2S/3S + BMS + 平衡充电器</td><td>1 套</td><td>¥90–110</td><td>按电机总电流复核</td></tr>
+<tr><td>降压/电源板 + 开关 + 保险丝</td><td>1 套</td><td>¥30</td><td>各路独立稳压</td></tr>
+<tr><td>结构件 / 3D 打印 / 装配辅料</td><td>1 套</td><td>¥80</td><td>含阵列支架与隔振结构</td></tr>
+<tr><td><b>整机合计</b></td><td></td><td><b>≈¥510–750</b></td><td>不含已有工具（万用表等）</td></tr>
+</table>
+
+<h3>4.3 软件架构（服务化）</h3>
+<table>
+<tr><th style="width:16%">服务</th><th>职责</th><th>实现要点</th></tr>
+<tr><td><code>audio_svc</code></td><td>4 通道 I²S 采集 → 分流：AFE（唤醒/ASR）、DOA、声纹</td><td>官方 Capon DOA；多通道 AFE；声纹常驻低优先级</td></tr>
+<tr><td><code>summon_svc</code></td><td>召唤状态机 + 优先级抢占 + 到达判定</td><td>唯一允许改变模式的"特权服务"</td></tr>
+<tr><td><code>nav_svc</code></td><td>DOA 伺服 + 编码器里程计 + 避障 + 停-听-走调度</td><td>编码器闭环，行驶精度高于开环</td></tr>
+<tr><td><code>chat_svc</code></td><td>沿用 xiaozhi 云端链路（ASR→LLM→TTS）</td><td>零改动复用</td></tr>
+<tr><td><code>sys_svc</code></td><td>OTA、日志（延续"输出完整 prompt"的调试习惯）、配网、看门狗</td><td>分区表重排</td></tr>
+</table>
+
+<h3>4.4 方案二优缺点</h3>
+<div class="cols">
+<div class="col"><h3><span class="tag g">优点</span></h3><ul class="pro">
+<li>算力与 GPIO 宽裕：DOA + AFE + 声纹 + 视觉可真正并发，不用互相降载。</li>
+<li>官方 Capon DOA + 大孔径阵列：定位精度、更新率、抗混响能力均为方案一的上位替代。</li>
+<li>编码器底盘 + 双侧避障：寻声行驶更稳，可跨越简单门槛/地毯，室内适应面更广。</li>
+<li>摄像头提供"第二眼睛"：纯声学误判（电视人声、他人说话）可用视觉确认过滤。</li>
+<li>单芯片 Wi-Fi 6 + 外设余量，为后续功能（本地 ASR、表情屏、自动回充）留足空间。</li>
+</ul></div>
+<div class="col"><h3><span class="tag r">缺点</span></h3><ul class="con">
+<li><b>整机重做：</b>主板、底盘、电源、结构全部重新设计打样，硬件周期与调试量接近重走一遍 V1。</li>
+<li>成本更高（整机 ¥510–750，S31 模组供货与价格尚在爬坡，需询价锁定）。</li>
+<li>新平台 bring-up 风险：S31 生态较新（ESP-IDF v6.1 才完善支持），多通道音频路径需自行验证。</li>
+<li>摄像头视觉管线（ESP-DL 对 S31 的支持）不确定，可能退化为纯声学方案，视觉投入沉没。</li>
+<li>Android App 与 HTTP 协议需适配新状态字段（工作量小但非零）。</li>
+</ul></div>
+</div>
+
+<h2>五、两方案对比总表</h2>
+<table>
+<tr><th style="width:14%">维度</th><th style="width:43%">方案一：现有项目升级</th><th>方案二：重新设计</th></tr>
+<tr><td>硬件改动</td><td>增 3 麦 + 隔振 + 抗干扰，主控/电源不动</td><td>主控 S31 + 自研阵列板 + 新底盘 + 新电源，整机重做</td></tr>
+<tr><td>成本</td><td><b>增量 ≈¥115–180</b>（叠加视觉 ¥140–260；整机 ≈¥630–750）</td><td><b>整机 ≈¥510–750</b></td></tr>
+<tr><td>软件复用度</td><td><b>高</b>（状态机/App/文档/xiaozhi 全复用，新增 4 个模块）</td><td>中高（xiaozhi 基座与协议复用，板级与服务架构重写）</td></tr>
+<tr><td>DOA 能力</td><td>esp_apa_doa 降级实现，小孔径，精度/更新率一般</td><td>官方 Capon DOA + 8cm 孔径，10° 级分辨率</td></tr>
+<tr><td>声纹</td><td>L1 口令 → L2 端侧 x-vector（算力紧张）</td><td>端侧声纹从容运行，可选上云</td></tr>
+<tr><td>导航可靠性</td><td>开环伺服 + 停-听-走，中短距（≤8m）可用</td><td>编码器闭环 + 双侧避障，中长距更稳</td></tr>
+<tr><td>视觉确认</td><td><b>可加（§3.6）</b>：快照确认 +¥60–80 / 连续伺服 +¥20–30 + GPIO 改造</td><td>可选（依赖 ESP-DL/S31 支持度验证）</td></tr>
+<tr><td>算力余量</td><td>紧张，需任务分级</td><td>宽裕</td></tr>
+<tr><td>越障能力</td><td>维持 V1 水平（平整硬地面）</td><td>大轮/4WD，可过简单门槛地毯</td></tr>
+<tr><td>主要风险</td><td>自噪抑制、S3 并发算力、DOA 精度不达标</td><td>新平台 bring-up、视觉支持不确定、成本与供货</td></tr>
+<tr><td>失败代价</td><td>低（功能可关，退回 V1）</td><td>高（硬件投入沉没）</td></tr>
+<tr><td>后续扩展</td><td>受限（本地 ASR、视觉基本无空间）</td><td>充足（本地 ASR、屏、回充均可续）</td></tr>
+</table>
+
+<h2>六、决策建议</h2>
+<div class="ok"><b>推荐"先方案一最小子集验证，再按方案二要素演进"的混合路线：</b></div>
+<ol>
+<li><b>第一阶段（方案一子集）：</b>只做"自定义唤醒词 + L1 声音口令 + 4 麦 DOA + 停-听-走寻声"，硬件只增麦和隔振。目标拿到三个实测数：唤醒词误唤醒率（安静环境 30min ≤1 次）、DOA 角度误差（1–3m 内 ±30° 命中率）、行驶中自噪对 DOA 的污染程度。<b>这三项决定方案二值不值得做。</b></li>
+<li><b>第二阶段（方案一补全）：</b>按实测结果补 L2 端侧声纹或 L3 云端声纹；完成到达判定标定与 App 适配；通过 AT-S01~S07。<b>若实测发现"误到达"（对电视声/旁人停车）是主要痛点，优先叠加路线 B 快照视觉（+¥60–80，只占 2 个 GPIO）；若发现"DOA 不可靠、必须连续跟踪人形"，说明瓶颈在算力与定位精度，不要再往 S3 上堆视觉，直接按方案二升级（连续视觉伺服是方案二的主场）。</b></li>
+<li><b>第三阶段（方案二升级）：</b>若 DOA 精度或自噪成为明确瓶颈，再上 S31 + 大孔径阵列 + 编码器底盘；此时软件框架已在方案一验证，主要是板级移植与导航精度提升。</li>
+</ol>
+<p>若预算与时间极紧，可在第一阶段就引入方案二的两个"便宜要素"：<b>低噪电机 + 麦克风隔振结构</b>（合计不到 ¥30），对两个方案都是纯增益。</p>
+
+<h2>七、风险与开放问题</h2>
+<table>
+<tr><th style="width:8%">编号</th><th>风险/问题</th><th style="width:7%">等级</th><th style="width:20%">影响</th><th>应对原则</th></tr>
+<tr><td>R-S1</td><td><b>电机自噪淹没麦克风</b>（最大风险）</td><td>高</td><td>行驶中 DOA/唤醒全部失灵</td><td>隔振 + 电机线双绞/磁环 + PWM ≥20kHz + 停-听-走 + DOA 频带滤波；实测不达标则降低移动占空比</td></tr>
+<tr><td>R-S2</td><td>S3 并发算力不足（AFE+WN9+DOA+声纹）</td><td>高</td><td>延迟、丢帧、唤醒漏检</td><td>任务分级；声纹仅唤醒后运行；必要时声纹上云（L3）</td></tr>
+<tr><td>R-S3</td><td>DOA 精度受阵列孔径/混响/多声源影响</td><td>中</td><td>定位偏差、寻声绕路</td><td>方案一用小孔径需降低期望；方案二用 8cm 孔径；多源场景以能量+DOA 稳定性融合判断</td></tr>
+<tr><td>R-S4</td><td>声纹误识/拒识；录音回放攻击</td><td>中</td><td>陌生人误召 / 主人拒识</td><td>文本相关口令（L1）+ 随机口令；阈值可调；不承诺安防级</td></tr>
+<tr><td>R-S5</td><td>看门模式被召唤词打断的安全悖论</td><td>中</td><td>狗离开看守位</td><td>声纹通过才进 Summon；可配置"看门时段禁用召唤"；App 明示</td></tr>
+<tr><td>R-S6</td><td>到达判定误判（电视声/他人说话）</td><td>中</td><td>停错位置或不停</td><td>能量近场特征 + DOA 不稳定度 + ToF 联合判定；方案二加视觉确认</td></tr>
+<tr><td>R-S7</td><td>S31 生态新（ESP-IDF v6.1 才完善）</td><td>中</td><td>bring-up 周期不可控</td><td>先买开发板验证音频多通道 + DOA demo，再决定整机投板</td></tr>
+<tr><td>R-S8</td><td>摄像头视觉管线支持不确定（ESP-DL/S31）</td><td>中</td><td>视觉投入沉没</td><td>视觉列为可选模块，主体方案不依赖它</td></tr>
+<tr><td>R-S9</td><td>S31 模组供货/价格爬坡</td><td>低</td><td>成本上浮</td><td>开发板先验证；量产前锁定模组渠道价</td></tr>
+<tr><td>R-S10</td><td>视觉与音频链路抢 S3 算力/总线（路线 A）</td><td>中</td><td>推理掉帧、唤醒延迟、I²S 欠载</td><td>视觉仅接近段开启、3–8 FPS 降频运行、双核分工（音频+视觉 / 电机+网络）；不达标退回路线 B</td></tr>
+<tr><td>R-S11</td><td>GPIO 改造（巡线挪扩展器、OLED/STBY 让位）引入新故障</td><td>中</td><td>巡线失灵、黑屏、电机异常</td><td>逐项回归测试（巡线/显示/急停/低电量）；改造留在洞洞板，可回拨</td></tr>
+<tr><td>Q-S1</td><td>声纹档位选 L1/L2/L3？</td><td>—</td><td>影响成本与隐私</td><td>建议先 L1 跑通，按安全诉求再升</td></tr>
+<tr><td>Q-S2</td><td>召唤有效距离目标与超时上限</td><td>—</td><td>影响验收阈值</td><td>第一阶段实测后定</td></tr>
+<tr><td>Q-S3</td><td>看门/夜间时段是否禁用召唤</td><td>—</td><td>影响 R-S5</td><td>产品评审定，默认允许但需声纹</td></tr>
+<tr><td>Q-S4</td><td>声纹模板存本地 NVS 是否可接受（换机/重置流程）</td><td>—</td><td>影响用户体验</td><td>需设计"重新录入"引导</td></tr>
+<tr><td>Q-S5</td><td>视觉档位：不加 / 路线 B 快照 / 路线 A 连续伺服？</td><td>—</td><td>影响成本、GPIO 与算力</td><td>默认"先不加"；实测出现误到达再加 B；实测 DOA 不可靠则直接评估方案二</td></tr>
+</table>
+
+<h2>八、验收标准建议（召唤功能，V1.5）</h2>
+<table>
+<tr><th style="width:9%">编号</th><th style="width:18%">验收项</th><th>通过标准</th></tr>
+<tr><td>AT-S01</td><td>唤醒词</td><td>安静环境 10 次唤醒 ≥9 命中；30min 误唤醒 ≤1 次</td></tr>
+<tr><td>AT-S02</td><td>声纹</td><td>注册用户 20 次 ≥18 通过；未注册者 20 次误通过 ≤2 次（按所选档位标注）</td></tr>
+<tr><td>AT-S03</td><td>DOA 定向</td><td>1–3m 圆周 8 方位测试，角度误差 ≤30° 占比 ≥80%</td></tr>
+<tr><td>AT-S04</td><td>寻声行驶</td><td>5m 直线召唤 10 次，≥7 次在上限时间内到达召唤者 1m 内；全程不碰撞障碍</td></tr>
+<tr><td>AT-S05</td><td>模式优先级</td><td>巡逻/看门/遥控中被唤醒词打断，≤2s 进入验证流程；Summon 期间 App 普通模式指令被拒、急停始终有效</td></tr>
+<tr><td>AT-S06</td><td>到达切聊天</td><td>到达后自动进入 Chat 并播报问候，成功率 ≥9/10</td></tr>
+<tr><td>AT-S07</td><td>自触发抑制</td><td>狗叫播放、聊天播报、自身行驶噪声不触发新的唤醒/召唤</td></tr>
+<tr><td>AT-S08</td><td>异常恢复</td><td>超时未到达/声源丢失后进入扫描重搜，仍失败则安全回 Idle 并 App 可见；全程不失控行驶</td></tr>
+<tr><td>AT-S09</td><td>视觉确认（选视觉档时）</td><td>到达段抓帧人形检测：对真人在场 10 次 ≥9 确认、对电视人声/空椅 10 次误确认 ≤2；全程不存储、不上传图像</td></tr>
+</table>
+
+<h2>九、参考资料</h2>
+<ul>
+<li>ESP-SR DOA（Capon）官方文档：支持 ESP32-P4 / ESP32-S31，10° 分辨率、2–8 麦任意阵型</li>
+<li><code>esp_apa_doa</code> 组件 v1.0.0（ESP 组件注册器）：支持 ESP32-S3，2–4 麦多阵型</li>
+<li>ESP32-S3 DVP 摄像头：乐鑫 <code>esp-camera</code> 组件（支持 OV2640/GC0308 等，引脚可经 GPIO 矩阵分配；部分型号时钟配置需实测）</li>
+<li>ESP-WHO / ESP-DL：S3 原生人形/人脸检测示例（human_detect，QQVGA/QVGA，数 FPS 级，以实测为准）</li>
+<li>ESP32-S31 官方 FAQ 与选型指南：RISC-V 320MHz、Wi-Fi 6、60 GPIO、已量产</li>
+<li>本仓库 <code>firmware/xiaozhi-esp32</code>：内置 <code>esp32-s31-korvo-1</code> 等 S31 板级；AFE 唤醒词目标含 esp32s3/p4/s31</li>
+<li>机器狗 V1 PRD（<code>output/机器狗V1产品需求文档.md</code>）：模式定义、预算口径、安全约束</li>
+<li>3D-Speaker（开源说话人验证）、阿里云/讯飞声纹 API（L3 档候选）</li>
+</ul>
+
+<footer>
+<p>价格均为估算，非报价；芯片功能以乐鑫官方最新文档为准。本文所有阈值需在样机上实测标定后写入正式 PRD。</p>
+<p>召唤狗狗功能可行性方案 v1 · 2026-10-15 · 上位文档：机器狗 V1 PRD v0.1</p>
+</footer>
+</div></body></html>
